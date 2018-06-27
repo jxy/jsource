@@ -285,6 +285,7 @@ printf("zzncells=%d, natoms=%d\n",zzncells,natoms); // cut scaf
   // If we encounter a sparse result,  We are going to have to box all the results and open them.  If the sparse result is the first,
   // we are going to have a situation where nothing can ever get moved into zz, so we have to come up with a plausible zz to make that happen.  We create a zz with negative shape
   is = AS(z); zzt=-(zzt&SPARSE); DO(zzr, *zzs++=zzt|*is++;);    // copy result shape; but if SPARSE, make it negative to guarantee miscompare
+printf("AN(zz) is %d, AR(zz) is %d, shape is: ",AN(zz),AR(zz)); zzs=AS(zz); DO(AR(zz), printf("%d ", zzs[i]);)  printf("\n");
   // Set up the pointers/sizes for the rest of the operation
   zzwf+=((zzcelllen));  // leave zzwf as the total length of result frame by adding aframelen
   zzcelllen=nbytes;   // cell length, for use in the main body
