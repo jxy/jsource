@@ -285,7 +285,7 @@ static DF1(jtssg){PROLOG(0020);AD * RESTRICT a, * RESTRICT z;I i,k,n,r,wr;
    AAV(boxedz)[0]=z; z=boxedz;  // point boxedz to the previous result, and make that the new argument for next time
   }
   // if result happens to be the same virtual block that we passed in, we have to clone it before we change the pointer
-  else if(a==z){RZ(z=virtual(z,0,AR(a))); AN(z)=AN(a); MCIS(AS(z),AS(a),r-1);}
+  else if(a==z){printf("cut scaf revirt\n"); RZ(z=virtual(z,0,AR(a))); AN(z)=AN(a); MCIS(AS(z),AS(a),r-1);}
 
   AK(a)-=k;  // back up to next input
  }

@@ -682,7 +682,7 @@ DF2(jtcut2){F2PREFIP;PROLOG(0025);DECLF;A *hv,z,zz;I neg,pfx;C id,*v1,*wv,*zc;
      // CUTFRETEND in input block is set by caller
   pfx=1; neg=0;  // This is a ;.1 cut
  }
-printf("%d result cells\n",m);
+printf("%d result cells\n",m);  // cut scaf
  // At this point we have m, the number of result cells; pd0, pointer to first block of lengths; pd, pointer to first fret-length to use; v1, pointer to first participating cell of w; pfx, neg
 
  // process, handling special cases

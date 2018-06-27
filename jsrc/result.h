@@ -268,6 +268,7 @@ do{
   // # cells in result is passed in as zzncells
   // Get # atoms to allocate
   RE(natoms=mult(natoms,zzncells));
+printf("zzncells=%d, natoms=%d\n",zzncells,natoms); // cut scaf
   // Allocate the result
   GA(zz,zzt,natoms,((zzcelllen))+zzwf+zzr,0L); I * RESTRICT zzs=AS(zz);  // rank is aframelen+wframelen+resultrank
   // If zz is recursible, make it recursive-usecount (without actually recurring, since it's empty), unless WILLBEOPENED is set, since then we may put virtual blocks in the boxed array
