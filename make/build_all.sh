@@ -1,6 +1,6 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # build all binaries
-cd ~
+source "$(cd "$(dirname "$BASH_SOURCE")"&&pwd)/jvars.sh"
 
 if [ ! -d jbld ]; then
  echo "~/jbld does not exist - running install.sh"
@@ -9,9 +9,6 @@ fi
 
 $jmake/clean.sh
 
-$jmake/build_jconsole.sh j64
-$jmake/build_libj.sh     j64
-$jmake/build_tsdll.sh    j64
-
-
-
+$jmake/build_jconsole.sh
+$jmake/build_libj.sh
+$jmake/build_tsdll.sh

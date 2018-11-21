@@ -1,7 +1,6 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # $1 is j32 or j64
-cd ~
-. jvars.sh
+source "$(cd "$(dirname "$BASH_SOURCE")"&&pwd)/jvars.sh"
 
 common=" -fPIC -O1 -Wextra "
 

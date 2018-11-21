@@ -1,16 +1,8 @@
-#!/bin/bash
-# copy git jlibrary to jbld j32/j64
+#!/usr/bin/env bash
+# copy git jlibrary to jbld j
 
-cd ~
-if [ ! -f jvars.sh ]; then
- echo "~/jvars.sh must exist"
- exit 1
-fi
+source "$(cd "$(dirname "$BASH_SOURCE")"&&pwd)/jvars.sh"
 
-cd ~
-. jvars.sh
-
-cp -r $jgit/jlibrary/* $jbld/j32
-cp -r $jgit/jlibrary/* $jbld/j64
+cp -r $jgit/jlibrary/* $jbld/j
 exit 0
 
