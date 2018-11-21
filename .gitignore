@@ -8,6 +8,9 @@ jsrc/jversion.h
 *.so
 !asm/*.o
 
+hostdefs/hostdefs
+netdefs/netdefs
+
 # windows - most output files go to %userprofile%\jbld\jout
 # some end up in the project folder and are marked here
 # sometimes entire project subfolders are created that should not be in repo
