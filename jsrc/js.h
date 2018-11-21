@@ -115,6 +115,8 @@ define one of the following in the build as required
 
 #if defined(__FreeBSD__)
 #define SYS SYS_FREEBSD
+#undef SY_FREEBSD
+#define SY_FREEBSD 1
 #endif
 
 #if defined(__NetBSD__)
