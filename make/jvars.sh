@@ -1,22 +1,28 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
+
 # source shell script (read with . jvars.sh) so stuff is easy to find
 
 # edit following if your install is not standard 
-jgit=~/git/jsource # git jsource folder
-jbld=~/jbld        # test libraries and binaries will be put here
+jbld=$HOME/pkg/jbld        # test libraries and binaries will be put here
+useavx=1
 
 # platform and shared library suffix
+jmake=$(cd "$(dirname "$BASH_SOURCE")"&&pwd)
+jgit="$jmake"/.. # git jsource folder
 jplatform=`uname|tr '[:upper:]' '[:lower:]'`
 jsuffix=so
 if [ $jplatform = "darwin" ] ; then jsuffix=dylib ; fi
 
 CC=clang # compiler
+make=gmake
 
 # should not be necessary to edit after here
 tsu=$jgit/test/tsu.ijs
-j32="$jbld/j32/bin/jconsole $tsu"
-j64="$jbld/j64/bin/jconsole $tsu"
-j64nonavx="$jbld/j64/bin/jconsole -lib libj-nonavx.$jsuffix $tsu"
-jmake=$jgit/make
+if ((useavx==1));then
+	j="$jbld/j/bin/jconsole $tsu"
+else
+	j="$jbld/j/bin/jconsole -lib libj-nonavx.$jsuffix $tsu"
+fi
 
-export jgit jbld jplatform j32 j64 j64nonavx jmake CC
+export jgit jbld jplatform j jmake useavx CC make

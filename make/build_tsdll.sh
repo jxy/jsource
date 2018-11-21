@@ -1,47 +1,36 @@
-#!/bin/bash
-# $1 is j32 or j64
-cd ~
+#!/usr/bin/env bash
+source "$(cd "$(dirname "$BASH_SOURCE")"&&pwd)/jvars.sh"
 
-common=" -fPIC -O1 -Werror -Wextra -Wno-unused-parameter"
+common=" -march=native -fPIC -O1 -Werror -Wextra -Wno-unused-parameter"
 
-case $jplatform\_$1 in
+case $jplatform in
 
-linux_j32)
-TARGET=libtsdll.so
-COMPILE="$common -m32 "
-LINK=" -shared -Wl,-soname,libtsdll.so  -m32 -o libtsdll.so "
-;;
-linux_j64)
+linux)
 TARGET=libtsdll.so
 COMPILE="$common "
 LINK=" -shared -Wl,-soname,libtsdll.so -o libtsdll.so "
 ;;
-raspberry_j32)
-TARGET=libtsdll.so
-COMPILE="$common -marm -march=armv6 -mfloat-abi=hard -mfpu=vfp"
-LINK=" -shared -Wl,-soname,libtsdll.so -o libtsdll.so "
-;;
-raspberry_j64)
+raspberry)
 TARGET=libtsdll.so
 COMPILE="$common -march=armv8-a+crc "
 LINK=" -shared -Wl,-soname,libtsdll.so -o libtsdll.so "
 ;;
-darwin_j32)
-TARGET=libtsdll.dylib
-COMPILE="$common -m32 "
-LINK=" -m32 -dynamiclib -o libtsdll.dylib "
-;;
-darwin_j64)
+darwin)
 TARGET=libtsdll.dylib
 COMPILE="$common "
 LINK=" -dynamiclib -o libtsdll.dylib "
 ;;
+freebsd)
+TARGET=libtsdll.so
+COMPILE="$common "
+LINK=" -shared -Wl,-soname,libtsdll.so -o libtsdll.so "
+;;
 *)
 echo no case for those parameters
-exit
+exit 1
 esac
 
 OBJS="tsdll.o "
 export OBJS COMPILE LINK TARGET
-$jmake/domake.sh $1
+$jmake/domake.sh
 
