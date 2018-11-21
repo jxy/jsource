@@ -35,6 +35,7 @@ lastpattern=: y
 msg=. ,2
 off=. ,2
 flg=. PCRE2_MULTILINE*RX_OPTIONS_MULTILINE
+flg=. flg+PCRE2_UTF*RX_OPTIONS_UTF8
 lastcomp=: 0 pick jpcre2_compile (,y);(#y);flg;msg;off;<<0
 if. 0=lastcomp do. regerror msg,off end.
 lasthandle=: 0
@@ -168,6 +169,7 @@ NB. compile flags:
 PCRE2_NOTBOL=: 16b1
 PCRE2_NOTEOL=: 16b2
 PCRE2_MULTILINE=: 16b400
+PCRE2_UTF=: 16b80000
 
 NB. info types:
 PCRE2_INFO_SIZE=: 22
