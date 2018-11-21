@@ -170,8 +170,8 @@ void jepath(char* arg,char* lib,int forceavx)
 #else
 
 #define sz 4000
- char arg2[sz],arg3[sz];
- char* src,*snk;int n,len=sz;
+ char arg2[sz];
+ int n,len=sz;
  // fprintf(stderr,"arg0 %s\n",arg);
  // try host dependent way to get path to executable
  // use arg if they fail (arg command in PATH won't work)
@@ -204,37 +204,29 @@ void jepath(char* arg,char* lib,int forceavx)
 #endif
  // fprintf(stderr,"arg2 %s\n",arg2);
  // arg2 is path (abs or relative) to executable or soft link
- n=readlink(arg2,arg3,sz);
- if(-1==n) strcpy(arg3,arg2); else arg3[n]=0;
- // fprintf(stderr,"arg3 %s\n",arg3);
- if('/'==*arg3)
-  strcpy(path,arg3);
- else
- {
-  getcwd(path,sizeof(path));
-  strcat(path,"/");
-  strcat(path,arg3);
+ if('/'!=*arg2)
+ { // Not an absolute path.  Try some heuristics.
+#define sscat(r,x) \
+  if(strlen(x)+1>sizeof(r)-strlen(r)){fprintf(stderr,"path too long: %s\n",(x));exit(1);}(void)strncat((r),(x),sizeof(r)-strlen(r)-1)
+  char arg3[sz];strcpy(arg3,arg2);*arg2=0;
+  // Try relative path.
+  if(strchr(arg3,'/')){getcwd(arg2,sz);sscat(arg2,"/");sscat(arg2,arg3);}
+  if(access(arg2,F_OK))
+  { // Search PATH.
+   char env[sz];strncpy(env,getenv("PATH"),sz);
+   char *p,*envp=env;while((p=strsep(&envp,":")))
+   {
+    *arg2=0;sscat(arg2,p);sscat(arg2,"/");sscat(arg2,arg3);
+    // fprintf(stderr,"arg2 %s\n",arg2);
+    if(!access(arg2,F_OK))break;
+   }
+  }
+#undef sscat
  }
- *(1+strrchr(path,'/'))=0;
- // remove ./ and backoff ../
- snk=src=path;
- while(*src)
- {
-	 if('/'==*src&&'.'==*(1+src)&&'.'==*(2+src)&&'/'==*(3+src))
-	 {
-		 *snk=0;
-		 snk=strrchr(path,'/');
-		 snk=0==snk?path:snk;
-		 src+=3;
-	 }
-	 else if('/'==*src&&'.'==*(1+src)&&'/'==*(2+src))
-      src+=2;
-	 else
-	  *snk++=*src++;
- }
- *snk=0;
- snk=path+strlen(path)-1;
- if('/'==*snk) *snk=0;
+ // fprintf(stderr,"final arg2 %s\n",arg2);
+ realpath(arg2,path);
+ *(strrchr(path,'/'))=0;
+ // fprintf(stderr,"path %s\n",path);
 #endif
 #ifndef ANDROID
  strcpy(pathdll,path);
