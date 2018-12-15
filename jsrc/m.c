@@ -1134,7 +1134,7 @@ A jtext(J jt,B b,A w){A z;I c,k,m,m1,t;
  RZ(w);                               /* assume AR(w)&&AN(w)    */
 // obsolete m=*AS(w); c=AN(w)/m; t=AT(w); k=c*bp(t);
  m=*AS(w); PROD(c,AR(w)-1,AS(w)+1); t=AT(w); k=c*bp(t);
- GA(z,t,2*AN(w),AR(w),AS(w));
+ GA(z,t,2*AN(w)+(AN(w)?0:c),AR(w),AS(w));  // ensure we allocate SOMETHING to make progress
  m1=allosize(z)/k;  // start this divide before the copy
 // obsolete MC(AV(z),AV(w),m*k);                 /* copy old contents      */
  MC(AV(z),AV(w),AN(w)*bp(t));                 /* copy old contents      */

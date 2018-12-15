@@ -71,6 +71,7 @@ _17"_     test '_17"_'
 
 'length error' -: 1 2 3&* D etx i.7
 'length error' -: 1 2 3&* D etx i.7 3
+(12 27 48;12 18 24;6 6 6) -: (cube D.1;cube D.2; (cube=: ^&3"0) D.3)y=: 2 3 4
 
 
 NB. D. non-scalar functions ---------------------------------------------
