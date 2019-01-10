@@ -1267,6 +1267,7 @@ static DF2(jttess2){A z,zz=0,virtw,strip;I n,rs[3],cellatoms,cellbytes,vmv,hmv,v
   GA(strip,wt,stripn,0,0);   // allocate strip - rank immaterial
   // Allocate the virtual block we will use to address subarrays
   RZ(virtw=virtual(strip,0,wr)); AFLAG(virtw)|=AFUNINCORPABLE;  // indicate that this is a moving virtual block and cannot EVER be incorporated
+  AN(strip)=0;
 
   // Move in the left side of the first strip (the left edge of first column)
   svh=CAV(w); dvh=CAV(strip);   // ?vh=pointer to top-left of first column
@@ -1342,7 +1343,6 @@ static DF2(jttess2){A z,zz=0,virtw,strip;I n,rs[3],cellatoms,cellbytes,vmv,hmv,v
   RZ(zz=cant2(xposeaxes,zz));
  }
 
- if(axisproc>1)AN(strip)=0;
  AFLAG(zz)|=AFNOSMREL;  // obsolete.  We used to check state
  EPILOG(zz);
 
