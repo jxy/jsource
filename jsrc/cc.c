@@ -1238,7 +1238,7 @@ static DF2(jttess2){A z,zz=0,virtw,strip;I n,rs[3],cellatoms,cellbytes,vmv,hmv,v
   hss=hds=lrchsiz=0; vds1=vss1=0; vss=0; svh=dvh=0; // no horiz looping, so this is immaterial
   vss=0;   // since we never loop back in horiz loop, this is immaterial
 
-  RZ(virtw=virtual(w,0,wr));  // allocate the virtual block, pointing into w
+  RZ(virtw=virtual(w,0,wr)); AFLAG(virtw)|=AFUNINCORPABLE;  // allocate the virtual block, pointing into w
  }else{
   // Here there are at least 2 axes.  We will process the first 2, carefully laying the cells into memory to require minimal copying of data
   // We will advance along the leading axis, building up a tall narrow strip of cells.  When we advance along the second axis, we will be able to
@@ -1264,7 +1264,7 @@ static DF2(jttess2){A z,zz=0,virtw,strip;I n,rs[3],cellatoms,cellbytes,vmv,hmv,v
   // see how many atoms are needed in the strip.  There needs to be enough for one top, plus all the bottoms, plus destination stride for each horizontal move
   I stripn = (hsz*(vsz-vlrc+vlrc*rs[0])+hdsc*rs[1])*cellatoms;  // total number of atoms in the strip
   // Allocate the area we will use for the strip
-  GA(strip,wt,stripn,0,0);  // allocate strip - rank immaterial
+  GA(strip,wt,stripn,0,0);   // allocate strip - rank immaterial
   // Allocate the virtual block we will use to address subarrays
   RZ(virtw=virtual(strip,0,wr)); AFLAG(virtw)|=AFUNINCORPABLE;  // indicate that this is a moving virtual block and cannot EVER be incorporated
 
@@ -1342,6 +1342,7 @@ static DF2(jttess2){A z,zz=0,virtw,strip;I n,rs[3],cellatoms,cellbytes,vmv,hmv,v
   RZ(zz=cant2(xposeaxes,zz));
  }
 
+ if(axisproc>1)AN(strip)=0;
  AFLAG(zz)|=AFNOSMREL;  // obsolete.  We used to check state
  EPILOG(zz);
 
