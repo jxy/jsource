@@ -505,7 +505,7 @@ RESTRICTF A jtvirtual(J jtip, AD *RESTRICT w, I offset, I r){AD* RESTRICT z;
  I c=AC(w);  // count of input
  I wf=AFLAG(w);  // flags in input
   // If this is an inplaceable request for an inplaceable DIRECT block, we don't need to create a new virtual block: just modify the offset in the old block.  Make sure the shape fits
- if(((I)jtip&JTINPLACEW) && t&DIRECT && AR(w)>=r && ASGNINPLACE(w)){
+ if(((I)jtip&JTINPLACEW) && t&DIRECT && AR(w)>=r && ASGNINPLACE(w) && !(wf&AFUNINCORPABLE)){
   // virtual-in-place.  There's nothing to do but change the pointer and fill in the new rank.  AN and AS are handled in the caller
   AK(w)+=offset*tal; AR(w)=(RANKT)r;
   // inplaceable virtual blocks occur only inside operations that understand them.  Since they reuse their virtual blocks, it is expensive to
@@ -517,7 +517,12 @@ RESTRICTF A jtvirtual(J jtip, AD *RESTRICT w, I offset, I r){AD* RESTRICT z;
   RZ(z=gafv(SZI*(NORMAH+r)));  // allocate the block
   AFLAG(z)=AFVIRTUAL + (wf&AFNOSMREL) + ((wf&AFNJA+AFSMM+AFREL)?AFREL:0);  // flags: not recursive, not UNINCORPABLE
   AC(z)=ACUC1; AT(z)=t; AK(z)=(CAV(w)-(C*)z)+offset*tal; AR(z)=(RANKT)r;  // virtual, not inplaceable
-  if(AFLAG(w)&AFVIRTUAL)w=ABACK(w);  // if w is itself virtual, use its original base.  Otherwise we would have trouble knowing when the backer for z is freed.  Backer is never virtual
+  if(AFLAG(w)&AFVIRTUAL){
+   // If w is virtual, me must disallow inplacing for it, since it may be at large in the execution and we are creating an alias to it
+   ACIPNO(w);  // turn off inplacing
+   w=ABACK(w);  // if w is itself virtual, use its original backer.  Otherwise we would have trouble knowing when the backer for z is freed.  Backer is never virtual
+  }
+// obsolete   if(AFLAG(w)&AFVIRTUAL)w=ABACK(w);  // if w is itself virtual, use its original base.  Otherwise we would have trouble knowing when the backer for z is freed.  Backer is never virtual
  // obsolete  if(s){I* RESTRICT zs=AS(z); I nitems = 1; DQ(r, *zs=*s; nitems *= *s; ++s; ++zs;) AN(z)=nitems;}  // if shape given, copy it & count atoms
   ABACK(z)=w;   // set the pointer to the base: w or its base
  // obsolete ACIPNO(w);   // we must also remove inplaceability from w, since z is now aliased to it
