@@ -9,6 +9,8 @@ cd ~
 
 compiler=${CC:0:3}
 
+macmin="-mmacosx-version-min=10.6"
+
 USE_OPENMP="${USE_OPENMP:=0}"
 if [ $USE_OPENMP -eq 1 ] ; then
 OPENMP=" -fopenmp "
@@ -77,20 +79,20 @@ LINK=" -shared -Wl,-soname,libj.so -lm -ldl $LDOPENMP -o libj.so "
 
 darwin_j32) # darwin x86
 TARGET=libj.dylib
-COMPILE="$darwin -m32 -mmacosx-version-min=10.5"
-LINK=" -dynamiclib -lm -ldl $LDOPENMP -m32 -mmacosx-version-min=10.5 -o libj.dylib"
+COMPILE="$darwin -m32 $macmin"
+LINK=" -dynamiclib -lm -ldl $LDOPENMP -m32 $macmin -o libj.dylib"
 ;;
 
 darwin_j64nonavx) # darwin intel 64bit nonavx
 TARGET=libj.dylib
-COMPILE="$darwin -mmacosx-version-min=10.5"
-LINK=" -dynamiclib -lm -ldl $LDOPENMP -mmacosx-version-min=10.5 -o libj.dylib"
+COMPILE="$darwin $macmin"
+LINK=" -dynamiclib -lm -ldl $LDOPENMP $macmin -o libj.dylib"
 ;;
 
 darwin_j64) # darwin intel 64bit
 TARGET=libj.dylib
-COMPILE="$darwin -mavx -mmacosx-version-min=10.5 -DC_AVX=1"
-LINK=" -dynamiclib -lm -ldl $LDOPENMP -mmacosx-version-min=10.5 -o libj.dylib"
+COMPILE="$darwin -mavx $macmin -DC_AVX=1"
+LINK=" -dynamiclib -lm -ldl $LDOPENMP $macmin -o libj.dylib"
 OBJS_FMA=" blis/gemm_int-fma.o "
 ;;
 
