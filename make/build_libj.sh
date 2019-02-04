@@ -29,8 +29,8 @@ LINK=" -dynamiclib -lm -ldl $LDOPENMP -o libj.dylib"
 
 *)
 TARGET=libj.so
-COMPILE="$common "
-LINK=" -shared -Wl,-soname,libj.so -lm -ldl $LDOPENMP -o libj.so "
+COMPILE="$common -flto "
+LINK=" $COMPILE -shared -Wl,-soname,libj.so -lm -ldl $LDOPENMP -o libj.so "
 ;;
 
 *)
