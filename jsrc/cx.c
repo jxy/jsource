@@ -128,7 +128,7 @@ static DF2(jtxdefn){PROLOG(0048);A cd,cl,cn,h,*hv,*line,loc=jt->local,t,td,u,v,z
  // Create symbol table for this execution.  If the original symbol table is not in use (rank unflagged), use it;
  // otherwise clone a copy of it
  symtabsize = AR(hv[3+hi])&~LSYMINUSE;  // ptab[] index of this symbol table
- if(AR(hv[3+hi])&LSYMINUSE){RZ(jt->local=clonelocalsyms(hv[3+hi]))}
+ if(AR(hv[3+hi])&LSYMINUSE){RZ(jt->local=clonelocalsyms(hv[3+hi])); ra(jt->local);}
  else{jt->local=hv[3+hi]; AR(hv[3+hi])|=LSYMINUSE;}
 
  // If the verb contains try., allocate a try-stack area for it
@@ -356,8 +356,8 @@ static DF2(jtxdefn){PROLOG(0048);A cd,cl,cn,h,*hv,*line,loc=jt->local,t,td,u,v,z
  // is going to be summarily freed by the symfreeha() below.  We could modify symfreeha to recognize when we are freeing z, but the case is not common enough
  // to be worth the trouble.
  if(z)realizeifvirtual(z);
- z=EPILOGNORET(z);  // protect return value from being freed when the symbol table is
  // pop all the explicit-entity stack entries, if there are any (could be, if a construct was aborted).  Then delete the block itself
+ z=EPILOGNORET(z);  // protect return value from being freed when the symbol table is
  if(cd){
   CDATA *cvminus1 = (CDATA*)VAV(cd)-1; while(cv!=cvminus1){unstackcv(cv); --cv;}  // clean up any remnants left on the for/select stack
   fa(cd);  // have to delete explicitly, because we had to ext() the block and thus protect it with ra()
@@ -365,7 +365,7 @@ static DF2(jtxdefn){PROLOG(0048);A cd,cl,cn,h,*hv,*line,loc=jt->local,t,td,u,v,z
  // If we are using the original local symbol table, clear it (free all values, free non-permanent names) for next use
  // We detect original symbol table by rank LSYMINUSE - other symbol tables are assigned rank 0.
  // Cloned symbol tables are freed by the normal mechanism
- if(AR(jt->local)&LSYMINUSE){AR(jt->local)&=~LSYMINUSE; symfreeha(jt->local);}
+ if(AR(jt->local)&LSYMINUSE){AR(jt->local)&=~LSYMINUSE; symfreeha(jt->local);}else fa(jt->local);
 // obsolete  tpop(_ttop);   // finish freeing memory
  // Pop the private-area stack; set no assignment (to call for result display)
  jt->local=loc; jt->asgn=0;
