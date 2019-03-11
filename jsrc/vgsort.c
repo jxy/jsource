@@ -264,8 +264,8 @@ static SF(jtsortu1){A x,y,z;C4 *xu,*wv,*zu;I i;void *yv;
 
 // We are known to have 1 atom per item
 static SF(jtsortd){A x,y,z;B b;D*g,*h,*xu,*wv,*zu;I i,nneg;void *yv;
- // Radix sort almost always wins, presumably because filling the radix table is so fast
- if(n<50)jtsortdirect(jt,m,1,n,w);  // TUNE
+ // For short args, use merge sort to avoid the overhead of filling the table
+ if(n<6000)R jtsortdirect(jt,m,1,n,w);  // TUNE
  GA(z,AT(w),AN(w),AR(w),AS(w));
  wv=DAV(w); zu=DAV(z);
  // choose bucket table size & function; allocate the bucket area
