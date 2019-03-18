@@ -18,8 +18,8 @@ COMPILE="$common -DREADLINE"
 LINK=" -ledit -ldl -lncurses -o jconsole "
 ;;
 freebsd)
-COMPILE="$common -DREADLINE"
-LINK=" -ledit -ldl -o jconsole "
+COMPILE="$common -DREADLINE -flto "
+LINK=" $LDFLAGS $COMPILE -ledit -ldl -o jconsole "
 ;;
 *)
 echo no case for those parameters

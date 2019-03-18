@@ -14,7 +14,8 @@ jplatform=`uname|tr '[:upper:]' '[:lower:]'`
 jsuffix=so
 if [ $jplatform = "darwin" ] ; then jsuffix=dylib ; fi
 
-CC=clang # compiler
+CC=clang70 # compiler
+LDFLAGS=-fuse-ld=lld70
 make=gmake
 
 # should not be necessary to edit after here
