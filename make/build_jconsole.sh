@@ -18,11 +18,11 @@ fi
 ;;
 *)
 if [ "$USE_LINENOISE" -ne "1" ] ; then
-COMPILE="$common -DREADLINE"
-LINK=" -ledit -ldl -o jconsole "
+COMPILE="$common -DREADLINE -flto "
+LINK=" $LDFLAGS $COMPILE -ledit -ldl -o jconsole "
 else
-COMPILE="$common -DREADLINE -DUSE_LINENOISE"
-LINK=" -ldl -o jconsole "
+COMPILE="$common -DREADLINE -DUSE_LINENOISE -flto "
+LINK=" $LDFLAGS $COMPILE -ldl -o jconsole "
 OBJSLN="linenoise.o"
 fi
 
