@@ -23,14 +23,16 @@ LINK=" -shared -Wl,-soname,libj.so -lm -ldl $LDOPENMP -o libj.so "
 
 darwin)
 TARGET=libj.dylib
-COMPILE="$darwin "
+COMPILE="$darwin -mavx -DC_AVX=1 "
 LINK=" -dynamiclib -lm -ldl $LDOPENMP -o libj.dylib"
+OBJS_FMA=" blis/gemm_int-fma.o "
 ;;
 
 *)
 TARGET=libj.so
-COMPILE="$common -flto "
+COMPILE="$common -mavx -DC_AVX=1 -flto "
 LINK=" $LDFLAGS $COMPILE -shared -Wl,-soname,libj.so -lm -ldl $LDOPENMP -o libj.so "
+OBJS_FMA=" blis/gemm_int-fma.o "
 ;;
 
 *)

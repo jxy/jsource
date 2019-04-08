@@ -4,6 +4,9 @@ source "$(cd "$(dirname "$BASH_SOURCE")"&&pwd)/jvars.sh"
 USE_LINENOISE="${USE_LINENOISE:=1}"
 common=" -march=native -fPIC -O1 -Wextra -Wno-unused-parameter "
 
+USE_LINENOISE=${USE_LINENOISE:=}
+OBJSLN=""
+
 case $jplatform in
 
 raspberry)
