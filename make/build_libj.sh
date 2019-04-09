@@ -11,7 +11,7 @@ OPENMP=" -fopenmp "
 LDOPENMP=" -fopenmp "
 fi
 
-common="-march=native $OPENMP -fPIC -O1 -fwrapv -fno-strict-aliasing"
+common="-march=native $OPENMP -fPIC -O2 -fwrapv"
 
 case $jplatform in
 
