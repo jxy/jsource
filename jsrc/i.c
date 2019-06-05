@@ -37,7 +37,7 @@ B01X, LITX, C2TX, C4TX, INTX, BOXX, XNUMX, RATX, SBTX, FLX, CMPXX};
 
 static A jtmakename(J jt,C*s){A z;I m;NM*zv;
  m=strlen(s);
- GATV(z,NAME,m,1,0); zv=NAV(z);  // Use GATV because GA doesn't support NAME type
+ GATV0(z,NAME,m,1); zv=NAV(z);  // Use GATV because GA doesn't support NAME type
  MC(zv->s,s,m); *(m+zv->s)=0;
  zv->m   =(UC)m; 
  zv->bucket=0;
@@ -201,7 +201,12 @@ jt->assert = 1;
  y=1.0; DO(44, y*=0.5;); jt->cctdefault=jt->cct= 1.0-y; jt->fuzz=y;
  jt->disp[0]=1; jt->disp[1]=5;
  jt->fcalln=NFCALL;
+#if USECSTACK
+ jt->cstackinit=(I)&y;  // use a static variable to get the stack address
+ jt->cstackmin=jt->cstackinit-(CSTACKSIZE-CSTACKRESERVE);
+#else
  jt->fdepn=NFDEP;
+#endif
  jt->outmaxafter=222;
  jt->outmaxlen=256;
  strcpy(jt->outseq,"\x0a");
@@ -241,6 +246,7 @@ static C jtjinit3(J jt){S t;
  jt->thornuni=0;  // init to non-unicode (normal) state
  jt->jprx=0;      // init to non jprx jconsole output (normal) state
  meminit();
+extern void * HeapAlloc();
  sesminit();
  evinit();
  consinit();

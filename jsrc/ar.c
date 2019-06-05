@@ -124,7 +124,7 @@ REDUCEBFX(nandinsB, NAND,INAND,SNAND,BNAND,{I c=d*n; DO(m, y=memchr(x,C0,n); d=y
 
 
 #if SY_ALIGN
-REDUCEPFX(plusinsB,I,B,PLUS)
+REDUCEPFX(plusinsB,I,B,PLUS, plusBB, plusBI)
 #else
 AHDRR(plusinsB,I,B){I dw,i,p,q,r,r1,s;UC*tu;UI*v;
  if(d==1&n<SZI)DO(m, s=0; DO(n, s+=*x++;); *z++=s;)
@@ -156,44 +156,73 @@ REDUCCPFX( plusinsO, D, I,  PLUSO)
 REDUCCPFX(minusinsO, D, I, MINUSO) 
 REDUCCPFX(tymesinsO, D, I, TYMESO) 
 
-// obsolete REDUCENAN( plusinsD, D, D, PLUS  ) 
-AHDRR(plusinsD,D,D){I i;D* RESTRICT y;D * RESTRICT zz;
-  NAN0;
+#define redprim256rk1(prim,identity) \
+ __m256i endmask; /* length mask for the last word */ \
+ _mm256_zeroupper(VOIDARG); \
+  /* prim/ vectors */ \
+  __m256d idreg=_mm256_set1_pd(identity); \
+  endmask = _mm256_loadu_si256((__m256i*)(jt->validitymask+((-n)&(NPAR-1))));  /* mask for 00=1111, 01=1000, 10=1100, 11=1110 */ \
+  DQ(m, __m256d acc0=idreg; __m256d acc1=idreg; __m256d acc2=idreg; __m256d acc3=idreg; \
+   DQ((n-1)>>(2+LGNPAR), acc0=prim(acc0,_mm256_loadu_pd(x)); acc1=prim(acc1,_mm256_loadu_pd(x+NPAR)); acc2=prim(acc2,_mm256_loadu_pd(x+2*NPAR)); acc3=prim(acc3,_mm256_loadu_pd(x+3*NPAR)); x+=4*NPAR; ) \
+   if((n-1)&((4-1)<<LGNPAR)){acc0=prim(acc0,_mm256_loadu_pd(x));\
+    if(((n-1)&((4-1)<<LGNPAR))>=2*NPAR){acc1=prim(acc1,_mm256_loadu_pd(x+NPAR)); \
+     if(((n-1)&((4-1)<<LGNPAR))>2*NPAR){acc2=prim(acc2,_mm256_loadu_pd(x+2*NPAR));} \
+    } \
+    x += (n-1)&((4-1)<<LGNPAR); \
+   } \
+   acc3=prim(acc3,_mm256_blendv_pd(idreg,_mm256_maskload_pd(x,endmask),_mm256_castsi256_pd(endmask))); x+=((n-1)&(NPAR-1))+1; \
+   acc0=prim(acc0,acc1); acc2=prim(acc2,acc3); acc0=prim(acc0,acc2); /* combine accumulators vertically */ \
+   acc0=prim(acc0,_mm256_permute2f128_pd(acc0,acc0,0x01)); acc0=prim(acc0,_mm256_permute_pd(acc0,0xf));   /* combine accumulators horizontally  01+=23, 0+=1 */ \
+   _mm_storel_pd(z++,_mm256_castpd256_pd128 (acc0)); /* store the single result */ \
+  )
+
+#if 1 // scaf
+AHDRR(plusinsD,D,D){I i;D* RESTRICT y;
+  NAN0;if(d*m*n==0)SEGFAULT; /* scaf*/ 
   // latency of add is 4, so use 4 accumulators
-  if(d==1){x += m*n; z+=m; DQ(m, D v0=0.0; D v1=0.0; if(((n+1)&3)==0)v1=*--x; D v2=0.0; if(n&2)v2=*--x; D v3=0.0; if(n&3)v3=*--x;
-            DQ(n>>2, v0=PLUS(*--x,v0); v1=PLUS(*--x,v1); v2=PLUS(*--x,v2); v3=PLUS(*--x,v3);); v0+=v1; v2+=v3;*--z=v0+v2;)}
+  if(d==1){
+#if C_AVX&&SY_64
+   redprim256rk1(_mm256_add_pd,0.0)
+#else
+   x += m*n; z+=m; DQ(m, D v0=0.0; D v1=0.0; if(((n+1)&3)==0)v1=*--x; D v2=0.0; if(n&2)v2=*--x; D v3=0.0; if(n&3)v3=*--x;
+                       DQ(n>>2, v0=PLUS(*--x,v0); v1=PLUS(*--x,v1); v2=PLUS(*--x,v2); v3=PLUS(*--x,v3);); v0+=v1; v2+=v3;*--z=v0+v2;)
+#endif
+  }
   else if(1==n){if(sizeof(D)!=sizeof(D)){DQ(n, *z++=    *x++;)}else{MC((C*)z,(C*)x,d*sizeof(D));}}
-  else{zz=z+=m*d; x+=m*d*n;
-   for(i=0;i<m;++i,zz-=d){
-    y=x; x-=d; z=zz; DQ(d, --z; --x; --y; *z=PLUS(*x,*y););
-    DQ(n-2,    z=zz; DQ(d, --z; --x;      *z=PLUS(*x,*z);));
+  else{z+=(m-1)*d; x+=(m*n-1)*d;
+   for(i=0;i<m;++i,z-=d){
+    y=x; x-=d; plusDD(jt,d,z,x,y,1); x-=d;
+    DQ(n-2,    plusDD(jt,d,z,x,z,1); x-=d; );
    }
   }
   NAN1V;
 }
+#else
+REDUCENAN( plusinsD, D, D, PLUS, plusDD  ) 
+#endif
 
-REDUCENAN( plusinsZ, Z, Z, zplus )
-REDUCEPFX( plusinsX, X, X, xplus )
+REDUCENAN( plusinsZ, Z, Z, zplus, plusZZ )
+REDUCEPFX( plusinsX, X, X, xplus, plusXX, plusXX )
 
-REDUCEPFX(minusinsB, I, B, MINUS ) 
-REDUCENAN(minusinsD, D, D, MINUS ) 
-REDUCENAN(minusinsZ, Z, Z, zminus) 
+REDUCEPFX(minusinsB, I, B, MINUS, minusBB, minusBI ) 
+REDUCENAN(minusinsD, D, D, MINUS, minusDD ) 
+REDUCENAN(minusinsZ, Z, Z, zminus, minusZZ) 
 
-REDUCEPFX(tymesinsD, D, D, TYMES ) 
-REDUCEPFX(tymesinsZ, Z, Z, ztymes) 
+REDUCEPFX(tymesinsD, D, D, TYMES, tymesDD, tymesDD ) 
+REDUCEPFX(tymesinsZ, Z, Z, ztymes, tymesZZ, tymesZZ) 
 
-REDUCENAN(  divinsD, D, D, DIV   )
-REDUCENAN(  divinsZ, Z, Z, zdiv  )
+REDUCENAN(  divinsD, D, D, DIV, divDD   )
+REDUCENAN(  divinsZ, Z, Z, zdiv, divZZ  )
 
-REDUCEPFXIDEM2(  maxinsI, I, I, MAX   )
-REDUCEPFXIDEM2(  maxinsD, D, D, MAX   )
-REDUCEPFX(  maxinsX, X, X, XMAX  )
-REDUCEPFX(  maxinsS, SB,SB,SBMAX )
+REDUCEPFXIDEM2(  maxinsI, I, I, MAX, maxII   )
+REDUCEPFXIDEM2PRIM256(  maxinsD, D, D, MAX, maxDD, _mm256_max_pd, infm  )
+REDUCEPFX(  maxinsX, X, X, XMAX, maxXX , maxXX )
+REDUCEPFX(  maxinsS, SB,SB,SBMAX, maxSS, maxSS )
 
-REDUCEPFXIDEM2(  mininsI, I, I, MIN   )
-REDUCEPFXIDEM2(  mininsD, D, D, MIN   )
-REDUCEPFX(  mininsX, X, X, XMIN  )
-REDUCEPFX(  mininsS, SB,SB,SBMIN )
+REDUCEPFXIDEM2(  mininsI, I, I, MIN, minII   )
+REDUCEPFXIDEM2PRIM256(  mininsD, D, D, MIN, minDD, _mm256_min_pd, inf   )
+REDUCEPFX(  mininsX, X, X, XMIN, minXX, minXX  )
+REDUCEPFX(  mininsS, SB,SB,SBMIN, minSS, minSS )
 
 
 static DF1(jtred0){DECLF;A x;I f,r,wr,*s;
@@ -285,7 +314,7 @@ DF1(jtredravel){A f,x,z;I n;P*wp;
   VA2 adocv = vains(FAV(f)->fgh[0],AT(x));
   ASSERT(adocv.f,EVNONCE);
   GA(z,rtype(adocv.cv),1,0,0);
-  if(n)adocv.f(jt,1L,1L,n,AV(z),AV(x));
+  if(n)adocv.f(jt,(I)1,(I)1,n,AV(z),AV(x));  // mustn't adocv on empty
   if(jt->jerr<EWOV){RE(0); R redsp1a(vaid(FAV(f)->fgh[0]),z,SPA(wp,e),n,AR(w),AS(w));}
 }}  /* f/@, w */
 
@@ -320,7 +349,7 @@ static B jtredspsprep(J jt,C id,I f,I zt,A a,A e,A x,A y,I*zm,I**zdv,B**zpv,I**z
  v=AS(y); yr=v[0]; yc=v[1]; yr1=yr-1;
  RZ(d=grade1(eq(a,sc(f)))); dv=AV(d); 
  DO(AN(a), if(i!=dv[i]){RZ(q=grade1p(d,y)); qv=AV(q); break;});
- GATV(p,B01,yr,1,0); pv=BAV(p); memset(pv,C0,yr);
+ GATV0(p,B01,yr,1); pv=BAV(p); memset(pv,C0,yr);
  u=yv=AV(y); m=mm=0; j=-1; if(qv)v=yv+yc*qv[0];
  for(k=0;k<yr1;++k){
   if(qv){u=v; v=yv+yc*qv[1+k];}else v=u+yc;
@@ -337,7 +366,7 @@ static B jtredspsprep(J jt,C id,I f,I zt,A a,A e,A x,A y,I*zm,I**zdv,B**zpv,I**z
   case CEQ:                  j=!*BAV(e);     break;
   case CNE:                  j= *BAV(e);     break;
  }
- if(j)GATV(sn,INT,m,1,0);
+ if(j)GATV0(sn,INT,m,1);
  *zm=m; *zdv=dv; *zpv=pv; *zqv=qv; *zxxv=xxv; *zsn=sn;
  R 1;
 }
@@ -369,8 +398,8 @@ static A jtredsps(J jt,A w,A self,C id,VF ado,I cv,I f,I r,I zt){A a,a1,e,sn,x,x
  x=SPA(wp,x); xt=AT(x); xc=aii(x);
  RZ(redspsprep(id,f,zt,a,e,x,y,&m,&dv,&pv,&qv,&xxv,&sn));
  xv=CAV(x); xk=xc<<bplg(xt);
- GA(zx,zt,m*xc,AR(x),AS(x)); *AS(zx)=m; zv=CAV(zx); zk=xc<<bplg(zt);
- GATV(zy,INT,m*(yc-1),2,0); v=AS(zy); v[0]=m; v[1]=yc-1; yu=AV(zy);
+ GA(zx,zt,m*xc,AR(x),AS(x)); AS(zx)[0]=m; zv=CAV(zx); zk=xc<<bplg(zt);
+ GATV0(zy,INT,m*(yc-1),2); v=AS(zy); v[0]=m; v[1]=yc-1; yu=AV(zy);
  v=qv; if(sn)sv=AV(sn);
  for(i=0;i<m;++i){A y;B*p1;C*u;I*vv;
   p1=1+(B*)memchr(pv,C1,yr); n=p1-pv; if(sn)sv[i]=wm-n; pv=p1;
@@ -518,6 +547,7 @@ static DF1(jtreduce){A z;I d,f,m,n,r,t,wn,wr,*ws,wt,zt;
   // Allocate the result area
   zt=rtype(adocv.cv);
   GA(z,zt,m*d,MAX(0,wr-1),ws); if(1<r)MCISH(f+AS(z),f+1+ws,r-1);  // allocate, and install shape
+  if(m*d==0)RETF(z);  // mustn't call the function on an empty argument!
   // Convert inputs if needed 
   if((t=atype(adocv.cv))&&TYPESNE(t,wt))RZ(w=cvt(t,w));
   // call the selected reduce routine.
@@ -544,7 +574,7 @@ static A jtredcatsp(J jt,A w,A z,I r){A a,q,x,y;B*b;I c,d,e,f,j,k,m,n,n1,p,*u,*v
  j=0; DO(n, if(e==v[i]){j=i; break;}); 
  k=1; DO(f, if(!b[i])++k;);
  zp=PAV(z); SPB(zp,e,ca(SPA(wp,e)));
- GATV(q,INT,n-(I )(c&&d),1,0); v=AV(q); DO(wr, if(b[i])*v++=i-(I )(i>f);); SPB(zp,a,q);
+ GATV0(q,INT,n-(I )(c&&d),1); v=AV(q); DO(wr, if(b[i])*v++=i-(I )(i>f);); SPB(zp,a,q);
  if(c&&d){          /* sparse sparse */
   SPB(zp,x,ca(x));
   SPB(zp,i,repeatr(ne(a,sc(f)),y)); q=SPA(zp,i);  // allow for virtualization of SPB
@@ -555,7 +585,7 @@ static A jtredcatsp(J jt,A w,A z,I r){A a,q,x,y;B*b;I c,d,e,f,j,k,m,n,n1,p,*u,*v
   MC(AV(q),AV(x),AN(x)<<bplg(AT(x)));
   SPB(zp,x,q); SPB(zp,i,ca(y));
  }else{             /* other */
-  GATV(q,INT,xr,1,0); v=AV(q); 
+  GATV0(q,INT,xr,1); v=AV(q); 
   if(1!=k){*v++=0; *v++=k; e=0; DO(xr-1, ++e; if(e!=k)*v++=e;); RZ(x=cant2(q,x));}
   v=AV(q); u=AS(x); *v=u[0]*u[1]; MCISH(1+v,2+u,xr-1); RZ(x=reshape(vec(INT,xr-1,v),x));
   e=ws[f+c]; RZ(y=repeat(sc(e),y)); v=j+AV(y);
@@ -602,7 +632,7 @@ static DF1(jtredstitch){A c,y;I f,n,r,*s,*v,wr;
  if(2==r)R irs1(w,0L,2L,jtcant1);
  RZ(c=apvwr(wr,0L,1L)); v=AV(c); v[f]=f+1; v[f+1]=f; RZ(y=cant2(c,w));  // transpose last 2 axes
  if(SPARSE&AT(w)){A x;
-  GATV(x,INT,f+r-1,1,0); v=AV(x); MCISH(v,AS(y),f+1);
+  GATV0(x,INT,f+r-1,1); v=AV(x); MCISH(v,AS(y),f+1);
   RE(v[f+1]=mult(s[f],s[f+2])); MCISH(v+f+2,s+3+f,r-3);
   RETF(reshape(x,y));
  }else{
@@ -631,7 +661,7 @@ static DF1(jtredcateach){A*u,*v,*wv,x,*xv,z,*zv;I f,m,mn,n,r,wr,*ws,zm,zn;I n1=0
 // wv=AN(w)+AAV(w); DO(AN(w), if(AN(*--wv)&&AR(*wv)&&n1&&n2) ASSERT(0,EVNONCE); if((!AR(*wv))&&n1)n2=1; if(AN(*wv)&&1<AR(*wv))n1=1;);
  zn=AN(w)/n; PROD(zm,f,ws); PROD(m,r-1,ws+f+1); mn=m*n;
  GATV(z,BOX,zn,wr-1,ws); MCISH(AS(z)+f,ws+f+1,r-1);
- GATV(x,BOX,n,1,0); xv=AAV(x);
+ GATV0(x,BOX,n,1); xv=AAV(x);
  zv=AAV(z); wv=AAV(w); 
  DO(zm, u=wv; DO(m, v=u++; DO(n, xv[i]=*v; v+=m;); A Zz; RZ(Zz=raze(x)); rifv(Zz); *zv++ = Zz;); wv+=mn;);
  RETF(z);

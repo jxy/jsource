@@ -71,9 +71,9 @@ static F1(jtbminv){A*wv,x,z=w;I i,j,m,r,*s,t=0,*u,**v,*y,wn,wr,*ws;
  wn=AN(w); wr=AR(w); ws=AS(w); wv=AAV(w); 
  if(1>=wr)R raze(w);
  if(!wn)R iota(reshape(sc(wr),num[0]));
- GATV(x,INT,wr,1,0); u=AV(x); memset(u,C0,wr*SZI);
- GATV(x,INT,wr,1,0); v=(I**)AV(x);
- DO(wr, m=ws[i]; GATV(x,INT,m,1,0); memset(v[i]=AV(x),CFF,m*SZI););
+ GATV0(x,INT,wr,1); u=AV(x); memset(u,C0,wr*SZI);
+ GATV0(x,INT,wr,1); v=(I**)AV(x);
+ DO(wr, m=ws[i]; GATV0(x,INT,m,1); memset(v[i]=AV(x),CFF,m*SZI););
  for(i=0;i<wn;++i){
   x=wv[i]; r=AR(x); s=AS(x);
   if(AN(x)){if(!t)t=AT(x); ASSERT(HOMO(t,AT(x)),EVDOMAIN);}
@@ -83,8 +83,8 @@ static F1(jtbminv){A*wv,x,z=w;I i,j,m,r,*s,t=0,*u,**v,*y,wn,wr,*ws;
   j=wr; while(1){--j; ++u[j]; if(ws[j]>u[j])break; u[j]=0;}
  }
  if(!z){A f,h,*zv;I*hv;
-  GATV(z,BOX,wn,2,ws); zv=AAV(z);
-  GATV(h,INT,wr,1,0); hv=AV(h);
+  GATVR(z,BOX,wn,2,ws); zv=AAV(z);
+  GATV0(h,INT,wr,1); hv=AV(h);
   GA(f,t,1,1,0); RZ(f=filler(f)); memset(u,C0,wr*SZI);
   for(i=0;i<wn;++i){
    zv[i]=x=wv[i];
@@ -174,14 +174,14 @@ static F1(jtinvamp){A f,ff,g,h,*q,x,y;B nf,ng;C c,d,*yv;I n;V*u,*v;
   case CBANG:
    ASSERT(!AR(x),EVRANK);
    ASSERT(all1(lt(zeroionei[0],x)),EVDOMAIN);
-   GAT(y,BOX,9,1,0); q=AAV(y);
+   GAT0(y,BOX,9,1); q=AAV(y);
    q[0]=cstr("3 :'(-("); q[1]=q[3]=lrep(w);
    q[2]=cstr("-y\"_)%1e_3&* "); q[4]=cstr("\"0 D:1 ])^:_[");
    h=lrep(x);
    if(nf){q[5]=over(over(h,cstr("&<@|@{:}")),over(h,cstr(",:"))); q[6]=over(h,cstr("%:y*!")); q[7]=h;}
    else  {q[5]=cstr("1>.{.@/:\"1|y-/(i.!])"); q[6]=h; q[7]=mtv;}
    RE(q[8]=cstr("'")); RZ(y=raze(y));
-   R obverse(eval(CAV(y)),w);
+   R obverse(eval(CAV(str0(y))),w);
   case CATOMIC:
    if(ng){ASSERT(equ(x,nub(x)),EVDOMAIN); R obverse(atop(f,amp(x,ds(CIOTA))),w);}  // fall through to common obverse (?)
   case CCYCLE:
@@ -250,7 +250,7 @@ static C invf[2][29] = {
 // Return inverse of monad w.  recur is a recursion indicator, always forced to 0 for the initial call, and
 // set to 1 here for recursive calls
 A jtinv(J jt, A w, I recur){A f,ff,g;B b,nf,ng,vf,vg;C id,*s;I p,q;V*v;
- RZ(w);
+ RZ(w); STACKCHKOFL  // make sure we don't have a recursion loop through inv
  ASSERT(VERB&AT(w),EVDOMAIN); 
  id=ID(w); v=FAV(w);  // id=pseudochar for w, v->verb info
  if(s=strchr(invf[0],id))R ds(invf[1][s-invf[0]]);   // quickly handle verbs that have primitive inverses
@@ -273,7 +273,7 @@ A jtinv(J jt, A w, I recur){A f,ff,g;B b,nf,ng,vf,vg;C id,*s;I p,q;V*v;
   case CUCO:     R amp(num[3],w);
   case CUNDER:   R under(invrecur(f),g);
   case CFORK:    R invfork(w);
-  case CAMP:     if(nf!=ng)R invamp(w);  /* fall thru */
+  case CAMP:     if(nf!=ng){A z=invamp(w); if(nf^ng)R z;}  // may fall through... but avoid tail-recursion so we get out of loop
   case CAT:      if(vf&&vg)R atop(invrecur(g),invrecur(f));   break;
   case CAMPCO:
   case CATCO:    if(vf&&vg)R atco(invrecur(g),invrecur(f));   break;
@@ -392,8 +392,8 @@ F1(jtidensb){A f,g,x=0,w0=w;V*v;
  v=FAV(w); f=v->fgh[0]; g=v->fgh[1];
  switch(v->id){
   default:      R iden(w0);
-  case CMAX:    GATV(x,SBT,1,0,0);*SBAV(x)=0; break;
-  case CMIN:    GATV(x,SBT,1,0,0);*SBAV(x)=jt->sbuv[0].down; break;
+  case CMAX:    GATV0(x,SBT,1,0);*SBAV(x)=0; break;
+  case CMIN:    GATV0(x,SBT,1,0);*SBAV(x)=jt->sbuv[0].down; break;
  }
  ASSERT(x,EVDOMAIN);
  R folk(x,swap(ds(CDOLLAR)),atop(ds(CBEHEAD),ds(CDOLLAR)));

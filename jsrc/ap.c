@@ -21,6 +21,26 @@
 #define DIVPZ(b,r,u,v)    if(b)r=zdiv(u,v); else r=ztymes(u,v);
 
 // Don't RESTRICT y since function may be called inplace
+#if 1
+#define PREFIXPFX(f,Tz,Tx,pfx,vecfn)  \
+ AHDRP(f,Tz,Tx){I i;Tz v;if(d*m*n==0)SEGFAULT; /* scaf */                                    \
+  if(d==1)DQ(m, *z++=v=    *x++; DQ(n-1, *z=v=pfx(v,*x); ++z; ++x;))  \
+  else{for(i=0;i<m;++i){                                              \
+   DO(d, z[i]=    x[i];); x+=d;                                        \
+   DQ(n-1, vecfn(jt,d,z+d,z,x,1); z+=d; x+=d; ); z+=d;                     \
+ }}}  /* for associative functions only */
+
+#define PREFIXNAN(f,Tz,Tx,pfx,vecfn)  \
+ AHDRP(f,Tz,Tx){I i;Tz v;if(d*m*n==0)SEGFAULT; /* scaf */                                    \
+  NAN0;                                                               \
+  if(d==1)DQ(m, *z++=v=    *x++; DQ(n-1, *z=v=pfx(v,*x); ++z; ++x;))  \
+  else{for(i=0;i<m;++i){                                              \
+   MC(z,x,d*sizeof(Tx)); x+=d;                                        \
+   DQ(n-1, vecfn(jt,d,z+d,z,x,1); z+=d; x+=d; ); z+=d;                     \
+  }}                                                                   \
+  NAN1V;                                                              \
+ }   /* for associative functions only */
+#else // obsolete
 #define PREFIXPFX(f,Tz,Tx,pfx)  \
  AHDRP(f,Tz,Tx){I i;Tz v,* y;                                    \
   if(d==1)DO(m, *z++=v=    *x++; DO(n-1, *z=v=pfx(v,*x); ++z; ++x;))  \
@@ -39,6 +59,7 @@
   }}                                                                   \
   NAN1V;                                                              \
  }   /* for associative functions only */
+#endif
 
 #define PREFICPFX(f,Tz,Tx,pfx)  \
  AHDRP(f,Tz,Tx){I i;Tz v,* y;                                    \
@@ -134,7 +155,7 @@ static B jtpscanlt(J jt,I m,I d,I n,B*z,B*x,B p){A t;B*v;I i;
  memset(z,!p,m*n*d); 
  if(1==d)DO(m, if(v=memchr(x,p,n))*(z+(v-x))=p; z+=n; x+=n;)
  else{
-  GATV(t,B01,d,1,0); v=BAV(t);
+  GATV0(t,B01,d,1); v=BAV(t);
   for(i=0;i<m;++i){
    memset(v,C1,d);
    DO(n, DO(d, if(v[i]&&p==x[i]){v[i]=0; z[i]=p;};); z+=d; x+=d;); 
@@ -155,7 +176,7 @@ static B jtpscangt(J jt,I m,I d,I n,B*z,B*x,B a,B pp,B pa,B ps){
   }else mvc(n,z,2L,p);
   z+=n; x+=n;
  }else{
-  GATV(t,B01,d,1,0); u=BAV(t);
+  GATV0(t,B01,d,1); u=BAV(t);
   for(i=0;i<m;++i){
    e=pp; memset(u,C0,d);
    DO(n, j=i; DO(d, if(u[i])z[i]='1'==u[i]; else 
@@ -188,7 +209,7 @@ PREFICPFX( pluspfxO, D, I,  PLUS   )
 PREFICPFX(tymespfxO, D, I,  TYMES  )
 PREFICALT(minuspfxO, D, I,  MINUSPA)
 
-PREFIXPFX( pluspfxB, I, B,  PLUS   )
+PREFIXPFX( pluspfxB, I, B,  PLUS, plusIB   )
 #if 1
 AHDRP(pluspfxD,D,D){I i;
  NAN0;
@@ -198,24 +219,24 @@ AHDRP(pluspfxD,D,D){I i;
     DQ(n3, t0+=*x++; *z++ =t0+t12; t1+=*x++; t01=t0+t1; *z++ =t01+t2; t2+=*x++; *z++ =t2+t01; t12=t1+t2;)
   )
  }else{
-  for(i=0;i<m;++i){D *y;
-   y=z; DO(d, *z++=    *x++;);
-   DO(n-1, DO(d, *z=*y+*x; ++z; ++x; ++y;));
+  for(i=0;i<m;++i){                                              \
+   MC(z,x,d*sizeof(D)); x+=d;                                        \
+   DQ(n-1, plusDD(jt,d,z+d,z,x,1); z+=d; x+=d;); z+=d;                    \
   }
  }
  NAN1V;
 }   /* for associative functions only */
 #else  // obsolete 
-PREFIXNAN( pluspfxD, D, D,  PLUS   )
+PREFIXNAN( pluspfxD, D, D,  PLUS, plusDD   )
 #endif
-PREFIXNAN( pluspfxZ, Z, Z,  zplus  )
-PREFIXPFX( pluspfxX, X, X,  xplus  )
-PREFIXPFX( pluspfxQ, Q, Q,  qplus  )
+PREFIXNAN( pluspfxZ, Z, Z,  zplus, plusZZ  )
+PREFIXPFX( pluspfxX, X, X,  xplus, plusXX  )
+PREFIXPFX( pluspfxQ, Q, Q,  qplus, plusQQ  )
 
-PREFIXPFX(tymespfxD, D, D,  TYMES  )
-PREFIXPFX(tymespfxZ, Z, Z,  ztymes )
-PREFIXPFX(tymespfxX, X, X,  xtymes )
-PREFIXPFX(tymespfxQ, Q, Q,  qtymes )
+PREFIXPFX(tymespfxD, D, D,  TYMES, tymesDD  )
+PREFIXPFX(tymespfxZ, Z, Z,  ztymes, tymesZZ )
+PREFIXPFX(tymespfxX, X, X,  xtymes, tymesXX )
+PREFIXPFX(tymespfxQ, Q, Q,  qtymes, tymesQQ )
 
 PREFIXALT(minuspfxB, I, B,  MINUSPA)
 PREALTNAN(minuspfxD, D, D,  MINUSPA)
@@ -226,26 +247,26 @@ PREFIXALT(minuspfxQ, Q, Q,  MINUSPQ)
 PREALTNAN(  divpfxD, D, D,  DIVPA  )
 PREALTNAN(  divpfxZ, Z, Z,  DIVPZ  )
 
-PREFIXPFX(  maxpfxI, I, I,  MAX    )
-PREFIXPFX(  maxpfxD, D, D,  MAX    )
-PREFIXPFX(  maxpfxX, X, X,  XMAX   )
-PREFIXPFX(  maxpfxQ, Q, Q,  QMAX   )
-PREFIXPFX(  maxpfxS, SB,SB, SBMAX  )
+PREFIXPFX(  maxpfxI, I, I,  MAX , maxII   )
+PREFIXPFX(  maxpfxD, D, D,  MAX , maxDD   )
+PREFIXPFX(  maxpfxX, X, X,  XMAX, maxXX   )
+PREFIXPFX(  maxpfxQ, Q, Q,  QMAX, maxQQ   )
+PREFIXPFX(  maxpfxS, SB,SB, SBMAX, maxSS  )
 
-PREFIXPFX(  minpfxI, I, I,  MIN    )
-PREFIXPFX(  minpfxD, D, D,  MIN    )
-PREFIXPFX(  minpfxX, X, X,  XMIN   )
-PREFIXPFX(  minpfxQ, Q, Q,  QMIN   )
-PREFIXPFX(  minpfxS, SB,SB, SBMIN  )
+PREFIXPFX(  minpfxI, I, I,  MIN, minII    )
+PREFIXPFX(  minpfxD, D, D,  MIN, minDD    )
+PREFIXPFX(  minpfxX, X, X,  XMIN, minXX   )
+PREFIXPFX(  minpfxQ, Q, Q,  QMIN, minQQ   )
+PREFIXPFX(  minpfxS, SB,SB, SBMIN, minSS  )
 
-PREFIXPFX(bw0000pfxI, UI,UI, BW0000)
-PREFIXPFX(bw0001pfxI, UI,UI, BW0001)
-PREFIXPFX(bw0011pfxI, UI,UI, BW0011)
-PREFIXPFX(bw0101pfxI, UI,UI, BW0101)
-PREFIXPFX(bw0110pfxI, UI,UI, BW0110)
-PREFIXPFX(bw0111pfxI, UI,UI, BW0111)
-PREFIXPFX(bw1001pfxI, UI,UI, BW1001)
-PREFIXPFX(bw1111pfxI, UI,UI, BW1111)
+PREFIXPFX(bw0000pfxI, UI,UI, BW0000, bw0000II)
+PREFIXPFX(bw0001pfxI, UI,UI, BW0001, bw0001II)
+PREFIXPFX(bw0011pfxI, UI,UI, BW0011, bw0011II)
+PREFIXPFX(bw0101pfxI, UI,UI, BW0101, bw0101II)
+PREFIXPFX(bw0110pfxI, UI,UI, BW0110, bw0110II)
+PREFIXPFX(bw0111pfxI, UI,UI, BW0111, bw0111II)
+PREFIXPFX(bw1001pfxI, UI,UI, BW1001, bw1001II)
+PREFIXPFX(bw1111pfxI, UI,UI, BW1111, bw1111II)
 
 // This old prefix support is needed for sparse matrices
 
@@ -261,7 +282,7 @@ static DF1(jtgprefix){A h,*hv,z,*zv;I m,n,r;
  r = (RANKT)jt->ranks; RESETRANK; if(r<AR(w)){R rank1ex(w,self,r,jtgprefix);}
  n=IC(w); 
  h=VAV(self)->fgh[2]; hv=AAV(h); m=AN(h);
- GATV(z,BOX,n,1,0); zv=AAV(z); I imod=0;
+ GATV0(z,BOX,n,1); zv=AAV(z); I imod=0;
  DO(n, imod=(imod==m)?0:imod; RZ(zv[i]=df1(take(sc(1+i),w),hv[imod])); ++imod;);
  R ope(z);
 }    /* g\"r w for gerund g */
@@ -276,7 +297,7 @@ static F2(jtseg){A z;I c,k,m,n,*u,zn;
  // The (start,length) had better be integers.  Extract them into m,n
  if(INT&AT(a)){u=AV(a); m=*u; n=*(1+u);} else m=n=0;
  c=aii(w); k=c<<bplg(AT(w)); RE(zn=mult(n,c));  // c=#atoms per item, k=#bytes/item, zn=atoms/infix
- GA(z,AT(w),zn,MAX(1,AR(w)),AS(w)); *AS(z)=n;  // Allocate array of items, move in shape, override # items
+ GA(z,AT(w),zn,MAX(1,AR(w)),AS(w)); AS(z)[0]=n;  // Allocate array of items, move in shape, override # items
  // Copy the selected items to the new block and return the new block
  MC(AV(z),CAV(w)+m*k,n*k);
  R z;
@@ -290,7 +311,7 @@ static A jtifxi(J jt,I m,A w){A z;I d,j,k,n,p,*x;
  p=ABS(m); n=IC(w);
  if(m>=0){d=MAX(0,1+n-m);}else{d=1+(n-1)/p; d=(n==0)?n:d;}
  // Allocate result, a dx2 table; install shape
- GATV(z,INT,2*d,2,0); *AS(z)=d; *(1+AS(z))=2;
+ GATV0(z,INT,2*d,2); *AS(z)=d; *(1+AS(z))=2;
  // x->result area; k=stride between infixes; j=starting index (prebiased); copy (index,length) for each infix;
  // repair last length if it runs off the end
  x=AV(z); k=0>m?p:1; j=-k; DO(d, *x++=j+=k; *x++=p;); if(d)*--x=MIN(p,n-j);
@@ -314,7 +335,7 @@ static DF2(jtinfix){PROLOG(0018);DECLF;A x,z;I m;
   // create a block containing the shape of the fill-cell.  The fill-cell is a list of items of y,
   // with the number of items being the infix-size if positive, or 0 if negative
   // r = rank of w, rr=rank of list of items of w, s is block for list of length rr; copy shape of r; override #items of infix
-  r=AR(w); rr=MAX(1,r); GATV(s,INT,rr,1,0); if(r)MCISH(AV(s),AS(w),r); *AV(s)=0>m?0:m==IMAX?1+IC(w):m;
+  r=AR(w); rr=MAX(1,r); GATV0(s,INT,rr,1); if(r)MCISH(AV(s),AS(w),r); *AV(s)=0>m?0:m==IMAX?1+IC(w):m;
   // Create fill-cell of shape s; apply u to it
   RZ(x=df1(reshape(s,filler(w)),fs));
   // Prepend leading axis of 0 to the result
@@ -337,7 +358,7 @@ static DF2(jtginfix){A h,*hv,x,z,*zv;I d,m,n;
  RZ(x=ifxi(m,w));
  h=VAV(self)->fgh[2]; hv=AAV(h); d=AN(h);
  if(n=IC(x)){
-  GATV(z,BOX,n,1,0); zv=AAV(z);
+  GATV0(z,BOX,n,1); zv=AAV(z);
   DO(n, RZ(zv[i]=df1(seg(from(sc(i),x),w),hv[i%d])););
   R ope(z);
  }else{A s;
@@ -547,7 +568,7 @@ static DF1(jtpscan){A y,z;I d,f,m,n,r,t,wn,wr,*ws,wt;
  // m = #cells, c=#atoms/cell, n = #items per cell
  PROD(m,f,ws); PROD1(d,r-1,ws+f+1); n=r?ws[f]:1;  // wn=0 doesn't matter
  y=FAV(self)->fgh[0]; // y is the verb u, which is f/
- // If there are 0 or 1 items, return the input unchanged, except: if rank 0, return (($w),1)($,)w - if atomic op, do it right here, otherwise call the routine to get the shape of result cell
+ // If there are 0 or 1 items, or w is empty, return the input unchanged, except: if rank 0, return (($w),1)($,)w - if atomic op, do it right here, otherwise call the routine to get the shape of result cell
  if(2>n||!wn){if(vaid(FAV(y)->fgh[0])){R r?RETARG(w):reshape(over(shape(w),num[1]),w);}else R irs1(w,self,r,jtinfixprefix1);}
  VA2 adocv = vapfx(FAV(y)->fgh[0],wt);  // fetch info for f/\ and this type of arg
  if(!adocv.f)R irs1(w,self,r,jtinfixprefix1);  // if there is no special function for this type, do general reduce
@@ -582,13 +603,13 @@ static DF2(jtinfixd){A fs,z;C*x,*y;I c=0,d,k,m,n,p,q,r,*s,wr,*ws,wt,zc;
 
 #define MOVSUMAVG(Tw,Ty,ty,Tz,tz,xd,SET)  \
  {Tw*u,*v;Ty*s,x=0,*yv;Tz*zv;                                  \
-  GATVS(z,tz,c*(1+p),AR(w),AS(w),tz##SIZE,GACOPYSHAPE,R 0); *AS(z)=1+p;                    \
+  GATVS(z,tz,c*(1+p),AR(w),AS(w),tz##SIZE,GACOPYSHAPE,R 0); AS(z)[0]=1+p;                    \
   zv=(Tz*)AV(z); u=v=(Tw*)AV(w);                               \
   if(1==c){                                                    \
    DO(m, x+=*v++;); *zv++=xd;                                  \
    DO(p, x+=(Ty)*v++-(Ty)*u++; *zv++=xd;);                     \
   }else{                                                       \
-   GATVS(y,ty,c,1,0,ty##SIZE,GACOPYSHAPE,R 0); s=yv=(Ty*)AV(y); DO(c, *s++=0;);            \
+   GATVS(y,ty,c,1,0,ty##SIZE,GACOPYSHAPE0,R 0); s=yv=(Ty*)AV(y); DO(c, *s++=0;);            \
    DO(m, s=yv; DO(c, *s+++=*v++;);); SET;                      \
    DO(p, s=yv; DO(c, x=*s+++=(Ty)*v++-(Ty)*u++; *zv++=xd;););  \
  }}
@@ -635,7 +656,7 @@ static DF2(jtmovavg){I m;
     if(d CMP x)x=d; else if(e==x){x=d; t=u; DO(m-1, e=*t++; if(e CMP x)x=e;);}  \
     *zv++=x;                                                   \
   }}else{                                                      \
-   GATVS(y,type,c,1,0,type##SIZE,GACOPYSHAPE,R 0); s=yv=(T*)AV(y); DO(c, *s++=ie;);          \
+   GATVS(y,type,c,1,0,type##SIZE,GACOPYSHAPE0,R 0); s=yv=(T*)AV(y); DO(c, *s++=ie;);          \
    DO(m, s=yv; DO(c, d=*v++; if(d CMP *s)*s=d; ++s;);); SETZ;  \
    for(i=0;i<p;++i){                                           \
     for(j=0,s=yv;j<c;++j,++s){                                 \
@@ -656,7 +677,7 @@ static DF2(jtmovavg){I m;
     if(CMP(d,x))x=d; else if(e==x){x=d; t=u; DO(m-1, e=*t++; if(CMP(e,x))x=e;);}  \
     *zv++=x;                                                   \
   }}else{                                                      \
-   GATVS(y,type,c,1,0,type##SIZE,GACOPYSHAPE,R 0); s=yv=(T*)AV(y); DO(c, *s++=ie;);          \
+   GATVS(y,type,c,1,0,type##SIZE,GACOPYSHAPE0,R 0); s=yv=(T*)AV(y); DO(c, *s++=ie;);          \
    DO(m, s=yv; DO(c, d=*v++; if(CMP(d,*s))*s=d; ++s;);); SETZ;  \
    for(i=0;i<p;++i){                                           \
     for(j=0,s=yv;j<c;++j,++s){                                 \
@@ -669,7 +690,7 @@ static DF2(jtmovavg){I m;
 
 static A jtmovminmax(J jt,I m,A w,A fs,B max){A y,z;I c,i,j,p,wt;
  p=IC(w)-m; wt=AT(w); c=aii(w);
- GA(z,AT(w),c*(1+p),AR(w),AS(w)); *AS(z)=1+p;
+ GA(z,AT(w),c*(1+p),AR(w),AS(w)); AS(z)[0]=1+p;
  switch(max+(wt&SBT?0:wt&INT?2:4)){
   case 0: MOVMINMAXS(SB,SBT,jt->sbuv[0].down,SBLE); break;
   case 1: MOVMINMAXS(SB,SBT,0,SBGE); break;
@@ -683,7 +704,7 @@ static A jtmovminmax(J jt,I m,A w,A fs,B max){A y,z;I c,i,j,p,wt;
 
 static A jtmovandor(J jt,I m,A w,A fs,B or){A y,z;B b0,b1,d,e,*s,*t,*u,*v,x,*yv,*zv;I c,i,j,p;
  p=IC(w)-m; c=aii(w); x=b0=!or; b1=or;
- GATV(z,B01,c*(1+p),AR(w),AS(w)); *AS(z)=1+p;
+ GATV(z,B01,c*(1+p),AR(w),AS(w)); AS(z)[0]=1+p;
  zv=BAV(z); u=v=BAV(w);
  if(1==c){
   DO(m, if(b1==*v++){x=b1; break;}); *zv++=x; v=u+m;
@@ -692,7 +713,7 @@ static A jtmovandor(J jt,I m,A w,A fs,B or){A y,z;B b0,b1,d,e,*s,*t,*u,*v,x,*yv,
    if(d==b1)x=d; else if(e==b1){x=d; t=u; DO(m-1, if(b1==*t++){x=b1; break;});}
    *zv++=x;
  }}else{
-  GATV(y,B01,c,1,0); s=yv=BAV(y); DO(c, *s++=b0;);
+  GATV0(y,B01,c,1); s=yv=BAV(y); DO(c, *s++=b0;);
   DO(m, s=yv; DO(c, if(b1==*v++)*s=b1; ++s;);); SETZ;
   for(i=0;i<p;++i){
    for(j=0,s=yv;j<c;++j,++s){
@@ -707,7 +728,7 @@ static A jtmovandor(J jt,I m,A w,A fs,B or){A y,z;B b0,b1,d,e,*s,*t,*u,*v,x,*yv,
 
 static A jtmovbwandor(J jt,I m,A w,A fs,B or){A z;I c,p,*s,*t,*u,x,*zv;
  p=IC(w)-m; c=aii(w);
- GATV(z,INT,c*(1+p),AR(w),AS(w)); *AS(z)=1+p;
+ GATV(z,INT,c*(1+p),AR(w),AS(w)); AS(z)[0]=1+p;
  zv=AV(z); u=AV(w);
  if(c)switch(or+(1==c?0:2)){
   case 0: DO(1+p, x=*u++; t=u; DO(m-1, x&=*t++;); *zv++=x;); break;
@@ -720,9 +741,9 @@ static A jtmovbwandor(J jt,I m,A w,A fs,B or){A z;I c,p,*s,*t,*u,x,*zv;
 
 static A jtmovneeq(J jt,I m,A w,A fs,B eq){A y,z;B*s,*u,*v,x,*yv,*zv;I c,p;
  p=IC(w)-m; c=aii(w); x=eq;
- GATV(z,B01,c*(1+p),AR(w),AS(w)); *AS(z)=1+p;
+ GATV(z,B01,c*(1+p),AR(w),AS(w)); AS(z)[0]=1+p;
  zv=BAV(z); u=v=BAV(w);
- if(1<c){GATV(y,B01,c,1,0); s=yv=BAV(y); DO(c, *s++=eq;);}
+ if(1<c){GATV0(y,B01,c,1); s=yv=BAV(y); DO(c, *s++=eq;);}
  switch(eq+(1<c?2:0)){
   case 0: DO(m,                   x   ^=   *v++;  ); *zv++=x; DO(p,                   *zv++=x   ^=   *u++^ *v++;  ); break;
   case 1: DO(m,                   x    =x==*v++;  ); *zv++=x; DO(p,                   *zv++=x    =x==*u++==*v++;  ); break;
@@ -734,9 +755,9 @@ static A jtmovneeq(J jt,I m,A w,A fs,B eq){A y,z;B*s,*u,*v,x,*yv,*zv;I c,p;
 
 static A jtmovbwneeq(J jt,I m,A w,A fs,B eq){A y,z;I c,p,*s,*u,*v,x,*yv,*zv;
  p=IC(w)-m; c=aii(w); x=eq?-1:0;
- GATV(z,INT,c*(1+p),AR(w),AS(w)); *AS(z)=1+p;
+ GATV(z,INT,c*(1+p),AR(w),AS(w)); AS(z)[0]=1+p;
  zv=AV(z); u=v=AV(w);
- if(1<c){GATV(y,INT,c,1,0); s=yv=AV(y); DO(c, *s++=x;);}
+ if(1<c){GATV0(y,INT,c,1); s=yv=AV(y); DO(c, *s++=x;);}
  switch(eq+(1<c?2:0)){
   case 0: DO(m,                   x   ^=    *v++ ;  ); *zv++=x; DO(p,                   *zv++=x   ^=      *u++^*v++  ;  ); break;
   case 1: DO(m,                   x    =~(x^*v++);  ); *zv++=x; DO(p,                   *zv++=x    =~(x^~(*u++^*v++));  ); break;
@@ -750,7 +771,7 @@ static DF2(jtmovfslash){A x,z;B b;C id,*wv,*zv;I d,m,m0,p,t,wk,wt,zi,zk,zt;
  PREF2(jtmovfslash);
  p=IC(w); wt=AT(w);   // p=#items of w
  RE(m0=i0(vib(a))); m=m0>>(BW-1); m=(m^m0)-m; m^=(m>>(BW-1));  // m0=infx x,  m=abs(m0), handling IMIN 
- if((((2^m)-1)|(m-1)|(p-m))<0)R jtinfixprefix2(jt,a,w,self);
+ if((((2^m)-1)|(m-1)|(p-m))<0)R jtinfixprefix2(jt,a,w,self);  // If m is 0-2, go to general case
  x=FAV(self)->fgh[0]; x=FAV(x)->fgh[0]; id=ID(x); 
  if(wt&B01)id=id==CMIN?CSTARDOT:id==CMAX?CPLUSDOT:id; 
  if(id==CBDOT&&(x=VAV(x)->fgh[0],INT&AT(x)&&!AR(x)))id=(C)*AV(x);
@@ -770,12 +791,13 @@ static DF2(jtmovfslash){A x,z;B b;C id,*wv,*zv;I d,m,m0,p,t,wk,wt,zi,zk,zt;
  if(m0>=0){zi=MAX(0,1+p-m);}else{zi=1+(p-1)/m; zi=(p==0)?p:zi;}  // zi = # result cells
  d=aii(w); b=0>m0&&zi*m!=p;   // b='has shard'
  zt=rtype(adocv.cv); RESETRANK;
- GA(z,zt,d*zi,MAX(1,AR(w)),AS(w)); *AS(z)=zi;
+ GA(z,zt,d*zi,MAX(1,AR(w)),AS(w)); AS(z)[0]=zi;
+ if(d*zi==0)RETF(z);  // mustn't call adocv on empty arg!
  if((t=atype(adocv.cv))&&TYPESNE(t,wt)){RZ(w=cvt(t,w)); wt=AT(w);}
  zv=CAV(z); zk=d<<bplg(zt); 
  wv=CAV(w); wk=(0<=m0?d:d*m)<<bplg(wt);
- DO(zi-b, adocv.f(jt,1L,d,m,zv,wv); zv+=zk; wv+=wk;);
- if(b)adocv.f(jt,1L,d,p-m*(zi-1),zv,wv);
+ DO(zi-b, adocv.f(jt,(I)1,d,m,zv,wv); zv+=zk; wv+=wk;);
+ if(b)adocv.f(jt,(I)1,d,p-m*(zi-1),zv,wv);
  if(jt->jerr>=EWOV){RESETERR; R movfslash(a,cvt(FL,w),self);}else R z;
 }    /* a f/\w */
 

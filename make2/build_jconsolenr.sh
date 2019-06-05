@@ -27,7 +27,8 @@ j64x="${j64x:=j64}"
 else
 j64x="${j64x:=j32}"
 fi
-USE_LINENOISE="${USE_LINENOISE:=1}"
+# no libedit/readline/linenoise
+USE_LINENOISE=0
 
 # gcc 5 vs 4 - killing off linux asm routines (overflow detection)
 # new fast code uses builtins not available in gcc 4
@@ -81,7 +82,7 @@ case $jplatform\_$j64x in
 
 linux_j32)
 if [ "$USE_LINENOISE" -ne "1" ] ; then
-CFLAGS="$common -m32 -DREADLINE"
+CFLAGS="$common -m32"
 LDFLAGS=" -m32 -ldl "
 else
 CFLAGS="$common -m32 -DREADLINE -DUSE_LINENOISE"
@@ -91,7 +92,7 @@ fi
 ;;
 linux_j64nonavx)
 if [ "$USE_LINENOISE" -ne "1" ] ; then
-CFLAGS="$common -DREADLINE"
+CFLAGS="$common"
 LDFLAGS=" -ldl "
 else
 CFLAGS="$common -DREADLINE -DUSE_LINENOISE"
@@ -101,7 +102,7 @@ fi
 ;;
 linux_j64)
 if [ "$USE_LINENOISE" -ne "1" ] ; then
-CFLAGS="$common -DREADLINE"
+CFLAGS="$common"
 LDFLAGS=" -ldl "
 else
 CFLAGS="$common -DREADLINE -DUSE_LINENOISE"
@@ -111,7 +112,7 @@ fi
 ;;
 raspberry_j32)
 if [ "$USE_LINENOISE" -ne "1" ] ; then
-CFLAGS="$common -marm -march=armv6 -mfloat-abi=hard -mfpu=vfp -DREADLINE -DRASPI"
+CFLAGS="$common -marm -march=armv6 -mfloat-abi=hard -mfpu=vfp -DRASPI"
 LDFLAGS=" -ldl "
 else
 CFLAGS="$common -marm -march=armv6 -mfloat-abi=hard -mfpu=vfp -DREADLINE -DUSE_LINENOISE -DRASPI"
@@ -121,7 +122,7 @@ fi
 ;;
 raspberry_j64)
 if [ "$USE_LINENOISE" -ne "1" ] ; then
-CFLAGS="$common -march=armv8-a+crc -DREADLINE -DRASPI"
+CFLAGS="$common -march=armv8-a+crc -DRASPI"
 LDFLAGS=" -ldl "
 else
 CFLAGS="$common -march=armv8-a+crc -DREADLINE -DUSE_LINENOISE -DRASPI"
@@ -131,7 +132,7 @@ fi
 ;;
 darwin_j32)
 if [ "$USE_LINENOISE" -ne "1" ] ; then
-CFLAGS="$darwin -m32 -DREADLINE $macmin"
+CFLAGS="$darwin -m32 $macmin"
 LDFLAGS=" -ldl -m32 $macmin "
 else
 CFLAGS="$darwin -m32 -DREADLINE -DUSE_LINENOISE $macmin"
@@ -142,7 +143,7 @@ fi
 #-mmacosx-version-min=10.5
 darwin_j64)
 if [ "$USE_LINENOISE" -ne "1" ] ; then
-CFLAGS="$darwin -DREADLINE $macmin"
+CFLAGS="$darwin $macmin"
 LDFLAGS=" -ldl $macmin "
 else
 CFLAGS="$darwin -DREADLINE -DUSE_LINENOISE $macmin"

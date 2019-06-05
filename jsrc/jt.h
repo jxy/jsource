@@ -34,8 +34,8 @@ typedef struct {
 // things needed by verb execution
  I    tnextpushx;       // running byte index of next store into tstack.  Mask off upper bits to get offset into current frame
  A*   tstack;           // current frame, holding NTSTACK bytes.  First entry is to next-lower bloc.  This value has been biased back by subtracting the offset of the first element, so that *(tstack+nextpushx) is the actual next element
- UI4  ranks;            // low half: rank of w high half: rank of a  for IRS
  I    shapesink[2];     // garbage area used as load/store targets of operations we don't want to branch around
+ UI4  ranks;            // low half: rank of w high half: rank of a  for IRS
 // things needed by name lookup (unquote)
  union {
   UI4 ui4;    // all 4 flags at once, access as ui4
@@ -87,8 +87,7 @@ typedef struct {
 // --- end of cache line 3. 1 words carries over
 // things needed by executing explicit defs
  A    curname;          // current name, an A block containing an NM
- I4   fdepi;            /* fn calls: current depth                         */
- I4   fdepn;            /* fn calls: maximum permissible depth             */
+ I    cstackmin;        // red warning for C stack pointer
  I4   callstacknext;           /* named fn calls: current depth                   */
  I4   fcalln;           /* named fn calls: maximum permissible depth       */
  B    asgn;             /* 1 iff last operation on this line is assignment */
@@ -143,6 +142,7 @@ typedef struct {
  I validitymask[8]; // -1, -1, -1, -1, 0, 0, 0, 0   used to prepare for mask load/store
 #endif
 // --- end cache line 7/8
+ A foreignhash[8][2];  // must be power-of-2.  Holds pointers to recently-used foreigns
 #if 0 // used only for direct locale numbering
  I*   numlocdelqh;      // head of deleted queue, waiting for realloc
  I    numlocdelqn;      // number of blocks on the deleted queue  could be UI4
@@ -170,6 +170,9 @@ typedef struct {
  I    pmctr;            /* perf. monitor: ctr>0 means do monitoring        */
  C    baselocale[4];    // will be "base"
  UI4  baselocalehash;   // name hash for base locale
+ I4   fdepi;            /* fn calls: current depth                         */
+ I4   fdepn;            /* fn calls: maximum permissible depth             */
+ I    cstackinit;       // C stack pointer at beginning of execution
 
 // unordered symbols follow
 #if !C_CRC32C
@@ -334,8 +337,8 @@ union {
 } workareas;
  I    iotavec[IOTAVECLEN];  // ascending integers, starting at IOTAVECBEGIN
 // the offset at this point is about 0x14E8, so everything up to here will fit in a single 0x2000-byte DRAM page
- LS   callstack[1+NFCALL]; /* named fn calls: stack                           */
- C    etx[1+NETX];      /* display text for last error (+1 for trailing 0) */
+ C    etx[1+NETX];      // display text for last error (+1 for trailing 0)  fits in main page
+ LS   callstack[1+NFCALL]; // named fn calls: stack.  Usually only a little is used; the rest overflows onto a new DRAM page
  C    breakfn[NPATH];   /* break file name                                 */
 } JST;
 

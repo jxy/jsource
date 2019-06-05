@@ -47,7 +47,7 @@ A jtnfs(J jt,I n,C*s){A z;C c,f,*t;I m,p;NM*zv;
  }
  ASSERT(n,EVILNAME);   // error if name is empty
  // The name may not be valid, but we will allocate a NAME block for it anyway
- GATV(z,NAME,n,1,0); zv=NAV(z);   // the block is cleared to 0
+ GATV0(z,NAME,n,1); zv=NAV(z);   // the block is cleared to 0
  MC(zv->s,s,n); *(n+zv->s)=0;  // copy in the name, null-terminate it
  f=0; m=n; p=0;
  // Split name into simplename and locale, verify length of each; set flag and hash for locative/indirect locative
@@ -156,7 +156,7 @@ F1(jtscind){A*wv,x,y,z;I n,*zv;L*v;
 
 static A jtnch1(J jt,B b,A w,I*pm,A ch){A*v,x,y;C*s,*yv;LX *e;I i,k,m,p,wn;L*d;
  RZ(w);
- wn=AN(w); e=LXAV(w);                                /* locale                */
+ wn=AN(w); e=LXAV0(w);                                /* locale                */
  x=(A)(*e+jt->sympv)->name; p=AN(x); s=NAV(x)->s;  /* locale name           */
  m=*pm; v=AAV(ch)+m;                               /* result to appended to */
  for(i=SYMLINFOSIZE;i<wn;++i,++e)if(*e){
@@ -167,7 +167,7 @@ static A jtnch1(J jt,B b,A w,I*pm,A ch){A*v,x,y;C*s,*yv;LX *e;I i,k,m,p,wn;L*d;
     if(b){
      if(m==AN(ch)){RZ(ch=ext(0,ch)); v=m+AAV(ch);}
      x=d->name; k=NAV(x)->m;
-     GATV(y,LIT,k+2+p,1,0); yv=CAV(y); 
+     GATV0(y,LIT,k+2+p,1); yv=CAV(y); 
      MC(yv,NAV(x)->s,k); MC(1+k+yv,s,p); yv[k]=yv[1+k+p]='_';
      *v++=y; ++m;
    }}
@@ -180,9 +180,9 @@ static A jtnch1(J jt,B b,A w,I*pm,A ch){A*v,x,y;C*s,*yv;LX *e;I i,k,m,p,wn;L*d;
 
 F1(jtnch){A ch;B b;LX *e;I i,m,n;L*d;
  RZ(w=cvt(B01,w)); ASSERT(!AR(w),EVRANK); b=*BAV(w);
- GAT(ch,BOX,20,1,0); m=0;
+ GAT0(ch,BOX,20,1); m=0;
  if(jt->stch){
-  n=AN(jt->stloc); e=SYMLINFOSIZE+LXAV(jt->stloc);
+  n=AN(jt->stloc); e=SYMLINFOSIZE+LXAV0(jt->stloc);
   // named locales first
   for(i=1;i<n;++i,++e)if(*e){
    d=*e+jt->sympv;

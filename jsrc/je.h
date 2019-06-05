@@ -905,6 +905,7 @@ extern C        spellin(I,C*);
 extern void     spellit(C,C*);
 extern I        smmallosize(A);
 extern void     smmfrr(A);
+extern void     sortiq1(I*,I);
 extern I        strtoI10s(I,C*);
 extern D        tod(void);
 extern void     va1primsetup(A);
@@ -967,4 +968,9 @@ extern int      hwfma;
 extern int      memcmp();       /* C library fn                            */
 extern D        strtod();       /* C library fn                            */
 extern I        strtol();       /* C library fn                            */
+#endif
+#ifdef LOCALFOREIGNS
+// declare new entry points here
+extern F2(jtpartitiongrades);
+extern F1(jtfindsplit);
 #endif

@@ -13,31 +13,40 @@ fi
 
 common="-march=native $OPENMP -fPIC -O2 -fwrapv"
 
+javx2="${javx2:=0}"
+
 case $jplatform in
 
 raspberry) # linux arm64
 TARGET=libj.so
 COMPILE="$common -march=armv8-a+crc -DRASPI -DC_CRC32C=1 "
-LINK=" -shared -Wl,-soname,libj.so -lm -ldl $LDOPENMP -o libj.so "
+LINK=" $LDFLAGS -shared -Wl,-soname,libj.so -lm -ldl $LDOPENMP -o libj.so "
 ;;
 
 darwin)
 TARGET=libj.dylib
-COMPILE="$darwin -mavx -DC_AVX=1 "
-LINK=" -dynamiclib -lm -ldl $LDOPENMP -o libj.dylib"
+COMPILE="$darwin -DC_AVX=1 "
+LINK=" $LDFLAGS -dynamiclib -lm -ldl $LDOPENMP -o libj.dylib"
+if [ "x$javx2" != x'1' ] ; then
+CFLAGS_SIMD=" -mavx "
+else
+CFLAGS_SIMD=" -DC_AVX2=1 -mavx2 "
+fi
 OBJS_FMA=" blis/gemm_int-fma.o "
 ;;
 
 *)
 TARGET=libj.so
-COMPILE="$common -mavx -DC_AVX=1 -flto "
+COMPILE="$common -DC_AVX=1 -flto "
 LINK=" $LDFLAGS $COMPILE -shared -Wl,-soname,libj.so -lm -ldl $LDOPENMP -o libj.so "
+if [ "x$javx2" = x'1' ] ; then
+CFLAGS_SIMD=" -mavx "
+else
+CFLAGS_SIMD=" -DC_AVX2=1 -mavx2 "
+fi
 OBJS_FMA=" blis/gemm_int-fma.o "
 ;;
 
-*)
-echo no case for those parameters
-exit 1
 esac
 
 echo "COMPILE=$COMPILE"
@@ -177,6 +186,6 @@ OBJS="\
  xt.o \
  xu.o "
 
-export OBJS OBJS_FMA COMPILE LINK TARGET
+export OBJS OBJS_FMA COMPILE CFLAGS_SIMD LINK TARGET
 $jmake/domake.sh
 

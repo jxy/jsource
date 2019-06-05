@@ -187,15 +187,16 @@ DF1(jtwd){A z=0;C*p=0;D*pd;I e,*pi,t;V*sv;
   RZ(w);
   ASSERT(2>AR(w),EVRANK);
   sv=VAV(self);
-  t=i0(sv->fgh[1]);
-  if(t>=2000 && t<3000 && AN(w) && !(LIT+C2T+C4T+INT&AT(w))) {
+  t=i0(sv->fgh[1]);  // the n arg from the original 11!:n
+// obsolete   if(t>=2000 && t<3000 && AN(w) && !(LIT+C2T+C4T+INT&AT(w))) {
+  if((UI)(t-2000)<(UI)(3000-2000) && AN(w) && !(LIT+C2T+C4T+INT&AT(w))) {  // 2000<=t<3000
     switch(UNSAFE(AT(w))) {
     case B01:
       RZ(w=vi(w));
       break;
     case FL:
       pd=DAV(w);
-      {A wsav=w; GATV(w,INT,AN(wsav),AR(wsav),0); }
+      {A wsav=w; GATV0(w,INT,AN(wsav),AR(wsav)); }
       pi=AV(w);
       DO(AN(w),*pi++=(I)(jfloor(0.5+*pd++)););
       break;

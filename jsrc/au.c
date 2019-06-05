@@ -41,8 +41,8 @@ A jtdfss1(J jt, A w, A self, A self0)     {RZ(self); R CALL1(FAV(self)->valencef
 A jtdfss2(J jt, A a, A w, A self, A self0){RZ(self); R CALL2(FAV(self)->valencefns[1],a,w,self0);}
      // used to treat self as an argument.  Used with routines that don't really use self
 
-F1(jtself1){A z;I d=fdep(jt->sf); FDEPINC(d); z=df1(  w,jt->sf); FDEPDEC(d); RETF(z);}
-F2(jtself2){A z;I d=fdep(jt->sf); FDEPINC(d); z=df2(a,w,jt->sf); FDEPDEC(d); RETF(z);}
+F1(jtself1){A z; FDEPINC(d=fdep(jt->sf)); STACKCHKOFL z=df1(  w,jt->sf); FDEPDEC(d); RETF(z);}
+F2(jtself2){A z; FDEPINC(d=fdep(jt->sf)); STACKCHKOFL z=df2(a,w,jt->sf); FDEPDEC(d); RETF(z);}
 
 A jtac1(J jt,AF f){R fdef(0,0,VERB, f,0L, 0L,0L,0L, VFLAGNONE, RMAX,RMAX,RMAX);}
 A jtac2(J jt,AF f){R fdef(0,0,VERB, 0L,f, 0L,0L,0L, VFLAGNONE, RMAX,RMAX,RMAX);}
@@ -54,7 +54,7 @@ F2(jtdomainerr2){ASSERT(0,EVDOMAIN);}
 // if there has been a previous error this function returns 0
 A jtfdef(J jt,I flag2,C id,I t,AF f1,AF f2,A fs,A gs,A hs,I flag,I m,I l,I r){A z;V*v;
  RE(0);
- GAT(z,INT,(VERBSIZE+SZI-1)>>LGSZI,0,0); v=FAV(z);  // allocate as fixed size, and as INT to avoid clearing the area, which will bew all filled in
+ GAT0(z,INT,(VERBSIZE+SZI-1)>>LGSZI,0); v=FAV(z);  // allocate as fixed size, and as INT to avoid clearing the area, which will be all filled in
  AT(z)=t;  // install actual type
  if(fs)INCORP(fs); if(gs)INCORP(gs); if(hs)INCORP(hs);   // indicate fgh are about to be incorporated
  v->localuse.lvp=0;  // clear the private field

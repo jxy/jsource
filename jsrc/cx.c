@@ -17,10 +17,8 @@
 #include "p.h"
 #include "w.h"
 
-#define LSYMINUSE 256  // This bit is set in the rank of the original symbol table when it is in use
-
 #define BASSERT(b,e)   {if(!(b)){jsignal(e); i=-1; z=0; continue;}}
-#define BGATV(v,t,n,r,s) BZ(v=ga(t,(I)(n),(I)(r),(I*)(s)))
+#define BGATV0(v,t,n,r) BZ(v=ga(t,(I)(n),(I)(r),0))
 #define BZ(e)          if(!(e)){i=-1; z=0; continue;}
 
 // h is the array of saved info for the definition; hv->pointers to boxes;
@@ -182,7 +180,7 @@ static DF2(jtxdefn){PROLOG(0048);
    }
 
    // If the verb contains try., allocate a try-stack area for it.  Remember debug state coming in so we can restore on exit
-   if(sv->flag&VTRY1+VTRY2){A td; GAT(td,INT,NTD*WTD,1,0); /* obsolete AS(td)[0]=NTD; AS(td)[1]=WTD; */ tdv=(TD*)AV(td); savdebug = jt->uflags.us.cx.cx_c.db;}
+   if(sv->flag&VTRY1+VTRY2){A td; GAT0(td,INT,NTD*WTD,1); /* obsolete AS(td)[0]=NTD; AS(td)[1]=WTD; */ tdv=(TD*)AV(td); savdebug = jt->uflags.us.cx.cx_c.db;}
   }
   // End of unusual processing
 
@@ -201,8 +199,10 @@ static DF2(jtxdefn){PROLOG(0048);
     // We have verified that hardware CRC32 never results in collision, but the software hashes do (needs to be confirmed on ARM CPU hardware CRC32C)
   if(a){ if(!ras(a)&&w){ybuckptr->val=0; fa(w); R0;} if(!C_CRC32C&&xbuckptr==ybuckptr)xbuckptr=xbuckptr->next+jt->sympv; xbuckptr->val=a; xbuckptr->sn=jt->slisti;}
   // Do the other assignments, which occur less frequently, with IS
-  if(u){IS(unam,u); if(NOUN&AT(u))IS(mnam,u);}  // bug errors here must be detected
-  if(v){IS(vnam,v); if(NOUN&AT(v))IS(nnam,v);}
+  if((I)u|(I)v){
+   if(u){IS(unam,u); if(NOUN&AT(u))IS(mnam,u);}  // bug errors here must be detected
+   if(v){IS(vnam,v); if(NOUN&AT(v))IS(nnam,v);}
+  }
  }
  // assignsym etc should never be set here; if it is, there must have been a pun-in-ASGSAFE that caused us to mark a
  // derived verb as ASGSAFE and it was later overwritten with an unsafe verb.  That would be a major mess; we'll invest 2 stores
@@ -229,7 +229,7 @@ static DF2(jtxdefn){PROLOG(0048);
  A t=0;  // last T-block result
  I bi;   // cw number of last B-block result.  Needed only if it gets a NONNOUN error
  I ti;   // cw number of last T-block result.  Needed only if it gets a NONNOUN error
- while((UI)i<(UI)n){CW *ci;
+ while(1){CW *ci;
   // i holds the control-word number of the current control word
   // Check for debug and other modes
   if(jt->cxspecials){  // fast check to see if we have overhead functions to perform
@@ -243,7 +243,7 @@ static DF2(jtxdefn){PROLOG(0048);
    }
 
    i=debugnewi(i,thisframe,self);  // get possibly-changed execution line
-   if(!((UI)i<(UI)n))break;  // if it jumped out of the function, exit
+   if((UI)i>=(UI)n)break;
 
    // if performance monitor is on, collect data for it
    if(PMCTRBPMON&jt->uflags.us.uq.uq_c.pmctrbstk&&C1==jt->pmrec&&FAV(self)->flag&VNAMED)pmrecord(jt->curname,jt->global?LOCNAME(jt->global):0,i,isdyad?VAL2:VAL1);
@@ -255,10 +255,12 @@ static DF2(jtxdefn){PROLOG(0048);
      DO(AN(hv[0]), if(AT(line[i])&NAME){NAV(line[i])->bucket=0;});
     }
     jt->redefined=0;
-    if((UI)i>=(UI)n)break;
    }
    if(!((I)jt->redefined|(I)jt->pmctr|(I)thisframe))jt->cxspecials=0;  // if no more special work to do, close the gate
   }
+
+  // Don't do the loop-exit test until debug has had the chance to update the execution line.  For example, we might be asked to reexecute the last line of the definition
+  if((UI)i>=(UI)n)break;
 
   ci=i+cw;   // ci->control-word info
   // process the control word according to its type
@@ -287,7 +289,7 @@ static DF2(jtxdefn){PROLOG(0048);
     if(z){
      bi=i,++i;
     }else if(thisframe&&jt->uflags.us.cx.cx_c.db&(DB1/* obsolete |DBERRCAP*/)){  // if debug mode, we assume we are ready to execute on
-     bi=i,i=debugnewi(i+1,thisframe,self);   // Remember the line w/error; fetch continuation line if any it is OK to have jerr set if we are in debug mode
+     z=mtm,bi=i,i=debugnewi(i+1,thisframe,self);   // Remember the line w/error; fetch continuation line if any. it is OK to have jerr set if we are in debug mode, but z must be a harmless value to avoid error protecting it
     // if the error is THROW, and there is a catcht. block, go there, otherwise pass the THROW up the line
     }else if(EVTHROW==jt->jerr){
      if(tdi&&(tdv+tdi-1)->t){i=(tdv+tdi-1)->t+1; RESETERR; z=mtm;}else BASSERT(0,EVTHROW);  // z might not be protected if we hit error
@@ -308,7 +310,7 @@ static DF2(jtxdefn){PROLOG(0048);
     if(ci->canend&2)tpop(old);else z=gc(z,old);   // 2 means previous B can't be the result
     parseline(t);
     // Check for assert.  Since this is only for T-blocks we tolerate the test (rather than duplicating code)
-    if(ci->type==CASSERT&&jt->assert&&t&&!(NOUN&AT(t)&&all1(eq(num[1],t))))t=pee(line,ci,EVASSERT,lk,callframe);  // if assert., signal post-execution error if result not all 1s.  May go into debug; sets to to result after debug
+    if(ci->type==CASSERT&&jt->assert&&t&&!(NOUN&AT(t)&&all1(eq(num[1],t))))t=pee(line,ci,EVASSERT,lk,callframe);  // if assert., signal post-execution error if result not all 1s.  May go into debug; sets to result after debug
     if(t)ti=i,++i;  // if no error, continue on
     else if(thisframe&&DB1&jt->uflags.us.cx.cx_c.db/* obsolete ||DBERRCAP==jt->uflags.us.cx.cx_c.db*/)ti=i,i=debugnewi(i+1,thisframe,self);  // if coming out of debug with error: go to new line (there had better be one)
     else if(EVTHROW==jt->jerr){if(tdi&&(tdv+tdi-1)->t){i=(tdv+tdi-1)->t+1; RESETERR;}else BASSERT(0,EVTHROW);}  // if throw., and there is a catch., do so
@@ -321,7 +323,7 @@ static DF2(jtxdefn){PROLOG(0048);
     // if it fills up, double it as required
     if(!r)
      if(cd){I m=AN(cd)/WCD; BZ(cd=ext(1,cd)); cv=(CDATA*)AV(cd)+m-1; r=AN(cd)/WCD-m;}
-     else  {r=9; BGATV(cd,INT,r*WCD,1,0); ras(cd); cv=(CDATA*)AV(cd)-1;}
+     else  {r=9; BGATV0(cd,INT,r*WCD,1); ras(cd); cv=(CDATA*)AV(cd)-1;}
     ++cv; --r; 
     // indicate no t result (test value for select., iteration array for for.) and clear iteration index
     // remember the line number of the for./select.
@@ -467,7 +469,8 @@ static DF2(jtxdefn){PROLOG(0048);
  // If we are using the original local symbol table, clear it (free all values, free non-permanent names) for next use
  // We detect original symbol table by rank LSYMINUSE - other symbol tables are assigned rank 0.
  // Cloned symbol tables are still hanging on because of the initial ra() - we kill them off here
- if(AR(jt->local)&LSYMINUSE){AR(jt->local)&=~LSYMINUSE; symfreeha(jt->local);}
+ // Tables are born with NAMEADDED off.  It gets set when a name is added.  Setting back to initial state here, we clear NAMEADDED
+ if(AR(jt->local)&LSYMINUSE){AR(jt->local)&=~(LSYMINUSE|LNAMEADDED); symfreeha(jt->local);}
  // Pop the private-area stack; set no assignment (to call for result display)
  jt->local=savloc; jt->asgn=0;
  RETF(z);
@@ -687,7 +690,7 @@ A jtcrelocalsyms(J jt, A l, A c,I type, I dyad, I flags){A actst,*lv,pfst,t,wds;
 
  // Count the assigned names, and allocate a symbol table of the right size to hold them.  We won't worry too much about collisions, since we will be assigning indexes in the definition.
  // We choose the smallest feasible table to reduce the expense of clearing it at the end of executing the verb
- I pfstn=AN(pfst); LX*pfstv=LXAV(pfst),pfx; I asgct=0;
+ I pfstn=AN(pfst); LX*pfstv=LXAV0(pfst),pfx; I asgct=0;
  for(j=SYMLINFOSIZE;j<pfstn;++j){  // for each hashchain
   for(pfx=pfstv[j];pfx;pfx=(jt->sympv)[pfx].next)++asgct;  // chase the chain and count
  }
@@ -706,7 +709,7 @@ A jtcrelocalsyms(J jt, A l, A c,I type, I dyad, I flags){A actst,*lv,pfst,t,wds;
    newsym->flag |= LPERMANENT;   // Mark as permanent
   }
  }
- I actstn=AN(actst)-SYMLINFOSIZE; LX*actstv=LXAV(actst);  // # hashchains in new symbol table, and pointer to hashchain table
+ I actstn=AN(actst)-SYMLINFOSIZE; LX*actstv=LXAV0(actst);  // # hashchains in new symbol table, and pointer to hashchain table
 
  // Go back through the words of the definition, and add bucket/index information for each simplename
  // Note that variable names must be replaced by clones so they are not overwritten
@@ -729,9 +732,10 @@ A jtcrelocalsyms(J jt, A l, A c,I type, I dyad, I flags){A actst,*lv,pfst,t,wds;
 
 // a is a local symbol table, possibly in use
 // result is a copy of it, ready to use.  All PERMANENT symbols are copied over and given empty values
+// The rank-flag of the table is 'not modified'
 // static A jtclonelocalsyms(J jt, A a){A z;I j;I an=AN(a); I *av=AV(a);I *zv;
-A jtclonelocalsyms(J jt, A a){A z;I j;I an=AN(a); LX *av=LXAV(a),*zv;
- RZ(z=stcreate(2,AN(a),0L,0L)); zv=LXAV(z);  // allocate the clone; zv->clone hashchains
+A jtclonelocalsyms(J jt, A a){A z;I j;I an=AN(a); LX *av=LXAV0(a),*zv;
+ RZ(z=stcreate(2,AN(a),0L,0L)); zv=LXAV0(z);  // allocate the clone; zv->clone hashchains
  // Go through each hashchain of the model
  for(j=SYMLINFOSIZE;j<an;++j) {LX *zhbase=&zv[j]; LX ahx=av[j]; LX ztx=0; // hbase->chain base, hx=index of current element, tx is element to insert after
   while(ahx&&(jt->sympv)[ahx].flag&LPERMANENT) {L *l;  // for each permanent entry...
@@ -760,7 +764,7 @@ F2(jtcolon){A d,h,*hv,m;B b;C*s;I flag=VFLAGNONE,n,p;
  else{
   RZ(BOX&AT(w)?sent12b(w,&m,&d):sent12c(w,&m,&d)); INCORP(m); INCORP(d);  // get monad & dyad parts; we are incorporating them into hv[]
   if(4==n){if(AN(m)&&!AN(d))d=m; m=mtv;}  //  for 4 :, make the single def given the monadic one
-  GAT(h,BOX,2*HN,1,0); hv=AAV(h);
+  GAT0(h,BOX,2*HN,1); hv=AAV(h);
   RE(b=preparse(m,hv,hv+1)); if(b)flag|=VTRY1; hv[2   ]=jt->retcomm?m:mtv;
   RE(b=preparse(d,hv+HN,hv+HN+1)); if(b)flag|=VTRY2; hv[2+HN]=jt->retcomm?d:mtv;
  }

@@ -73,13 +73,16 @@ static void jtcirx(J jt,I n,I k,D*z,D*y){D p,t;
  NAN1V;
 }
 
-AHDR2(cirBD,D,B,D){ASSERTW(b&&1==m,EWIMAG); cirx(n,(I)*x,z,y);}
-AHDR2(cirID,D,I,D){ASSERTW(b&&1==m,EWIMAG); cirx(n,   *x,z,y);}
+// obsolete AHDR2(cirBD,D,B,D){ASSERTW(b&&1==m,EWIMAG); cirx(n,(I)*x,z,y);}
+AHDR2(cirBD,D,B,D){ASSERTW(n<=1&&1==m,EWIMAG); n^=n>>(BW-1); cirx(n,   (I)*x,z,y);}
+// obsolete AHDR2(cirBD,D,B,D){ASSERTW(b&&1==m,EWIMAG); cirx(n,(I)*x,z,y);}
+AHDR2(cirID,D,I,D){ASSERTW(n<=1&&1==m,EWIMAG); n^=n>>(BW-1); cirx(n,   *x,z,y);}
 
 AHDR2(cirDD,D,D,D){I k=(I)jfloor(0.5+*x);
  ASSERTW(k==*x,EVDOMAIN); 
- ASSERTW(b&&1==m,EWIMAG); 
- cirx(n,k,z,y);
+// obsolete  ASSERTW(b&&1==m,EWIMAG); 
+ ASSERTW(n<=1&&1==m,EWIMAG); 
+ n^=n>>(BW-1); cirx(n,k,z,y);
 }
 
 
@@ -117,10 +120,10 @@ F1(jtrect){A e,z;B b;I r,t;P*wp,*zp;Z c;
  RZ(w); 
  t=AT(w); r=AR(w); RESETRANK;   // Run as infinite rank
  ASSERT(!AN(w)||t&NUMERIC,EVDOMAIN);
- if(t&CMPX){GATV(z,FL,2*AN(w),1+r,AS(w)); *(AS(z)+r)=2; MC(AV(z),AV(w),AN(z)*sizeof(D)); R z;}
+ if(t&CMPX){GATV(z,FL,2*AN(w),1+r,AS(w)); AS(z)[r]=2; MC(AV(z),AV(w),AN(z)*sizeof(D)); R z;}
  else if(t&SPARSE){
   b=1&&t&SCMPX;
-  GASPARSE(z,b?SFL:t,1,1+r,AS(w)); *(AS(z)+r)=2;
+  GASPARSE(z,b?SFL:t,1,1+r,AS(w)); AS(z)[r]=2;
   wp=PAV(w); zp=PAV(z);
   if(b){e=SPA(wp,e); c=*ZAV(e); ASSERT(FEQ(c.re,c.im),EVSPARSE); SPB(zp,e,scf(c.re));}
   else SPB(zp,e,ca(SPA(wp,e)));

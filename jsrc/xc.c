@@ -4,6 +4,9 @@
 /* Xenos: Custom                                                           */
 
 #include "j.h"
+#ifdef LOCALFOREIGNS
+#include "../../licensed addons/xcl.h"
+#endif
 
 
 F2(jtforeignextra){

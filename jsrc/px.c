@@ -32,14 +32,14 @@ F1(jtexec1){A z;
  if(AT(w)&NAME){z=nameref(w);  // the case ".@'name' which is the fastest way to refer to a deferred name
  }else{
   F1RANK(1,jtexec1,0);
-  FDEPINC(1); z=parse(tokens(vs(w),1+!!jt->local)); jt->asgn=0; FDEPDEC(1);
+  STACKCHKOFL FDEPINC(1); z=parse(tokens(vs(w),1+!!jt->local)); jt->asgn=0; FDEPDEC(1);
  }
  RETF(z&&!(AT(z)&NOUN)?mtv:z);  // if non-noun result, return empty $0
 }
 
 F1(jtimmex){A z;
  if(!w)R A0;  // if no string, return empty result
- FDEPINC(1); z=parse(tokens(w,1+!!jt->local)); FDEPDEC(1);
+ STACKCHKOFL FDEPINC(1); z=parse(tokens(w,1+!!jt->local)); FDEPDEC(1);
  if(z&&!jt->asgn)jpr(z);
  RETF(z);
 }
@@ -61,18 +61,17 @@ F1(jtexg){A*v,*wv,x,y,z;I n;
  ASSERT(1>=AR(w),EVRANK);
  if(VERB&AT(w))R w;
  ASSERT(BOX&AT(w),EVDOMAIN);
- GATV(z,BOX,n,1,0); v=AAV(z);
+ GATV0(z,BOX,n,1); v=AAV(z);
  DO(n, x=wv[i]; RZ(*v++=(y=cex(x,jtfx,0L))?y:exg(x)););
  R parse(z);
 }
 
 A jtjset(J jt,C*name,A x){R symbis(nfs((I)strlen(name),name),x,jt->global);}
 
-F2(jtapplystr){PROLOG(0054);A fs,z;I d;
+F2(jtapplystr){PROLOG(0054);A fs,z;
  F2RANK(1,RMAX,jtapplystr,0);
  RZ(fs=parse(tokens(vs(a),1+!!jt->local)));
  ASSERT(VERB&AT(fs),EVSYNTAX);
- RE(d=fdep(fs));
- FDEPINC(d); z=CALL1(FAV(fs)->valencefns[0],w,fs); FDEPDEC(d);
+ STACKCHKOFL FDEPINC(d=fdep(fs)); z=CALL1(FAV(fs)->valencefns[0],w,fs); FDEPDEC(d);
  EPILOG(z); 
 }    /* execute string a on argument w */

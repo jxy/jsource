@@ -21,7 +21,7 @@ void moveparseinfotosi(J jt){movesentencetosi(jt,jt->parserqueue,jt->parserqueue
 /*    debz()                                             */
 
 DC jtdeba(J jt,C t,void *x,void *y,A fs){DC d;
- {A q; GAT(q,LIT,sizeof(DST),1,0); d=(DC)AV(q);}
+ {A q; GAT0(q,LIT,sizeof(DST),1); d=(DC)AV(q);}
  memset(d,C0,sizeof(DST));
  if(jt->sitop)moveparseinfotosi(jt);
  d->dctype=t; d->dclnk=jt->sitop; jt->sitop=d;
@@ -44,7 +44,7 @@ void jtdebz(J jt){jt->sitop=jt->sitop->dclnk;}
 F1(jtsiinfo){A z,*zv;DC d;I c=5,n,*s;
  ASSERTMTV(w);
  n=0; d=jt->sitop; while(d){++n; d=d->dclnk;}
- GATV(z,BOX,c*n,2,0); s=AS(z); s[0]=n; s[1]=c; zv=AAV(z);
+ GATV0(z,BOX,c*n,2); s=AS(z); s[0]=n; s[1]=c; zv=AAV(z);
  d=jt->sitop;
  while(d){
   RZ(zv[0]=sc(d->dctype));
@@ -84,7 +84,7 @@ static DC suspset(DC d){DC e;
 
 static B jterrcap(J jt){A y,*yv;
  jt->dbsusact=SUSCLEAR;
- GAT(y,BOX,4,1,0); yv=AAV(y);
+ GAT0(y,BOX,4,1); yv=AAV(y);
  RZ(yv[0]=sc(jt->jerr1));
  RZ(yv[1]=str(jt->etxn1,jt->etx));
  RZ(yv[2]=dbcall(mtv));
@@ -97,7 +97,11 @@ static void jtsusp(J jt){B t;DC d;I old=jt->tnextpushx;
  jt->dbsusact=SUSCONT;
  d=jt->dcs; t=jt->tostdout;
  jt->dcs=0; jt->tostdout=1;
+#if USECSTACK
+ jt->cstackmin=MAX(jt->cstackinit-(CSTACKSIZE-CSTACKRESERVE),jt->cstackmin-CSTACKSIZE/10);
+#else
  jt->fdepn =MIN(NFDEP ,jt->fdepn +NFDEP /10);
+#endif
  jt->fcalln=MIN(NFCALL,jt->fcalln+NFCALL/10);
  if     (jt->dbssexec){RESETERR; immex(jt->dbssexec); tpop(old);}
  else if(jt->dbtrap  ){RESETERR; immex(jt->dbtrap  ); tpop(old);}
@@ -107,8 +111,21 @@ static void jtsusp(J jt){B t;DC d;I old=jt->tnextpushx;
   immex(jgets("      ")); 
   tpop(old);
  }
- if(jt->dbuser){jt->fdepn-=NFDEP/10; jt->fcalln-=NFCALL/10;}
- else          {jt->fdepn =NFDEP;    jt->fcalln =NFCALL;   }
+ if(jt->dbuser){
+#if USECSTACK
+ jt->cstackmin+=CSTACKSIZE/10;
+#else
+  jt->fdepn-=NFDEP/10;
+#endif
+  jt->fcalln-=NFCALL/10;
+ } else {
+#if USECSTACK
+  jt->cstackmin=jt->cstackinit-(CSTACKSIZE-CSTACKRESERVE);
+#else
+  jt->fdepn =NFDEP;
+#endif
+  jt->fcalln =NFCALL;
+ }
  jt->dcs=d; jt->tostdout=t;
 }    /* user keyboard loop while suspended */
 
@@ -202,7 +219,15 @@ F1(jtdbc){UC k;
   ASSERT(!k||!jt->uflags.us.cx.cx_c.glock,EVDOMAIN);
  }
  jt->redefined=0;
- if(AN(w)){jt->uflags.us.cx.cx_c.db=jt->dbuser=k; jt->fdepn=NFDEP/(k?2:1); jt->fcalln=NFCALL/(k?2:1);}
+ if(AN(w)){
+  jt->uflags.us.cx.cx_c.db=jt->dbuser=k;
+#if USECSTACK
+  jt->cstackmin=jt->cstackinit-((CSTACKSIZE-CSTACKRESERVE)>>k);
+#else
+  jt->fdepn=NFDEP>>k;
+#endif
+  jt->fcalln=NFCALL/(k?2:1);
+ }
  jt->dbsusact=SUSCLEAR; 
  R mtm;
 }    /* 13!:0  clear stack; enable/disable suspension */

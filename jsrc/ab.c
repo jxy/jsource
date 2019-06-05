@@ -28,20 +28,20 @@ APFX(bw1110II, UI,UI,UI, BW1110)       static APFX(bw1110CC, UC,UC,UC, BW1110)
 APFX(bw1111II, UI,UI,UI, BW1111)       static APFX(bw1111CC, UC,UC,UC, BW1111)
 
 /* see below */                        /* see below */
-REDUCEPFX(bw0001insI, UI,UI, BW0001)   static REDUCEPFX(bw0001insC, UC,UC, BW0001)
-REDUCEPFX(bw0010insI, UI,UI, BW0010)   static REDUCEPFX(bw0010insC, UC,UC, BW0010)
+REDUCEPFX(bw0001insI, UI,UI, BW0001, bw0001II, bw0001II)   static REDUCEPFX(bw0001insC, UC,UC, BW0001, bw0001CC, bw0001CC)
+REDUCEPFX(bw0010insI, UI,UI, BW0010, bw0010II, bw0010II)   static REDUCEPFX(bw0010insC, UC,UC, BW0010, bw0010CC, bw0010CC)
 /* see below */                        /* see below */
-REDUCEPFX(bw0100insI, UI,UI, BW0100)   static REDUCEPFX(bw0100insC, UC,UC, BW0100)  
+REDUCEPFX(bw0100insI, UI,UI, BW0100, bw0100II, bw0100II)   static REDUCEPFX(bw0100insC, UC,UC, BW0100, bw0100CC, bw0100CC)  
 /* see below */                        /* see below */
-REDUCEPFX(bw0110insI, UI,UI, BW0110)   static REDUCEPFX(bw0110insC, UC,UC, BW0110)
-REDUCEPFX(bw0111insI, UI,UI, BW0111)   static REDUCEPFX(bw0111insC, UC,UC, BW0111)
-REDUCEPFX(bw1000insI, UI,UI, BW1000)   static REDUCEPFX(bw1000insC, UC,UC, BW1000)
-REDUCEPFX(bw1001insI, UI,UI, BW1001)   static REDUCEPFX(bw1001insC, UC,UC, BW1001)
+REDUCEPFX(bw0110insI, UI,UI, BW0110, bw0110II, bw0110II)   static REDUCEPFX(bw0110insC, UC,UC, BW0110, bw0110CC, bw0110CC)
+REDUCEPFX(bw0111insI, UI,UI, BW0111, bw0111II, bw0111II)   static REDUCEPFX(bw0111insC, UC,UC, BW0111, bw0111CC, bw0111CC)
+REDUCEPFX(bw1000insI, UI,UI, BW1000, bw1000II, bw1000II)   static REDUCEPFX(bw1000insC, UC,UC, BW1000, bw1000CC, bw1000CC)
+REDUCEPFX(bw1001insI, UI,UI, BW1001, bw1001II, bw1001II)   static REDUCEPFX(bw1001insC, UC,UC, BW1001, bw1001CC, bw1001CC)
 /* see below */                        /* see below */
-REDUCEPFX(bw1011insI, UI,UI, BW1011)   static REDUCEPFX(bw1011insC, UC,UC, BW1011)
+REDUCEPFX(bw1011insI, UI,UI, BW1011, bw1011II, bw1011II)   static REDUCEPFX(bw1011insC, UC,UC, BW1011, bw1011CC, bw1011CC)
 /* see below */                        /* see below */
-REDUCEPFX(bw1101insI, UI,UI, BW1101)   static REDUCEPFX(bw1101insC, UC,UC, BW1101)
-REDUCEPFX(bw1110insI, UI,UI, BW1110)   static REDUCEPFX(bw1110insC, UC,UC, BW1110)
+REDUCEPFX(bw1101insI, UI,UI, BW1101, bw1101II, bw1101II)   static REDUCEPFX(bw1101insC, UC,UC, BW1101, bw1101CC, bw1101CC)
+REDUCEPFX(bw1110insI, UI,UI, BW1110, bw1110II, bw1110II)   static REDUCEPFX(bw1110insC, UC,UC, BW1110, bw1110CC, bw1110CC)
 /* see below */                        /* see below */
 
        AHDRR(bw0000insI,UI,UI){I k=SZI*m*d; if(1<n)memset(z,C0 ,k); else MC(z,x,k);}
@@ -113,7 +113,8 @@ DF2(jtbitwisechar){DECLFG;A*p,x,y,z;B b;I j,m,n,zn;VF f;
  if(1==n)                 {f=bwI[j]; m=(m+SZI-1)>>LGSZI;}
  else if(!AR(a)||!AR(w)||0==(n&(SZI-1))){f=bwI[j]; n=(n+SZI-1)>>LGSZI; p=b?&x:&y; RZ(*p=irs2(sc(SZI),*p,0L,0L,0L,jtrepeat));}
  else                      f=bwC[j];
- f(jt,b,m,n,AV(z),AV(x),AV(y)); 
+ n^=-b; n=(n==~1)?1:n;  // encode b flag in sign of n
+ f(jt,m,AV(z),AV(x),AV(y),n); 
  *(zn+CAV(z))=0;
  RETF(z);
 }
@@ -131,10 +132,12 @@ B jtbitwisecharamp(J jt,UC*t,I n,UC*wv,UC*zv){I p;UC c,i,j,*pv,s[256];VF f;
  else if(i==255  ){c=j; f=(VF)bw1011II;}
  else R 0;
  pv=(UC*)&p; DO(SZI, pv[i]=c;);
- f(jt,1,1L,256L/SZI,s,pv,AV(alp)); if(memcmp(s,t,256L))R 0;
- f(jt,1,1L,(n+SZI-1)>>LGSZI,zv,pv,wv); zv[n]=0;
+// obsolete  f(jt,1,1L,256L/SZI,s,pv,AV(alp)); if(memcmp(s,t,256L))R 0;
+// obsolete  f(jt,1,1L,(n+SZI-1)>>LGSZI,zv,pv,wv); zv[n]=0;
+ f(jt,(I)1,s,AV(alp),pv,(I)(256/SZI)); if(memcmp(s,t,256L))R 0;
+ f(jt,(I)1,zv,wv,pv,(n+SZI-1)>>LGSZI); zv[n]=0;
  R 1;
-}
+}  // kludge this should be scrapped in favor of wordlong ops
 
 
 static VF bwinsC[16]={bw0000insC,bw0001insC,bw0010insC,bw0011insC, bw0100insC,bw0101insC,bw0110insC,bw0111insC,

@@ -165,11 +165,7 @@ static void cachedmmult (J jt,D* av,D* wv,D* zv,I m,I n,I p,I cmpx){D c[(CACHEHE
       for(cvx=(__m256d*)cva+(i<<(cmpx&1)),j=MIN(CACHEHEIGHT,w1rem);j;--j,cvx+=(OPHEIGHT<<(cmpx&1))){__m256d *cvx0=cvx; I k=cmpx&1;  // start at offset from i; skip over stride of OPHEIGHT values
        // For INT inputs, convert to float and use the float multiply.  It's just so much faster in parallel, and with no need for overflow checks
        // This is a kludge that depends on sizeof(I) equaling sizeof(D)
-       do{D fv = *a0x;
- if(cmpx>1)fv=(D)*(I*)a0x; 
-*cvx0++ = _mm256_set_pd(fv,fv,fv,fv);
- ++a0x;}
-while(k--);  // copy in 1 or 2 elements of *a; advance a0x to next element
+       do{D fv = *a0x; if(cmpx>1)fv=(D)*(I*)a0x; *cvx0++ = _mm256_set1_pd(fv); ++a0x;}while(k--);  // copy in 1 or 2 elements of *a; advance a0x to next element
       }
      }
     }
@@ -193,7 +189,7 @@ while(k--);  // copy in 1 or 2 elements of *a; advance a0x to next element
      // initialize accumulator with the z values accumulated so far.
 #if C_AVX
      __m256d z00,z01,z10,z11,z20,z21,z30,z31;
-     z31 = z30 = z21 = z20 = z11 = z10 = _mm256_set_pd(0.0,0.0,0.0,0.0);
+     z31 = z30 = z21 = z20 = z11 = z10 = _mm256_set1_pd(0.0);
      // We have to use masked load at the edges of the array, to make sure we don't fetch from undefined memory.  Fill anything not loaded with 0
      if(a3rem>3){z00 = _mm256_loadu_pd(z3base);if(a2rem>1)z01 = _mm256_loadu_pd(z3base+n); else z01=z21;   // In the main area, do normal (unaligned) loads
      }else{z01 = z00 = z20;
@@ -378,7 +374,7 @@ F2(jtpdt){PROLOG(0038);A z;I ar,at,i,m,n,p,p1,t,wr,wt;
  case B01X:
   if(0==(n&(SZI-1))||!SY_ALIGN){A tt;B*u,*v,*wv;I nw,*x,*zv;UC*c,*tc;UI*d,*ti,*vi;
    nw=(n+SZI-1)>>LGSZI;
-   GATV(tt,INT,nw,1,0); ti=(UI*)AV(tt); tc=(UC*)ti;
+   GATV0(tt,INT,nw,1); ti=(UI*)AV(tt); tc=(UC*)ti;
    u=BAV(a); v=wv=BAV(w); zv=AV(z);
    for(i=0;i<m;++i,v=wv,zv+=n){x=zv; DO(n, *x++=0;); I pp=p; while((pp-=255)>=0){BBLOCK(255);} BBLOCK(pp+255);}
   }else{B*u,*v,*wv;I*x,*zv;

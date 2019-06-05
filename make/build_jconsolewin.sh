@@ -9,31 +9,31 @@ case $jplatform\_$1 in
 linux_j32)
 TARGET=jconsole
 COMPILE="$common -m32 -DREADLINE"
-LINK=" -l:libedit.so.2 -m32 -ldl -o jconsole "
+LINK=" -m32 -ldl -o jconsole "
 ;;
 linux_j64)
 TARGET=jconsole
 COMPILE="$common -DREADLINE"
-LINK=" -ledit -ldl -o jconsole "
+LINK=" -ldl -o jconsole "
 ;;
 raspberry_j32)
 TARGET=jconsole
 COMPILE="$common -marm march=armv6 -mfloat-abi=hard -mfpu=vfp -DREADLINE -DRASPI"
-LINK=" -ledit -ldl -o jconsole "
+LINK=" -ldl -o jconsole "
 ;;
 raspberry_j64)
 COMPILE="$common -march=armv8-a+crc -DREADLINE -DRASPI"
-LINK=" -ledit -ldl -o jconsole "
+LINK=" -ldl -o jconsole "
 ;;
 darwin_j32)
 TARGET=jconsole
 COMPILE="$common -m32 -DREADLINE -mmacosx-version-min=10.5"
-LINK=" -ledit -ldl -lncurses -m32 -mmacosx-version-min=10.5 -o jconsole "
+LINK=" -ldl -m32 -mmacosx-version-min=10.5 -o jconsole "
 ;;
 darwin_j64)
 TARGET=jconsole
 COMPILE="$common -DREADLINE -mmacosx-version-min=10.5"
-LINK=" -ledit -ldl -lncurses -mmacosx-version-min=10.5 -o jconsole "
+LINK=" -ldl -mmacosx-version-min=10.5 -o jconsole "
 ;;
 windows_j32)
 TARGET=jconsole.exe

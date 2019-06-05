@@ -69,7 +69,7 @@ static NUMH(jtnumx){A y;B b,c;C d,*t;I j,k,m,*yv;X*v;static C*dig="0123456789";
  d=*(s+n-1); b='-'==*s; c='x'==d||'r'==d; s+=b;
  if('-'==d){if(!(2>=n))R 0; if(!(*v=rifvs(vci(1==n?XPINF:XNINF))))R 0; R 1;}
  n-=b+c; if(!(m=(n+XBASEN-1)/XBASEN))R 0; k=n-XBASEN*(m-1);
- GATV(y,INT,m,1,0); yv=m+AV(y);
+ GATV0(y,INT,m,1); yv=m+AV(y);
  DO(m, j=0; DO(k, if(!(t=memchr(dig,*s++,10L)))R 0; j=10*j+(t-dig);); *--yv=b?-j:j; k=XBASEN;);
  if(!(*v=yv[m-1]?y:rifvs(xstd(y))))R 0;  // this stores into the extended result
  R 1;
@@ -77,7 +77,7 @@ static NUMH(jtnumx){A y;B b,c;C d,*t;I j,k,m,*yv;X*v;static C*dig="0123456789";
 
 static X jtx10(J jt,I e){A z;I c,m,r,*zv;
  m=1+e/XBASEN; r=e%XBASEN;
- GATV(z,INT,m,1,0); zv=AV(z);
+ GATV0(z,INT,m,1); zv=AV(z);
  DO(m-1, *zv++=0;);
  c=1; DO(r, c*=10;); *zv=c;
  R z;
@@ -122,7 +122,7 @@ static B jtnumb(J jt,I n,C*s,Z*v,Z b){A c,d,y;I k;
  if(!(d=indexof(str(m,dig),str(n,s))))R 0;
  if(!(all0(eps(sc(m),d))))R 0;
  k=sizeof(Z);
- GAT(c,CMPX,1,0,0); MC(AV(c),&b,k); if(!(y=base2(c,d)))R 0; MC(v,AV(y),k);
+ GAT0(c,CMPX,1,0); MC(AV(c),&b,k); if(!(y=base2(c,d)))R 0; MC(v,AV(y),k);
  R 1;
 }
 
@@ -206,7 +206,7 @@ A jtconnum(J jt,I n,C*s){PROLOG(0101);A y,z;B b,(*f)(),ii,j,p=1,q,x;C c,*v;I d=0
  if(1==n)                {if(k=s[0]-'0',0<=k&&k<=9)R num[ k]; else R ainf;}
  else if(2==n&&CSIGN==*s){if(k=s[1]-'0',0<=k&&k<=9)R num[-k];}
  RZ(y=str(1+n,s)); rifvs(y); s=v=CAV(y); s[n]=0;  // s->null-terminated string
- GATV(y,INT,1+n,1,0); yv=AV(y);
+ GATV0(y,INT,1+n,1); yv=AV(y);
  DO(n, c=*v; *v++=c=c==CSIGN?'-':c==CTAB||c==' '?C0:c; b=C0==c; if(p!=b)yv[d++]=i; p=b;);
  if(d&1)yv[d++]=n; m=d>>1;
  numcase(n,s,&b,&j,&x,&q,&ii);
@@ -227,7 +227,7 @@ A jtconnum(J jt,I n,C*s){PROLOG(0101);A y,z;B b,(*f)(),ii,j,p=1,q,x;C c,*v;I d=0
  A f(J jt,A a,A w,I n,I m,I c){A z;B b;C d,*u,*uu,*x,*y;I i,j,k,mc,r;T a0,*zv;  \
   i=0; mc=m*c; u=CAV(w); y=u+n; j=c; uu=u+AN(w); if(mc)*(uu-1)=' ';         \
   r=AR(w)-(I )(1==c); r=MAX(0,r);                                               \
-  GA(z,t,mc,r,AS(w)); if(1<r&&1!=c)*(AS(z)+r-1)=c; zv=(T*)AV(z);            \
+  GA(z,t,mc,r,AS(w)); if(0<r&&1!=c)AS(z)[r-1]=c; zv=(T*)AV(z);            \
   RZ(a=cvt(t,a)); a0=*(T*)AV(a);                                            \
   while(i<mc){                                                              \
    while(u<uu&&C0==*u)++u;                                                  \
@@ -303,10 +303,10 @@ B valueisint; // set if the value we are processing is really an int
   // Calculate total # result values; set input scan pointer u; set &next row of input y; set end-of-input pointer uu
  // set end-of-result-row counter j
  k=0; mc=m*c; u=CAV(w); y=u+n; j=c; uu=u+AN(w);
- // Rank of result is rank of w, unless the rows have only 1 character; make rows atoms then, removing them from rank
+ // Rank of result is rank of w, unless the rows have only 1 value; make rows atoms then, removing them from rank
  r=AR(w)-(I )(1==c); r=MAX(0,r); 
  // Allocate the result array, as floats.  If the last atom of shape was not removed, replace it with c, the output length per list
- GATV(z,FL,mc,r,AS(w)); if(1<r&&1!=c)*(AS(z)+r-1)=c; zv=DAV(z);
+ GATV(z,FL,mc,r,AS(w)); if(0<r&&1!=c)AS(z)[r-1]=c; zv=DAV(z);
  if(!mc)R z;  // If no fields at all, exit with empty result (avoids infinite loop below)
  // Convert the default to float, unless we are trying big integers.  We try ints if the default is int,
  // but only on 64-bit systems where int and float have the same size

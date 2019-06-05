@@ -13,11 +13,11 @@ F1(jtcatalog){PROLOG(0072);A b,*wv,x,z,*zv;C*bu,*bv,**pv;I*cv,i,j,k,m=1,n,p,*qv,
  DO(n, x=wv[i]; if(AN(x)){p=AT(x); t=t?t:p; ASSERT(HOMO(t,p),EVDOMAIN); RE(t=maxtype(t,p));});  // use vector maxtype
  t=t?t:B01; k=bpnoun(t);
  GA(b,t,n,1,0);      bv=CAV(b);
- GATV(x,INT,n,1,0);    qv=AV(x);
- GATV(x,BOX,n,1,0);    pv=(C**)AV(x);
+ GATV0(x,INT,n,1);    qv=AV(x);
+ GATV0(x,BOX,n,1);    pv=(C**)AV(x);
  RZ(x=apvwr(n,0L,0L)); cv=AV(x);
  DO(n, x=wv[i]; if(TYPESNE(t,AT(x)))RZ(x=cvt(t,x)); r+=AR(x); qv[i]=p=AN(x); RE(m=mult(m,p)); pv[i]=CAV(x););
- GATV(z,BOX,m,r,0);    zv=AAV(z); s=AS(z); 
+ GATV0(z,BOX,m,r);    zv=AAV(z); s=AS(z); 
  DO(n, x=wv[i]; u=AS(x); DO(AR(x),*s++=*u++;););
  for(i=0;i<m;i++){
   bu=bv-k;
@@ -91,8 +91,8 @@ F2(jtifrom){A z;C*wv,*zv;I acr,an,ar,*av,j,k,m,p,pq,q,wcr,wf,wk,wn,wr,*ws,zn;
   k<<=bplg(AT(w));
  } else {zn=0;}  // No data to move
  // Allocate the result area and fill in the shape
- GA(z,AT(w),zn,ar+wr-(I )(0<wcr),ws);  // result-shape is frame of w followed by shape of a followed by shape of item of cell of w; start with w-shape, which gets the frame
- { I *s=AS(z)+wf; MCISH(s,AS(a),ar); if(wcr)MCISH(s+ar,1+wf+ws,wcr-1); }
+ GA(z,AT(w),zn,ar+wr-(I )(0<wcr),0);  // result-shape is frame of w followed by shape of a followed by shape of item of cell of w; start with w-shape, which gets the frame
+ MCISH(AS(z),AS(w),wf); MCISH(&AS(z)[wf],AS(a),ar); if(wcr)MCISH(&AS(z)[wf+ar],1+wf+ws,wcr-1);
  if(!zn){DO(an, SETJ(av[i])) R z;}  // If no data to move, just audit the indexes and quit
  // from here on we are moving items
  wk=k*p;   // stride between cells of w
@@ -165,7 +165,7 @@ F2(jtifrom){A z;C*wv,*zv;I acr,an,ar,*av,j,k,m,p,pq,q,wcr,wf,wk,wn,wr,*ws,zn;
 #define INNER1B(T)  {T*v=(T*)wv,*x=(T*)zv; v+=*av; DQ(m, *x++=*v; v+=p;);}
 
 // a is boolean
-static F2(jtbfrom){A z;B*av,*b;C*wv,*zv;I acr,an,ar,k,m,p,q,r,*s,*u=0,wcr,wf,wk,wn,wr,*ws,zn;
+static F2(jtbfrom){A z;B*av,*b;C*wv,*zv;I acr,an,ar,k,m,p,q,r,*u=0,wcr,wf,wk,wn,wr,*ws,zn;
  RZ(a&&w);
  ar=AR(a); acr=jt->ranks>>RANKTX; acr=ar<acr?ar:acr;
  wr=AR(w); wcr=(RANKT)jt->ranks; wcr=wr<wcr?wr:wcr; wf=wr-wcr; RESETRANK;
@@ -181,8 +181,9 @@ static F2(jtbfrom){A z;B*av,*b;C*wv,*zv;I acr,an,ar,k,m,p,q,r,*s,*u=0,wcr,wf,wk,
   // If there is data to move, we also need m: #cells of w   k: #bytes in an items of a cell of w   wk: #bytes in a cell of w
   PROD(m,wf,ws); PROD1(k, wcr-1, ws+wf+1); zn=k*m; k<<=bplg(AT(w)); wk=k*p; RE(zn=mult(an,zn));
  }else{zn=0;}
- GA(z,AT(w),zn,ar+wr-(I )(0<wcr),ws);
- s=AS(z)+wf; MCISH(s,AS(a),ar); MCISH(s+ar,1+wf+ws,wcr-1);
+ GA(z,AT(w),zn,ar+wr-(I )(0<wcr),0);
+ MCISH(AS(z),AS(w),wf); MCISH(&AS(z)[wf],AS(a),ar); if(wcr)MCISH(&AS(z)[wf+ar],1+wf+ws,wcr-1);
+// obsolete  s=AS(z)+wf; MCISH(s,AS(a),ar); MCISH(s+ar,1+wf+ws,wcr-1);
  if(!zn)R z;  // If no data to move, just return the shape
  av=BAV(a); wv=CAV(w); zv=CAV(z);
  switch(k+k+(I )(1==an)){
@@ -199,7 +200,7 @@ static F2(jtbfrom){A z;B*av,*b;C*wv,*zv;I acr,an,ar,k,m,p,q,r,*s,*u=0,wcr,wf,wk,
 #if !SY_64 && SY_WIN32
    else{A x;C*v,*xv,*xv00,*xv01,*xv02,*xv03,*xv04,*xv05,*xv06,*xv07,*xv08,*xv09,*xv10,*xv11,
          *xv12,*xv13,*xv14,*xv15;I i,j,k4=k*4;
-    GATV(x,LIT,16*k4,1,0); xv=CAV(x);
+    GATV0(x,LIT,16*k4,1); xv=CAV(x);
     xv00=xv;       xv01=xv+   k4; xv02=xv+ 2*k4; xv03=xv+ 3*k4;
     xv04=xv+ 4*k4; xv05=xv+ 5*k4; xv06=xv+ 6*k4; xv07=xv+ 7*k4;
     xv08=xv+ 8*k4; xv09=xv+ 9*k4; xv10=xv+10*k4; xv11=xv+11*k4;
@@ -273,7 +274,7 @@ B jtaindex(J jt,A a,A w,I wf,A*ind){A*av,q,z;I an,ar,c,j,k,t,*u,*v,*ws;
  ws=wf+AS(w); ar=AR(a); av=AAV(a);  q=av[0]; c=AN(q);
  if(!c)R 0;
  ASSERT(c<=AR(w)-wf,EVLENGTH);
- GATV(z,INT,an*c,1+ar,AS(a)); *(ar+AS(z))=c; v=AV(z);
+ GATV(z,INT,an*c,1+ar,AS(a)); AS(z)[ar]=c; v=AV(z);
  for(j=0;j<an;++j){
   q=av[j]; t=AT(q);
   if(t&BOX)R 0;

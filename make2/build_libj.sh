@@ -1,9 +1,32 @@
 #!/bin/sh
 
-cd "$(dirname "$(readlink -f "$0" || realpath "$0")")"
+realpath()
+{
+ oldpath=`pwd`
+ if ! cd $1 > /dev/null 2>&1; then
+  cd ${1##*/} > /dev/null 2>&1
+  echo $( pwd -P )/${1%/*}
+ else
+  pwd -P
+ fi
+ cd $oldpath > /dev/null 2>&1
+}
 
+cd "$(realpath "$0")"
+echo "entering `pwd`"
+
+if [ "`uname -m`" = "armv6l" ] || [ "`uname -m`" = "aarch64" ] || [ "$RASPI" = 1 ]; then
+jplatform="${jplatform:=raspberry}"
+elif [ "`uname`" = "Darwin" ]; then
+jplatform="${jplatform:=darwin}"
+else
 jplatform="${jplatform:=linux}"
+fi
+if [ "`uname -m`" = "x86_64" ] || [ "`uname -m`" = "aarch64" ]; then
 j64x="${j64x:=j64}"
+else
+j64x="${j64x:=j32}"
+fi
 
 # gcc 5 vs 4 - killing off linux asm routines (overflow detection)
 # new fast code uses builtins not available in gcc 4
@@ -25,7 +48,7 @@ fi
 export CC
 fi
 # compiler=`$CC --version | head -n 1`
-compiler=`readlink -f $(command -v $CC)`
+compiler=$(readlink -f $(command -v $CC) 2> /dev/null || echo $CC)
 echo "CC=$CC"
 echo "compiler=$compiler"
 
@@ -64,6 +87,8 @@ common="$OPENMP -Werror -fPIC -O1 -fwrapv -fno-strict-aliasing -Wextra -Wno-cons
 fi
 darwin="$OPENMP -fPIC -O1 -fwrapv -fno-strict-aliasing -Wno-string-plus-int -Wno-empty-body -Wno-unsequenced -Wno-unused-value -Wno-pointer-sign -Wno-parentheses -Wno-return-type -Wno-constant-logical-operand -Wno-comment -Wno-unsequenced"
 
+javx2="${javx2:=0}"
+
 case $jplatform\_$j64x in
 
 linux_j32) # linux x86
@@ -84,8 +109,13 @@ LDFLAGS=" -shared -Wl,-soname,libj.so -lm -ldl $LDOPENMP"
 
 linux_j64) # linux intel 64bit avx
 TARGET=libj.so
-CFLAGS="$common -mavx -DC_AVX=1 -mfma "
+CFLAGS="$common -DC_AVX=1 "
 LDFLAGS=" -shared -Wl,-soname,libj.so -lm -ldl $LDOPENMP"
+if [ "x$javx2" != x'1' ] ; then
+CFLAGS_SIMD=" -mavx "
+else
+CFLAGS_SIMD=" -DC_AVX2=1 -mavx2 "
+fi
 OBJS_FMA=" gemm_int-fma.o "
 ;;
 
@@ -115,8 +145,13 @@ LDFLAGS=" -dynamiclib -lm -ldl $LDOPENMP $macmin"
 
 darwin_j64) # darwin intel 64bit
 TARGET=libj.dylib
-CFLAGS="$darwin -mavx $macmin -DC_AVX=1 -mfma "
+CFLAGS="$darwin $macmin -DC_AVX=1 "
 LDFLAGS=" -dynamiclib -lm -ldl $LDOPENMP $macmin"
+if [ "x$javx2" != x'1' ] ; then
+CFLAGS_SIMD=" -mavx "
+else
+CFLAGS_SIMD=" -DC_AVX2=1 -mavx2 "
+fi
 OBJS_FMA=" gemm_int-fma.o "
 ;;
 
@@ -134,7 +169,7 @@ fi
 mkdir -p ../bin/$jplatform/$j64x
 mkdir -p obj/$jplatform/$j64x/
 cp makefile-libj obj/$jplatform/$j64x/.
-export CFLAGS LDFLAGS TARGET OBJS_FMA jplatform j64x
+export CFLAGS LDFLAGS TARGET CFLAGS_SIMD OBJS_FMA jplatform j64x
 cd obj/$jplatform/$j64x/
 make -f makefile-libj
 cd -

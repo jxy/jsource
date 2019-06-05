@@ -241,8 +241,21 @@ extern unsigned int __cdecl _clearfp (void);
 #endif
 #endif
 
+#if defined(__i386__) || defined(__x86_64__) || defined(_M_X64) || defined(_MSC_VER)
+#ifndef C_AVX2
+#define C_AVX2 0
+#endif
+
+#if C_AVX2
+#if !C_AVX
+#undef C_AVX
+#define C_AVX 1
+#endif
+#endif
+
 #if C_AVX
 #include <immintrin.h>
+#endif
 #endif
 
 #if defined(__aarch64__)
@@ -269,14 +282,27 @@ extern unsigned int __cdecl _clearfp (void);
 
 #define NTSTACK         16384L          // number of BYTES in an allocated block of tstack - pointers to allocated blocks
 
+// OBSOLETE OLD WAY (with USECSTACK off)
 // Sizes for the internal stacks.  The goal here is to detect a runaway recursion before it creates a segfault.  This cannot
 // be done with precision because we don't know how much C stack we have, or how much is used by a recursion (and anyway it depends on
 // what J functions are running).
 // There are two limits: maximum depth of J functions, and maximum depth of named functions.  The named-function stack is intelligent
 // and stacks only when there is a locale change or deletion; it almost never limits unless locatives are used to an extreme degree.
 // The depth of J function calls will probably limit stack use.
-#define NFDEP           4000             // fn call depth - for debug builds, must be small (<0xa00) to avoid stack overflow, even smaller for non-AVX
-#define NFCALL          (NFDEP/10)      // call depth for named calls, not important
+// #define NFDEP           4000             // fn call depth - for debug builds, must be small (<0xa00) to avoid stack overflow, even smaller for non-AVX
+// #define NFCALL          (NFDEP/10)      // call depth for named calls, not important
+// increase OS stack limit instead of restricting NFDEP/NFCALL
+#define NFDEP           2000L  // 4000             // (obsolete) fn call depth - for debug builds, must be small (<0xa00) to avoid stack overflow, even smaller for non-AVX
+
+
+// NEW WAY
+// The named-call stack is used only when there is a locative, EXCEPT that after a call to 18!:4 it is used until the function calling 18!:4 returns.
+// Since startup calls 18!:4 without a name, we have to allow for the possibility of deep recursion in the name stack.  Normally only a little of the stack is used
+#define NFCALL          (NFDEP/2)      // call depth for named calls, not important
+// Now we are trying to watch the C stack directly
+#define CSTACKSIZE      (SY_64?12000000:1000000)  // size we allocate in the calling function
+#define CSTACKRESERVE   100000  // amount we allow for slop before we sample the stackpointer, and after the last check
+#define USECSTACK       1   // 0 to go back to counting J recursions    
 
 // start and length for the stored vector of ascending integers
 #define IOTAVECBEGIN (-20)
@@ -356,7 +382,7 @@ extern unsigned int __cdecl _clearfp (void);
 // Debugging options
 
 // Use MEMAUDIT to sniff out errant memory alloc/free
-#define MEMAUDIT 0x00  // Bitmask for memory audits: 1=check headers 2=full audit of tpush/tpop 4=write garbage to memory before freeing it 8=write garbage to memory after getting it
+#define MEMAUDIT 0x00    // Bitmask for memory audits: 1=check headers 2=full audit of tpush/tpop 4=write garbage to memory before freeing it 8=write garbage to memory after getting it
                      // 16=audit freelist at every alloc/free (starting after you have run 6!:5 (1) to turn it on)
  // 13 (0xD) will verify that there are no blocks being used after they are freed, or freed prematurely.  If you get a wild free, turn on bit 0x2
  // 2 will detect double-frees before they happen, at the time of the erroneous tpush
@@ -402,13 +428,27 @@ extern unsigned int __cdecl _clearfp (void);
 #define DF2(f)          A f(J jt,A a,A w,A self)
 #define DO(n,stm)       {I i=0,_n=(n); for(;i<_n;i++){stm}}  // i runs from 0 to n-1
 #define DP(n,stm)       {I i=-(n);    for(;i<0;++i){stm}}   // i runs from -n to -1 (faster than DO)
-#define DQ(n,stm)       {I i=(I)(n)-1;    for(;i>=0;--i){stm}}  // i runs from n-1 downto 0
+#define DQ(n,stm)       {I i=(I)(n)-1;    for(;i>=0;--i){stm}}  // i runs from n-1 downto 0 (fastest when you don't need i)
 #define DOU(n,stm)      {I i=0,_n=(n); do{stm}while(++i<_n);}  // i runs from 0 to n-1, always at least once
 #define DPU(n,stm)      {I i=-(n);    do{stm}while(++i<0);}   // i runs from -n to -1 (faster than DO), always at least once
 #define DQU(n,stm)      {I i=(I)(n)-1;  do{stm}while(--i>=0);}  // i runs from n-1 downto 0, always at least once
+// C suffix indicates that the count is one's complement
+#define DOC(n,stm)       {I i=0,_n=~(n); for(;i<_n;i++){stm}}  // i runs from 0 to n-1
+#define DPC(n,stm)       {I i=(n)+1;    for(;i<0;++i){stm}}   // i runs from -n to -1 (faster than DO)
+#define DQC(n,stm)       {I i=-2-(I)(n);    for(;i>=0;--i){stm}}  // i runs from n-1 downto 0 (fastest when you don't need i)
+#define DOUC(n,stm)      {I i=0,_n=~(n); do{stm}while(++i<_n);}  // i runs from 0 to n-1, always at least once
+#define DPUC(n,stm)      {I i=(n)+1;    do{stm}while(++i<0);}   // i runs from -n to -1 (faster than DO), always at least once
+#define DQUC(n,stm)      {I i=-2-(I)(n);  do{stm}while(--i>=0);}  // i runs from n-1 downto 0, always at least once
 #define ds(c)           pst[(UC)(c)]
-#define FDEPDEC(d)      jt->fdepi-=(I4)d  // can be used in conditional expressions
-#define FDEPINC(d)      {ASSERT(jt->fdepn>=jt->fdepi+(I4)d,EVSTACK); jt->fdepi+=(I4)d;}
+#if USECSTACK
+#define FDEPDEC(d)
+#define FDEPINC(d)
+#define STACKCHKOFL {D stackpos; ASSERT((I)&stackpos-jt->cstackmin>=0,EVSTACK);}
+#else  // old style counting J recursion levels
+#define FDEPDEC(d)      jt->fdepi-=(I4)(d)  // can be used in conditional expressions
+#define FDEPINC(d)      {ASSERT(jt->fdepn>=jt->fdepi+(I4)(d),EVSTACK); jt->fdepi+=(I4)(d);}
+#define STACKVERIFY
+#endif
 #define FCONS(x)        fdef(0,CFCONS,VERB,jtnum1,jtnum2,0L,0L,(x),VFLAGNONE, RMAX,RMAX,RMAX)
 #define FEQ(u,v)        (ABS((u)-(v))<=jt->fuzz*MAX(ABS(u),ABS(v)))
 #define F1(f)           A f(J jt,    A w)
@@ -427,7 +467,7 @@ extern unsigned int __cdecl _clearfp (void);
 #define FULLHASHSIZE(n,s,r,w,z) {UI4 zzz;  CTLZI((((n)|1)+(w))*(s) + AKXR(r) - 1,zzz); z = (((1LL<<(zzz+1)) - AKXR(r)) / (s) - 1) | (1&~(w)); }
 // Memory-allocation macros
 // Size-of-block calculations.  VSZ when size is constant or variable
-// Because the Boolean dyads write beyond the end of the byte area (up to 1 extra word), we add one SZI for islast (which includes B01), rather than adding 1
+// Because the Boolean dyads read beyond the end of the byte area (up to 1 extra word), we add one SZI for islast (which includes B01), rather than adding 1
 #define ALLOBYTESVSZ(atoms,rank,size,islast,isname)      ( ((((rank)|(!SY_64))*SZI  + ((islast)? (isname)?(NORMAH*SZI+sizeof(NM)+SZI):(NORMAH*SZI+SZI) : (NORMAH*SZI)) + (atoms)*(size)))  )  // # bytes to allocate allowing only 1 byte for string pad - include mem hdr
 // here when size is constant.  The number of bytes, rounded up with overhead added, must not exceed 2^(PMINL+4)
 #define ALLOBYTES(atoms,rank,size,islast,isname)      ((size&(SZI-1))?ALLOBYTESVSZ(atoms,rank,size,islast,isname):(SZI*(((rank)|(!SY_64))+NORMAH+((size)>>LGSZI)*(atoms)+!!(islast))))  // # bytes to allocate
@@ -436,26 +476,37 @@ extern unsigned int __cdecl _clearfp (void);
 #define BUCKETXLOC(len,s) ((*(s)<='9')?strtoI10s((len),(s)):(I)nmhash((len),(s)))
 // GA() is used when the type is unknown.  This routine is in m.c and documents the function of these macros.
 // NEVER use GA() for NAME types - it doesn't honor it.
-#define GACOPYSHAPE(name,type,atoms,rank,shaape) I _r=(shaape)?(rank):1; I *_s=(shaape)?(I*)(shaape):jt->shapesink; I cp=*_s; cp=_r==1?(atoms):cp; I *_d=AS(name); *_d=cp; --_r; do{_s=_r>0?_s:jt->shapesink; _d=_r>0?_d:jt->shapesink; *++_d=*++_s;}while(--_r>0);
-#define GACOPY1(name,type,atoms,rank,shaape) I _r=(rank); I *_d=AS(name); *_d=1; --_r; do{_d=_r>0?_d:jt->shapesink; *++_d=1;}while(--_r>0);  // copy all 1s to shape
+// SHAPER is used when shape is given and rank is SDT.  Usually 0/1 use COPYSHAPE0 but they can use this; it always copies from the shaape
+#define GACOPYSHAPER(name,type,atoms,rank,shaape) if((rank)>0)AS(name)[0]=(shaape)[0]; if((rank)>1)AS(name)[1]=(shaape)[1]; if((rank)>2)AS(name)[2]=(shaape)[2];
+// SHAPE0 is used when the shape is 0 - write shape only if rank==1
+#define GACOPYSHAPE0(name,type,atoms,rank,shaape) if((rank)==1)AS(name)[0]=(atoms);
+// General shape copy, branchless when rank<3  One value is always written to shape
+// obsolete #define GACOPYSHAPEG(name,type,atoms,rank,shaape) I _r=(shaape)?(rank):1; I *_s=(shaape)?(I*)(shaape):jt->shapesink; I cp=*_s; cp=_r==1?(atoms):cp; I *_d=AS(name); *_d=cp; --_r; do{_s=_r>0?_s:jt->shapesink; _d=_r>0?_d:jt->shapesink; *++_d=*++_s;}while(--_r>0);
+#define GACOPYSHAPEG(name,type,atoms,rank,shaape)  {I *_d=AS(name); I *_s=(shaape); _s=(shaape)?_s:_d; I cp=*_s; I _r=1-(rank); cp=_r==0?(atoms):cp; *_d=cp; do{_s+=(UI)_r>>(BW-1); _d+=(UI)_r>>(BW-1); *_d=*_s;}while(++_r<0);}
+// Use when shape is known to be present but rank is unknown.  One value is always written to shape
+// obsolete #define GACOPYSHAPE(name,type,atoms,rank,shaape) I _r=(rank); I *_s=(I*)(shaape); I *_d=AS(name); *_d=*_s; --_r; do{_s=_r>0?_s:jt->shapesink; _d=_r>0?_d:jt->shapesink; *++_d=*++_s;}while(--_r>0);
+#define GACOPYSHAPE(name,type,atoms,rank,shaape)  {I *_s=(I*)(shaape); I *_d=AS(name); *_d=*_s; I _r=1-(rank); do{_s+=(UI)_r>>(BW-1); _d+=(UI)_r>>(BW-1); *_d=*_s;}while(++_r<0);}
+#define GACOPY1(name,type,atoms,rank,shaape) {I *_d=AS(name); *_d=1; I _r=1-(rank); do{_d+=(UI)_r>>(BW-1); *_d=1;}while(++_r<0);} // copy all 1s to shape
 #define GA(v,t,n,r,s)   RZ(v=ga(t,(I)(n),(I)(r),(I*)(s)))
 // GAE executes the given expression when there is an error
 #define GAE(v,t,n,r,s,erraction)   if(!(v=ga(t,(I)(n),(I)(r),(I*)(s))))erraction;
 // When the type and all rank/shape are known at compile time, use GAT.  The compiler precalculates almost everything
 // For best results declare name as: AD* RESTRICT name;  The number of bytes, rounded up with overhead added, must not exceed 2^(PMINL+4)
-#define GATS(name,type,atoms,rank,shaape,size) \
+#define GATS(name,type,atoms,rank,shaape,size,shapecopier) \
 { ASSERT(!((rank)&~RMAX),EVLIMIT); \
  I bytes = ALLOBYTES(atoms,rank,size,(type)&LAST0,(type)&NAME); \
  name = jtgaf(jt, ALLOBLOCK(bytes)); \
  I akx=AKXR(rank);   \
  RZ(name);   \
- AK(name)=akx; AT(name)=type; AN(name)=atoms;   \
+ AK(name)=akx; AT(name)=(type); AN(name)=atoms;   \
  AR(name)=(RANKT)(rank);     \
- /*if(type&SPARSE)SEGFAULT scaf*/ GACOPYSHAPE(name,type,atoms,rank,shaape)   \
- if(!(type&DIRECT))memset((C*)name+akx,C0,bytes-akx);  \
- else if(type&LAST0){((I*)((C*)name+((bytes-SZI)&(-SZI))))[0]=(I)0x285d9a62c08a4f92 /* scaf */; }     \
+ /*if((type)&SPARSE)SEGFAULT scaf*/ shapecopier(name,type,atoms,rank,shaape)   \
+ if(!((type)&DIRECT))memset((C*)name+akx,C0,bytes-akx);  \
+ else if((type)&LAST0){((I*)((C*)name+((bytes-SZI)&(-SZI))))[0]=(I)0x285d9a62c08a4f92 /* scaf */; }     \
 }
-#define GAT(name,type,atoms,rank,shaape)  GATS(name,type,atoms,rank,shaape,type##SIZE)\
+#define GAT(name,type,atoms,rank,shaape)  GATS(name,type,atoms,rank,shaape,type##SIZE,GACOPYSHAPE)
+#define GATR(name,type,atoms,rank,shaape)  GATS(name,type,atoms,rank,shaape,type##SIZE,GACOPYSHAPER)
+#define GAT0(name,type,atoms,rank)  GATS(name,type,atoms,rank,0,type##SIZE,GACOPYSHAPE0)
 
 // Used when type is known and something else is variable.  ##SIZE must be applied before type is substituted, so we have GATVS to use inside other macros.  Normally use GATV
 // Note: assigns name before assigning the components of the array, so the components had better not depend on name, i. e. no GATV(z,BOX,AN(z),AR(z),AS(z))
@@ -466,16 +517,18 @@ extern unsigned int __cdecl _clearfp (void);
  name = jtgafv(jt, bytes);   \
  I akx=AKXR(rank);   \
  if(name){   \
-  AK(name)=akx; AT(name)=type; AN(name)=atoms; AR(name)=(RANKT)(rank);     \
-  /*if(type&SPARSE)SEGFAULT scaf*/ shapecopier(name,type,atoms,rank,shaape)   \
-  if(!(type&DIRECT))memset((C*)name+akx,C0,bytes-akx);  \
-  else if(type&LAST0){((I*)((C*)name+((bytes-SZI)&(-SZI))))[0]=(I)0x5285d9a62c08a4f9 /* scaf */; }     \
+  AK(name)=akx; AT(name)=(type); AN(name)=atoms; AR(name)=(RANKT)(rank);     \
+  /*if((type)&SPARSE)SEGFAULT scaf*/ shapecopier(name,type,atoms,rank,shaape)   \
+  if(!((type)&DIRECT))memset((C*)name+akx,C0,bytes-akx);  \
+  else if((type)&LAST0){((I*)((C*)name+((bytes-SZI)&(-SZI))))[0]=(I)0x5285d9a62c08a4f9 /* scaf */; }     \
  }else{erraction;} \
 }
 
 // see warnings above under GATVS
-#define  GATV(name,type,atoms,rank,shaape) GATVS(name,type,atoms,rank,shaape,type##SIZE,GACOPYSHAPE,R 0)
-#define  GATV1(name,type,atoms,rank,shaape) GATVS(name,type,atoms,rank,shaape,type##SIZE,GACOPY1,R 0)  // this version copies 1 to the entire shape
+#define GATV(name,type,atoms,rank,shaape) GATVS(name,type,atoms,rank,shaape,type##SIZE,GACOPYSHAPE,R 0)
+#define GATVR(name,type,atoms,rank,shaape) GATVS(name,type,atoms,rank,shaape,type##SIZE,GACOPYSHAPER,R 0)
+#define GATV1(name,type,atoms,rank,shaape) GATVS(name,type,atoms,rank,shaape,type##SIZE,GACOPY1,R 0)  // this version copies 1 to the entire shape
+#define GATV0(name,type,atoms,rank) GATVS(name,type,atoms,rank,0,type##SIZE,GACOPYSHAPE0,R 0)  // shape not written unless rank==1
 // use this version when you are allocating a sparse matrix.  It handles the AS[0] field correctly
 #define GASPARSE(n,t,a,r,s) {/*if(!(t&SPARSE))SEGFAULT  scaf*/ if((r)==1){GA(n,/* obsolete XZ|*/(t),a,1,0); if(s)AS(n)[0]=(s)[0];}else{GA(n,/* obsolete XZ|*/(t),a,r,s)}}
 
@@ -483,11 +536,30 @@ extern unsigned int __cdecl _clearfp (void);
 #define IC(w)           (AR(w) ? *AS(w) : 1L)
 #define ICMP(z,w,n)     memcmp((z),(w),(n)*SZI)
 #define ICPY(z,w,n)     memcpy((z),(w),(n)*SZI)
+#if C_AVX&&SY_64
+// Name comparison using wide instructions.   Run stmt if the names match
+#define IFCMPNAME(name,string,len,stmt) \
+ if((name)->m==(len)){ \
+  __m256i readmask=_mm256_loadu_si256((__m256i*)(jt->validitymask+(((-len)>>LGSZI)&(NPAR-1)))); /* the words we read */ \
+  __m256i endmask=_mm256_loadu_si256((__m256i*)((C*)jt->validitymask+((-(len))&((NPAR*SZI)-1))));  /* the valid bytes */\
+  __m256d accumdiff=_mm256_xor_pd(_mm256_castsi256_pd(readmask),_mm256_castsi256_pd(readmask)); /* will hold total xor result */ \
+  D *in0=(D*)((name)->s), *in1=(D*)(string); \
+  DQ(((len)-1)>>(LGNPAR+LGSZI), \
+    accumdiff=_mm256_or_pd(_mm256_xor_pd(_mm256_loadu_pd(in0),_mm256_loadu_pd(in1)),accumdiff); \
+    in0+=NPAR; in1+=NPAR; \
+  ) \
+  accumdiff=_mm256_or_pd(_mm256_and_pd(_mm256_castsi256_pd(endmask),_mm256_xor_pd(_mm256_maskload_pd(in0,readmask),_mm256_maskload_pd(in1,readmask))),accumdiff); \
+  if(_mm256_testz_si256(_mm256_castpd_si256(accumdiff),_mm256_castpd_si256(accumdiff)))stmt \
+ }
+#else
+#define IFCMPNAME(name,string,len,stmt) if((name)->m==(len) && !memcmp((name)->s,string,len))stmt
+#endif
+
 // Mark a block as incorporated by removing its inplaceability.  The blocks that are tested for incorporation are ones that are allocated by partitioning, and they will always start out as inplaceable
 // If a block is virtual, it must be realized before it can be incorporated.  realized blocks always start off inplaceable
 // z is an lvalue
 // Use INCORPNA if you need to tell the caller that the block e sent you has been incorporated.  If you created the block being incorporated,
-// even by calling a function that returns it, you can get by using rifv() or rifvs().  This may leave an incorporated block marked inplaceable,
+// even by calling a function that returns it, you can be OK just using rifv() or rifvs().  This may leave an incorporated block marked inplaceable,
 // but that's OK as long as you don't pass it to some place where it can become an argument to another function
 #define INCORP(z)       {if(AFLAG(z)&AFVIRTUAL)RZ((z)=realize(z)); ACIPNO(z); }
 // same, but for nonassignable argument
@@ -531,7 +603,7 @@ extern unsigned int __cdecl _clearfp (void);
 // obsolete #define MCISHd(dest,src,n) {I * RESTRICT _s=(src); I _n=~(n); while((_n-=(_n>>(BW-1)))<0)*dest++=*_s++;}  // ... this version when d increments through the loop
 // obsolete #define MCISHs(dest,src,n) {I * RESTRICT _d=(dest); I _n=~(n); while((_n-=(_n>>(BW-1)))<0)*_d++=*src++;}  // ... this when s increments through the loop
 // obsolete #define MCISHds(dest,src,n) {I _n=~(n); while((_n-=(_n>>(BW-1)))<0)*dest++=*src++;}  // ...this when both
-#define MCISH(dest,src,n) {I *_d=(I*)(dest); I *_s=(I*)(src); I _n=(n); _d=_n>0?_d:jt->shapesink; _s=_n>0?_s:jt->shapesink; *_d=*_s; --_n; do{ _d=_n>0?_d:jt->shapesink; _s=_n>0?_s:jt->shapesink; *++_d=*++_s;}while(--_n>0);}  // use for copies of shape, optimized for no branch when n<3.
+#define MCISH(dest,src,n) {I *_d=(I*)(dest); I *_s=(I*)(src); I _n=1-(n); _d=_n>0?jt->shapesink:_d; _s=_n>0?_d:_s; *_d=*_s; do{_s+=(UI)_n>>(BW-1); _d+=(UI)_n>>(BW-1); *_d=*_s;}while(++_n<0);}  // use for copies of shape, optimized for no branch when n<3.
 #define MCISHd(dest,src,n) {MCISH(dest,src,n) dest+=(n);}  // ... this version when d increments through the loop
 #define MCISHs(dest,src,n) {MCISH(dest,src,n) src+=(n);}
 #define MCISHds(dest,src,n) {MCISH(dest,src,n) dest+=(n); src+=(n);}
@@ -553,20 +625,21 @@ extern unsigned int __cdecl _clearfp (void);
 #define NANTEST         (_SW_INVALID&_clearfp())
 #endif
 #if C_AVX&&SY_64
-#define NPAR (sizeof(__m256)/sizeof(D)) // number of Ds processed in parallel
+#define NPAR ((I)(sizeof(__m256)/sizeof(D))) // number of Ds processed in parallel
 #define LGNPAR 2  // no good automatic way to do this
-// loop for atomic parallel ops.  // fixed: n is #atoms, x->input, z->result, u=input atom4 and result
+// loop for atomic parallel ops.  // fixed: n is #atoms (never 0), x->input, z->result, u=input atom4 and result
 #define AVXATOMLOOP(preloop,loopbody,postloop) \
  __m256i endmask;  __m256d u; \
  _mm256_zeroupper(VOIDARG); \
  endmask = _mm256_loadu_si256((__m256i*)(jt->validitymask+((-n)&(NPAR-1))));  /* mask for 0 1 2 3 4 5 is xxxx 0001 0011 0111 1111 0001 */ \
  preloop \
- I i=(n-1)>>LGNPAR;  /* # loops for 0 1 2 3 4 5 is x 1 1 1 1 2 */ \
- while(1){ u=i?_mm256_loadu_pd(x):_mm256_maskload_pd(x,endmask); \
+ I i=(n-1)>>LGNPAR;  /* # loops for 0 1 2 3 4 5 is x 0 0 0 0 1 */ \
+ while(--i>=0){ u=_mm256_loadu_pd(x); \
   loopbody \
-  if(--i<0)break; \
   _mm256_storeu_pd(z, u); x+=NPAR; z+=NPAR; \
  } \
+ u=_mm256_maskload_pd(x,endmask); \
+ loopbody \
  _mm256_maskstore_pd(z, endmask, u); \
  postloop
 #endif

@@ -707,7 +707,7 @@ static IOFX(Z,UI4,jtioz02, hic0(2*n,(UIL*)v),    fcmp0((D*)v,(D*)&av[n*hj],2*n),
 //
 // At the end of this calculation il contains the index of a match, or asct if no match.
 #if C_AVX
-#define SETXVAL  xval=_mm_set_pd(*(D*)v,*(D*)v); xnew=_mm_mul_pd(xval,tltr); xrot=_mm_permute_pd(xnew,0x1); xnew=_mm_xor_pd(xnew,xval); xnew=_mm_xor_pd(xnew,xrot); dx=_mm_extract_epi64(_mm_castpd_si128(xnew),0);
+#define SETXVAL  xval=_mm_set1_pd(*(D*)v); xnew=_mm_mul_pd(xval,tltr); xrot=_mm_permute_pd(xnew,0x1); xnew=_mm_xor_pd(xnew,xval); xnew=_mm_xor_pd(xnew,xrot); dx=_mm_extract_epi64(_mm_castpd_si128(xnew),0);
 #elif defined(__aarch64__)
 #define SETXVAL  xval=vdupq_n_f64(*(D*)v); xnew=vmulq_f64(xval,tltr); xrot=vcombine_f64(vget_high_f64(xnew), vget_low_f64(xnew)); xnew=vreinterpretq_f64_u64(veorq_u64(vreinterpretq_u64_f64(xnew),vreinterpretq_u64_f64(xval))); xnew=vreinterpretq_f64_u64(veorq_u64(vreinterpretq_u64_f64(xnew),vreinterpretq_u64_f64(xrot))); dx=vgetq_lane_u64(vreinterpretq_u64_f64(xnew),0);
 #else
@@ -1026,57 +1026,133 @@ static IOFSMALLRANGE(jtio42,I,US)  static IOFSMALLRANGE(jtio44,I,UI4)  // 4-byte
 
 // ******************* fourth class: sequential comparison ***************************************
 
+#define IOSCCASE(bit,multi,mode) ((8*(multi)+(bit))*3+((mode)&3))
+
 // xe is the expression for reading one comparand, exp is the expression for 'no match between x and av[j]')
 // loop through storing the index at which a match was found
-#define SCDO(T,xe,exp)  \
- {T*v0=(T*)v,*wv=(T*)v,x; \
-  switch(mode){                     \
-   case IIDOT: {T*av=(T*)u+asct; DQ(ac, DQ(wsct, x=(xe); j=-asct;   while(j<0 &&(exp))++j; *zv++=j+=asct;       wv+=q;); av+=p; if(1==wc)wv=v0;);} break;  \
-   case IICO:  {T*av=(T*)u; DQ(ac, DQ(wsct, x=(xe); j=asct-1; while(0<=j&&(exp))--j; *zv++=(j=0>j?asct:j); wv+=q;); av+=p; if(1==wc)wv=v0;);} break;  \
-   case IEPS:  {T*av=(T*)u+asct; DQ(ac, DQ(wsct, x=(xe); j=-asct;   while(j<0 &&(exp))++j; *zb++=(UI)j>>(BW-1);     wv+=q;); av+=p; if(1==wc)wv=v0;);} break;  \
- }}
+#define SCDO(bit,T,exp)  \
+   case IOSCCASE(bit,0,IIDOT): {T*v0=(T*)v,*wv=(T*)v,x; T*av=(T*)u+asct; DQ(ac, DQ(wsct, x=*wv; j=-asct;   while(j<0 &&(exp))++j; *(I*)zv=j+=asct; zv=(I*)zv+1;       wv+=q;); av+=p; if(1==wc)wv=v0;);} break;  \
+   case IOSCCASE(bit,0,IICO):  {T*v0=(T*)v,*wv=(T*)v,x; T*av=(T*)u; DQ(ac, DQ(wsct, x=*wv; j=asct-1; while(0<=j&&(exp))--j; *(I*)zv=(j=0>j?asct:j); zv=(I*)zv+1; wv+=q;); av+=p; if(1==wc)wv=v0;);} break;  \
+   case IOSCCASE(bit,0,IEPS):  {T*v0=(T*)v,*wv=(T*)v,x; T*av=(T*)u+asct; DQ(ac, DQ(wsct, x=*wv; j=-asct;   while(j<0 &&(exp))++j; *(C*)zv=(UI)j>>(BW-1); zv=(C*)zv+1;     wv+=q;); av+=p; if(1==wc)wv=v0;);} break;
 
 // same but the cells have n atoms, each of which is compared.  comparands are wv[jj] and avv[jj]
-#define SCDON(T,exp)  \
- {T*v0=(T*)v,*wv=(T*)v; \
-  switch(mode){                     \
-   case IIDOT: {T*av=(T*)u; DQ(ac, DQ(wsct, j=-asct;   T*avv=av; do{I jj=n-1; T* wvv=wv; do{if(exp)break;}while(--jj>=0); if(jj<0)break; avv+=n;}while(++j<0);   *zv++=j+=asct;       wv+=q;); av+=p; if(1==wc)wv=v0;);} break;  \
-   case IICO:  {T*av=(T*)u; DQ(ac, DQ(wsct, j=asct-1;  T*avv=av+asct*n; do{avv-=n; I jj=n-1; T* wvv=wv; do{if(exp)break;}while(--jj>=0); if(jj<0)break;}while(--j>=0);     *zv++=(j=0>j?asct:j); wv+=q;); av+=p; if(1==wc)wv=v0;);} break;  \
-   case IEPS:  {T*av=(T*)u; DQ(ac, DQ(wsct, j=-asct;   T*avv=av; do{I jj=n-1; T* wvv=wv; do{if(exp)break;}while(--jj>=0); if(jj<0)break; avv+=n;}while(++j<0);    *zb++=(UI)j>>(BW-1);     wv+=q;); av+=p; if(1==wc)wv=v0;);} break;  \
- }}
-
+#define SCDON(bit,T,exp)  \
+   case IOSCCASE(bit,1,IIDOT): {T*v0=(T*)v,*wv=(T*)v; T*av=(T*)u; DQ(ac, DQ(wsct, j=-asct;   T*avv=av; do{I jj=n-1; T* wvv=wv; do{if(exp)break;}while(--jj>=0); if(jj<0)break; avv+=n;}while(++j<0);   *(I*)zv=j+=asct; zv=(I*)zv+1;       wv+=q;); av+=p; if(1==wc)wv=v0;);} break;  \
+   case IOSCCASE(bit,1,IICO):  {T*v0=(T*)v,*wv=(T*)v; T*av=(T*)u; DQ(ac, DQ(wsct, j=asct-1;  T*avv=av+asct*n; do{avv-=n; I jj=n-1; T* wvv=wv; do{if(exp)break;}while(--jj>=0); if(jj<0)break;}while(--j>=0);     *(I*)zv=(j=0>j?asct:j); zv=(I*)zv+1; wv+=q;); av+=p; if(1==wc)wv=v0;);} break;  \
+   case IOSCCASE(bit,1,IEPS):  {T*v0=(T*)v,*wv=(T*)v; T*av=(T*)u; DQ(ac, DQ(wsct, j=-asct;   T*avv=av; do{I jj=n-1; T* wvv=wv; do{if(exp)break;}while(--jj>=0); if(jj<0)break; avv+=n;}while(++j<0);    *(C*)zv=(UI)j>>(BW-1); zv=(C*)zv+1;     wv+=q;); av+=p; if(1==wc)wv=v0;);} break;
 
 // ac is # outer cells of a, asct=#items in 1 inner cell, wc is #outer search cells, wsct is #items to search for per outer cell
 // n is #atoms in a cell
-static void jtiosc(J jt,I mode,I n,I asct,I wsct,I ac,I wc,A a,A w,A z){B*zb;I j,p,q,*u,*v,zn,*zv;
- p=1<ac?asct:0; q=1<wc||1<wsct; p*=n; q*=n;  // number of atoms to move between repeats
- mode&=IIOPMSK;
- zn=AN(z); 
- zv=AV(z); zb=(B*)zv; u=AV(a); v=AV(w); 
- switch(((n>1)?XDX:0)+CTTZ(AT(a))){
-  case B01X: case LITX:                SCDO(C, *wv,x!=av[j]      ); break;
-  case C2TX:               SCDO(S, *wv,x!=av[j]      ); break;
-  case C4TX:               SCDO(C4,*wv,x!=av[j]      ); break;
-  case CMPXX:              SCDO(Z, *wv,!zeq(x, av[j])); break;
-  case XNUMX:              SCDO(A, *wv,!equ(x, av[j])); break;
-  case RATX:               SCDO(Q, *wv,!QEQ(x, av[j])); break;
-  case INTX:               SCDO(I, *wv,x!=av[j]      ); break;
-  case SBTX:               SCDO(SB,*wv,x!=av[j]      ); break;
-  case BOXX:               SCDO(A, *wv,!equ(x,av[j])); break;
-  case FLX:   if(1.0==jt->cct)SCDO(D, *wv,x!=av[j]) 
-             else{D cct=jt->cct;    SCDO(D, *wv,!TCMPEQ(cct,x,av[j]));} break; 
-  case XDX+B01X: case XDX+LITX: SCDON(C,wvv[jj]!=avv[jj]      ); break;
-  case XDX+C2TX:               SCDON(S, wvv[jj]!=avv[jj]      ); break;
-  case XDX+C4TX:               SCDON(C4,wvv[jj]!=avv[jj]      ); break;
-  case XDX+CMPXX:              SCDON(Z, !zeq(wvv[jj], avv[jj])); break;
-  case XDX+XNUMX:              SCDON(A, !equ(wvv[jj], avv[jj])); break;
-  case XDX+RATX:               SCDON(Q, !QEQ(wvv[jj], avv[jj])); break;
-  case XDX+INTX:               SCDON(I, wvv[jj]!=avv[jj]      ); break;
-  case XDX+SBTX:               SCDON(SB,wvv[jj]!=avv[jj]      ); break;
-  case XDX+BOXX:               SCDON(A, !equ(wvv[jj],avv[jj])); break;
-  case XDX+FLX:   if(1.0==jt->cct)SCDON(D, wvv[jj]!=avv[jj]) 
-             else{D cct=jt->cct;    SCDON(D, !TCMPEQ(cct,wvv[jj],avv[jj]));} break; 
-  default:  break;  // scaf should fail
+static void jtiosc(J jt,I mode,I n,I asct,I wsct,I ac,I wc,A a,A w,A z){I j,p,q; void *u,*v,*zv;
+ p=ac>1?asct:0; q=(1-(wc|wsct))>>(BW-1); p*=n; q&=n;  // q=1<wc||1<wsct; number of atoms to move between repeats
+ zv=voidAV(z); u=voidAV(a); v=voidAV(w);
+ // Create a pseudotype 19 (=XDX) for intolerant comparison.  This puns on XDX-FLX==16
+ I bit=CTTZ(AT(a)); bit+=((AT(a)>>FLX)&(jt->cct==1.0))<<4;
+ switch(IOSCCASE(bit,n>1,mode)){
+  SCDO(B01X,C,x!=av[j]      );
+  SCDO(LITX,C,x!=av[j]      );
+  SCDO(C2TX,S,x!=av[j]      );
+  SCDO(C4TX,C4,x!=av[j]      );
+  SCDO(CMPXX,Z,!zeq(x, av[j]));
+  SCDO(XNUMX,A,!equ(x, av[j]));
+  SCDO(RATX,Q,!QEQ(x, av[j]));
+  SCDO(SBTX,SB,x!=av[j]      );
+  SCDO(BOXX,A,!equ(x,av[j]));
+#if C_AVX&&SY_64
+  // The instruction set is too quirky to do this with macros
+   case IOSCCASE(XDX,0,IIDOT): {D *wv=(D*)v; D*av=(D*)u; __m256i endmask = _mm256_loadu_si256((__m256i*)(jt->validitymask+((-asct)&(NPAR-1)))); 
+      DQ(ac, 
+       DQ(wsct, __m256d x=_mm256_set1_pd(*wv); D*avv=av; D*avend=av+((asct-1)&(-(I)NPAR)); int cmps; 
+        while(1){if(avv==avend)break; if(cmps=_mm256_movemask_pd(_mm256_cmp_pd(x,_mm256_loadu_pd(avv),_CMP_EQ_OQ)))goto fnd001; avv+=NPAR;} 
+        cmps=_mm256_movemask_pd(_mm256_and_pd(_mm256_castsi256_pd (endmask),_mm256_cmp_pd(x,_mm256_maskload_pd(avv,endmask),_CMP_EQ_OQ))); 
+fnd001: ; I res=(avv-av)+CTTZ(cmps); res=(cmps==0)?asct:res; *(I*)zv=res; zv=(I*)zv+1;      wv+=q;);
+      av+=p; wv=(1==wc)?(D*)v:wv;);} break; 
+   case IOSCCASE(XDX,0,IICO): {D *wv=(D*)v; D*av=(D*)u; __m256i endmask = _mm256_loadu_si256((__m256i*)(jt->validitymask+((-asct)&(NPAR-1)))); 
+      DQ(ac, 
+       DQ(wsct, __m256d x=_mm256_set1_pd(*wv); D*avend=av; D*avv=av+((asct-1)&(-(I)NPAR)); int cmps;  
+        if(cmps=_mm256_movemask_pd(_mm256_and_pd(_mm256_castsi256_pd (endmask),_mm256_cmp_pd(x,_mm256_maskload_pd(avv,endmask),_CMP_EQ_OQ))))goto fnd002; 
+        while(1){if(avv==avend)break; avv-=NPAR; if(cmps=_mm256_movemask_pd(_mm256_cmp_pd(x,_mm256_loadu_pd(avv),_CMP_EQ_OQ)))goto fnd002;} 
+fnd002: ; unsigned long temp; CTLZI(cmps,temp); I res=(avv-av)+temp; res=(cmps==0)?asct:res; *(I*)zv=res; zv=(I*)zv+1;      wv+=q;);
+      av+=p; wv=(1==wc)?(D*)v:wv;);} break; 
+   case IOSCCASE(XDX,0,IEPS): {D *wv=(D*)v; D*av=(D*)u; __m256i endmask = _mm256_loadu_si256((__m256i*)(jt->validitymask+((-asct)&(NPAR-1)))); 
+      DQ(ac, 
+       DQ(wsct, __m256d x=_mm256_set1_pd(*wv); D*avv=av; D*avend=av+((asct-1)&(-(I)NPAR)); int cmps; 
+        while(1){if(avv==avend)break; if(cmps=_mm256_movemask_pd(_mm256_cmp_pd(x,_mm256_loadu_pd(avv),_CMP_EQ_OQ)))goto fnd003; avv+=NPAR;} 
+        cmps=_mm256_movemask_pd(_mm256_and_pd(_mm256_castsi256_pd (endmask),_mm256_cmp_pd(x,_mm256_maskload_pd(avv,endmask),_CMP_EQ_OQ))); 
+fnd003: *(C*)zv=(UI)(-cmps)>>(BW-1); zv=(C*)zv+1;      wv+=q;); 
+      av+=p; wv=(1==wc)?(D*)v:wv;);} break; 
+
+   case IOSCCASE(FLX,0,IIDOT): {D *wv=(D*)v; D*av=(D*)u; __m256i endmask = _mm256_loadu_si256((__m256i*)(jt->validitymask+((-asct)&(NPAR-1))));
+      __m256d cct=_mm256_set1_pd(jt->cct);
+      DQ(ac, 
+       DQ(wsct, __m256d x=_mm256_set1_pd(*wv); __m256d y; __m256d tolx=_mm256_mul_pd(x,cct); D*avv=av; D*avend=av+((asct-1)&(-(I)NPAR)); int cmps; 
+        while(1){if(avv==avend)break; y=_mm256_loadu_pd(avv); if(cmps=_mm256_movemask_pd(_mm256_xor_pd(_mm256_cmp_pd(x,_mm256_mul_pd(cct,y),_CMP_GT_OQ),_mm256_cmp_pd(tolx,y,_CMP_GE_OQ))))goto fnd021; avv+=NPAR;} 
+        y=_mm256_maskload_pd(avv,endmask); cmps=_mm256_movemask_pd(_mm256_and_pd(_mm256_castsi256_pd (endmask),_mm256_xor_pd(_mm256_cmp_pd(x,_mm256_mul_pd(cct,y),_CMP_GT_OQ),_mm256_cmp_pd(tolx,y,_CMP_GE_OQ)))); 
+fnd021: ; I res=(avv-av)+CTTZ(cmps); res=(cmps==0)?asct:res; *(I*)zv=res; zv=(I*)zv+1;      wv+=q;);
+      av+=p; wv=(1==wc)?(D*)v:wv;);} break; 
+   case IOSCCASE(FLX,0,IICO): {D *wv=(D*)v; D*av=(D*)u; __m256i endmask = _mm256_loadu_si256((__m256i*)(jt->validitymask+((-asct)&(NPAR-1)))); 
+      __m256d cct=_mm256_set1_pd(jt->cct);
+      DQ(ac, 
+       DQ(wsct, __m256d x=_mm256_set1_pd(*wv); __m256d y; __m256d tolx=_mm256_mul_pd(x,cct); D*avend=av; D*avv=av+((asct-1)&(-(I)NPAR)); int cmps;  
+        y=_mm256_maskload_pd(avv,endmask); if(cmps=_mm256_movemask_pd(_mm256_and_pd(_mm256_castsi256_pd (endmask),_mm256_xor_pd(_mm256_cmp_pd(x,_mm256_mul_pd(cct,y),_CMP_GT_OQ),_mm256_cmp_pd(tolx,y,_CMP_GE_OQ)))))goto fnd022; 
+        while(1){if(avv==avend)break; avv-=NPAR; y=_mm256_loadu_pd(avv); if(cmps=_mm256_movemask_pd(_mm256_xor_pd(_mm256_cmp_pd(x,_mm256_mul_pd(cct,y),_CMP_GT_OQ),_mm256_cmp_pd(tolx,y,_CMP_GE_OQ))))goto fnd022;} 
+fnd022: ; unsigned long temp; CTLZI(cmps,temp); I res=(avv-av)+temp; res=(cmps==0)?asct:res; *(I*)zv=res; zv=(I*)zv+1;      wv+=q;);
+      av+=p; wv=(1==wc)?(D*)v:wv;);} break; 
+   case IOSCCASE(FLX,0,IEPS): {D *wv=(D*)v; D*av=(D*)u; __m256i endmask = _mm256_loadu_si256((__m256i*)(jt->validitymask+((-asct)&(NPAR-1)))); 
+      __m256d cct=_mm256_set1_pd(jt->cct);
+      DQ(ac, 
+       DQ(wsct, __m256d x=_mm256_set1_pd(*wv); __m256d y; __m256d tolx=_mm256_mul_pd(x,cct); D*avv=av; D*avend=av+((asct-1)&(-(I)NPAR)); int cmps; 
+        while(1){if(avv==avend)break; y=_mm256_loadu_pd(avv); if(cmps=_mm256_movemask_pd(_mm256_xor_pd(_mm256_cmp_pd(x,_mm256_mul_pd(cct,y),_CMP_GT_OQ),_mm256_cmp_pd(tolx,y,_CMP_GE_OQ))))goto fnd023; avv+=NPAR;} 
+        y=_mm256_maskload_pd(avv,endmask); cmps=_mm256_movemask_pd(_mm256_and_pd(_mm256_castsi256_pd (endmask),_mm256_xor_pd(_mm256_cmp_pd(x,_mm256_mul_pd(cct,y),_CMP_GT_OQ),_mm256_cmp_pd(tolx,y,_CMP_GE_OQ)))); 
+fnd023: *(C*)zv=(UI)(-cmps)>>(BW-1); zv=(C*)zv+1;      wv+=q;); 
+      av+=p; wv=(1==wc)?(D*)v:wv;);} break; 
+#else
+  SCDO(XDX,D,x!=av[j])
+  SCDO(FLX,D,!TCMPEQ(jt->cct,x,av[j]));
+#endif
+
+
+#if C_AVX2&&SY_64
+   case IOSCCASE(INTX,0,IIDOT): {I *wv=(I*)v; I*av=(I*)u; __m256i endmask = _mm256_loadu_si256((__m256i*)(jt->validitymask+((-asct)&(NPAR-1)))); 
+      DQ(ac, 
+       DQ(wsct, __m256i x=_mm256_set1_epi64x(*wv); I*avv=av; I*avend=av+((asct-1)&(-(I)NPAR)); int cmps; 
+        while(1){if(avv==avend)break; if(cmps=_mm256_movemask_pd(_mm256_castsi256_pd(_mm256_cmpeq_epi64(x,_mm256_loadu_si256((__m256i*)avv)))))goto fnd011; avv+=NPAR;} 
+        cmps=_mm256_movemask_pd(_mm256_castsi256_pd(_mm256_and_si256(endmask,_mm256_cmpeq_epi64(x,_mm256_maskload_epi64(avv,endmask))))); 
+fnd011: ; I res=(avv-av)+CTTZ(cmps); res=(cmps==0)?asct:res; *(I*)zv=res; zv=(I*)zv+1;      wv+=q;);
+      av+=p; wv=(1==wc)?(I*)v:wv;);} break; 
+   case IOSCCASE(INTX,0,IICO): {I *wv=(I*)v; I*av=(I*)u; __m256i endmask = _mm256_loadu_si256((__m256i*)(jt->validitymask+((-asct)&(NPAR-1)))); 
+      DQ(ac, 
+       DQ(wsct, __m256i x=_mm256_set1_epi64x(*wv); I*avend=av; I*avv=av+((asct-1)&(-(I)NPAR)); int cmps;  
+        if(cmps=_mm256_movemask_pd(_mm256_castsi256_pd(_mm256_and_si256(endmask,_mm256_cmpeq_epi64(x,_mm256_maskload_epi64(avv,endmask))))))goto fnd012; 
+        while(1){if(avv==avend)break; avv-=NPAR; if(cmps=_mm256_movemask_pd(_mm256_castsi256_pd(_mm256_cmpeq_epi64(x,_mm256_loadu_si256((__m256i*)avv)))))goto fnd012;} 
+fnd012: ; unsigned long temp; CTLZI(cmps,temp); I res=(avv-av)+temp; res=(cmps==0)?asct:res; *(I*)zv=res; zv=(I*)zv+1;      wv+=q;);
+      av+=p; wv=(1==wc)?(I*)v:wv;);} break; 
+   case IOSCCASE(INTX,0,IEPS): {I *wv=(I*)v; I*av=(I*)u; __m256i endmask = _mm256_loadu_si256((__m256i*)(jt->validitymask+((-asct)&(NPAR-1)))); 
+      DQ(ac, 
+       DQ(wsct, __m256i x=_mm256_set1_epi64x(*wv); I*avv=av; I*avend=av+((asct-1)&(-(I)NPAR)); int cmps; 
+        while(1){if(avv==avend)break; if(cmps=_mm256_movemask_pd(_mm256_castsi256_pd(_mm256_cmpeq_epi64(x,_mm256_loadu_si256((__m256i*)avv)))))goto fnd013; avv+=NPAR;} 
+        cmps=_mm256_movemask_pd(_mm256_castsi256_pd(_mm256_and_si256(endmask,_mm256_cmpeq_epi64(x,_mm256_maskload_epi64(avv,endmask))))); 
+fnd013: *(C*)zv=(UI)(-cmps)>>(BW-1); zv=(C*)zv+1;      wv+=q;); 
+      av+=p; wv=(1==wc)?(I*)v:wv;);} break;
+
+#else
+  SCDO(INTX,I,x!=av[j]      );
+#endif
+
+
+  SCDON(B01X,C,wvv[jj]!=avv[jj]      );
+  SCDON(LITX,C,wvv[jj]!=avv[jj]      );
+  SCDON(C2TX,S, wvv[jj]!=avv[jj]      );
+  SCDON(C4TX,C4,wvv[jj]!=avv[jj]      );
+  SCDON(CMPXX,Z, !zeq(wvv[jj], avv[jj]));
+  SCDON(XNUMX,A, !equ(wvv[jj], avv[jj]));
+  SCDON(RATX,Q, !QEQ(wvv[jj], avv[jj]));
+  SCDON(INTX,I, wvv[jj]!=avv[jj]      );
+  SCDON(SBTX,SB,wvv[jj]!=avv[jj]      );
+  SCDON(BOXX,A, !equ(wvv[jj],avv[jj]));
+  SCDON(XDX,D, wvv[jj]!=avv[jj]) ;
+  SCDON(FLX,D, !TCMPEQ(jt->cct,wvv[jj],avv[jj]));
+  default:  jsignal(EVSYSTEM);
  }
 }    /* right argument cell is scalar; only for modes IIDOT IICO IEPS */
 
@@ -1159,7 +1235,7 @@ static A jtnodupgrade(J jt,A a,I acr,I ac,I acn,I ad,I n,I asct,I md,I bk){A*av,
 static IOF(jtiobs){A*av,*wv,y;B *yb,*zb;C*zc;I acn,*hu,*hv,l,m1,md,s,wcn,*zi,*zv;
  md=mode&IIOPMSK;  // just the operation bits
  I bk=1&(((1<<IICO)|(1<<IJ0EPS)|(1<<IJ1EPS))>>md);  // set if the dup-scan is reverse direction
- if(mode==INUB||mode==INUBI){GATV(y,B01,asct,1,0); yb=BAV(y);}
+ if(mode==INUB||mode==INUBI){GATV0(y,B01,asct,1); yb=BAV(y);}
  av=AAV(a);  acn=ak>>LGSZI;
  wv=AAV(w);  wcn=wk>>LGSZI;
  zi=zv=AV(z); zb=(B*)zv; zc=(C*)zv;
@@ -1240,7 +1316,7 @@ static I jtutype(J jt,A w,I c){A*wv,x;I m,t;
   _mm256_zeroupper(VOIDARG);  \
   vp=_mm_set1_epi32_(0);  /* to avoid warnings */ \
   md=mode&IIOPMSK;   /* clear upper flags including REFLEX bit */  \
-  A indtbl; GATV(indtbl,INT,((asct*sizeof(TH)+SZI)>>LGSZI),0,0); TH * RESTRICT indtdd=TH##AV(indtbl); \
+  A indtbl; GATV0(indtbl,INT,((asct*sizeof(TH)+SZI)>>LGSZI),0); TH * RESTRICT indtdd=TH##AV(indtbl); \
   for(l=0;l<ac;++l,av+=acn,wv+=wcn){I chainct=0;  /* number of chains in w */   \
    /* zv progresses through the result - for those versions that support IRS */ \
    hashallo(hh,p,wsct,mode); \
@@ -1334,7 +1410,7 @@ static IOFXW(Z,UI4,jtiowz02, hic0(2*n,(UIL*)v),    fcmp0((D*)v,(D*)&wv[n*hj],2*n
   IH *hh=IHAV(h); I minimum=hh->datamin; p=hh->datarange; I maximum=minimum+p; \
   /* if the hashtable for i./i: exceeds the cache size, allocate a packed-bit version of it. \
   We will compress the hashtable after self-classifying w.  We compare against L2 size; there is value in staying in L1 too */ \
-  UC *hvp; if((p<(L2CACHESIZE>>hh->hashelelgsize))||(mode&(IIOPMSK^(IICO|IIDOT)))){hvp=0;}else{A hvpa; GATV(hvpa,INT,3+(p>>LGBW),0,0); hvp=UCAV(hvpa)-BYTENO(minimum)+SZI;} \
+  UC *hvp; if((p<(L2CACHESIZE>>hh->hashelelgsize))||(mode&(IIOPMSK^(IICO|IIDOT)))){hvp=0;}else{A hvpa; GATV0(hvpa,INT,3+(p>>LGBW),0); hvp=UCAV(hvpa)-BYTENO(minimum)+SZI;} \
   \
   _mm256_zeroupper(VOIDARG);  \
   md=mode&(IIOPMSK|IIMODPACK);   /* clear upper flags including REFLEX bit */  \
@@ -1683,20 +1759,20 @@ A jtindexofsub(J jt,I mode,A a,A w){PROLOG(0079);A h=0,z=mtv;
  switch(mode&(IPHCALC|IIOPMSK)){I q;  // prehash passes through
   case IIDOT: 
   case IICO:    GATV(z,INT,zn,f+f1,     s); if(af)MCISH(f+AS(z),ws+wf,f1); break;
-  case INUBSV:  GATV(z,B01,zn,f+f1+!acr,s); if(af)MCISH(f+AS(z),ws+wf,f1); if(!acr)*(AS(z)+AR(z)-1)=1; break;
-  case INUB:    q=m+1; GA(z,t,mult(q,aii(a)),MAX(1,wr),ws); *AS(z)=q; break;  // +1 because we speculatively overwrite.  Was MIN(m,p) but we don't have the range yet
+  case INUBSV:  GATV(z,B01,zn,f+f1+!acr,s); if(af)MCISH(f+AS(z),ws+wf,f1); if(!acr)AS(z)[AR(z)-1]=1; break;
+  case INUB:    q=m+1; GA(z,t,mult(q,aii(a)),MAX(1,wr),ws); AS(z)[0]=q; break;  // +1 because we speculatively overwrite.  Was MIN(m,p) but we don't have the range yet
   case ILESS:   GA(z,t,AN(w),MAX(1,wr),ws); break;
   case IEPS:    GATV(z,B01,zn,f+f1,     s); if(af)MCISH(f+AS(z),ws+wf,f1); break;
-  case INUBI:   q=m+1; GATV(z,INT,q,1,0); break;  // +1 because we speculatively overwrite  Was MIN(m,p) but we don't have the range yet
+  case INUBI:   q=m+1; GATV0(z,INT,q,1); break;  // +1 because we speculatively overwrite  Was MIN(m,p) but we don't have the range yet
   // (e. i. 0:) and friends don't do anything useful if e. produces rank > 1.  The search for 0/1 always fails
   case II0EPS: case II1EPS: case IJ0EPS: case IJ1EPS:
-                if(wr>MAX(ar,1))R sc(wr>r?ws[0]:1); GAT(z,INT,1,0,0); break;
+                if(wr>MAX(ar,1))R sc(wr>r?ws[0]:1); GAT0(z,INT,1,0); break;
   // ([: I. e.) ([: +/ e.) ([: +./ e.) ([: *./ e.) come here only if e. produces rank 0 or 1.
-  case IIFBEPS: /* obsolete ASSERT(wr<=MAX(ar,1),EVNONCE); */GATV(z,INT,c+1,1,0); break;  // +1 because we speculatively overwrite
+  case IIFBEPS: /* obsolete ASSERT(wr<=MAX(ar,1),EVNONCE); */GATV0(z,INT,c+1,1); break;  // +1 because we speculatively overwrite
   case IANYEPS: case IALLEPS:
-                /* obsolete ASSERT(wr<=MAX(ar,1),EVNONCE); */GAT(z,B01,1,0,0); break;
+                /* obsolete ASSERT(wr<=MAX(ar,1),EVNONCE); */GAT0(z,B01,1,0); break;
   case ISUMEPS:
-                /* obsolete ASSERT(wr<=MAX(ar,1),EVNONCE); */GAT(z,INT,1,0,0); break;
+                /* obsolete ASSERT(wr<=MAX(ar,1),EVNONCE); */GAT0(z,INT,1,0); break;
  }
 
  // Create result for empty/inhomogeneous arguments
@@ -1869,7 +1945,7 @@ A jtindexofsub(J jt,I mode,A a,A w){PROLOG(0079);A h=0,z=mtv;
     mode |= IIMODFORCE0;
 #endif
     if((mode&IPHCALC)||!(h=jt->idothash0)){
-     GATV(h,INT,((SMALLHASHMAX*sizeof(US)+SZI+(SZI-1))>>LGSZI),0,0);  // size too big for GAT
+     GATV0(h,INT,((SMALLHASHMAX*sizeof(US)+SZI+(SZI-1))>>LGSZI),0);  // size too big for GAT
      // Fill in the header
      hh=IHAV(h);  // point to the header
      hh->datasize=allosize(h)-sizeof(IH);  // number of bytes in data area
@@ -1896,7 +1972,7 @@ A jtindexofsub(J jt,I mode,A a,A w){PROLOG(0079);A h=0,z=mtv;
      // if we have to reallocate, free the old one
      if(!(mode&IPHCALC)&&h){fr(h); jt->idothash1=0;}  // free old, and clear pointer in case of allo error
      // allocate the new one and fill it in
-     GATV(h,INT,(psizeinbytes+sizeof(IH)+(SZI-1))>>LGSZI,0,0);
+     GATV0(h,INT,(psizeinbytes+sizeof(IH)+(SZI-1))>>LGSZI,0);
      // Fill in the header
      hh=IHAV(h);  // point to the header
      hh->datasize=allosize(h)-sizeof(IH);  // number of bytes in data area
@@ -1919,8 +1995,8 @@ A jtindexofsub(J jt,I mode,A a,A w){PROLOG(0079);A h=0,z=mtv;
    // If w was omitted (indicating prehashing), return the information for that special case
    // result is an array of 3 boxes, containing (info vector),(hashtable),(mask of hashed bytes if applicable)
    // The caller must ras() this result to protect it, if it is going to be saved
-   GAT(z,BOX,2,1,0); zv=AAV(z);
-   GAT(x,INT,6,1,0); xv=AV(x);
+   GAT0(z,BOX,2,1); zv=AAV(z);
+   GAT0(x,INT,6,1); xv=AV(x);
    xv[0]=mode; xv[1]=n; xv[2]=k; /* noavx xv[3]=jt->min; */ xv[4]=(I)fntbl[fnx]; /* xv[5]=ztypefromitype[mode&IIOPMSK]; */
    zv[0]=x; zv[1]=rifvs(h);
   }
@@ -1954,9 +2030,9 @@ A jtindexofprehashed(J jt,A a,A w,A hs){A h,*hv,x,z;AF fn;I ar,*as,at,c,f1,k,m,m
   default: GATV(z,INT,c,    f1, ws); break;
   case IIFBEPS: ASSERT(wr<=MAX(ar,1),EVNONCE); GATV(z,INT,c,    f1, ws); break;
   case IEPS: GATV(z,B01,c,    f1, ws); break;
-  case IANYEPS: case IALLEPS: ASSERT(wr<=MAX(ar,1),EVNONCE); GAT(z,B01,1,    0,  0 ); break;
-  case II0EPS:  case II1EPS: case IJ0EPS:  case IJ1EPS: if(wr>MAX(ar,1))R sc(wr>r?ws[0]:1); GAT(z,INT,1,    0,  0 ); break;
-  case ISUMEPS: ASSERT(wr<=MAX(ar,1),EVNONCE); GAT(z,INT,1,    0,  0 ); break;
+  case IANYEPS: case IALLEPS: ASSERT(wr<=MAX(ar,1),EVNONCE); GAT0(z,B01,1,    0); break;
+  case II0EPS:  case II1EPS: case IJ0EPS:  case IJ1EPS: if(wr>MAX(ar,1))R sc(wr>r?ws[0]:1); GAT0(z,INT,1,    0); break;
+  case ISUMEPS: ASSERT(wr<=MAX(ar,1),EVNONCE); GAT0(z,INT,1,    0); break;
  }
  // save info used by the routines
  // noavx jt->hin=AN(hi); jt->hiv=AV(hi);
@@ -2125,7 +2201,7 @@ A jtiocol(J jt,I mode,A a,A w){A h,z;I ar,at,c,d,m,p,t,wr,*ws,wt;void(*fn)();
  if(TYPESNE(t,wt))RZ(w=cvt(t,w));
  // allocate hash table and result
  FULLHASHSIZE(m+m,INTSIZE,1,0,p);
- GATV(h,INT,p,1,0);
+ GATV0(h,INT,p,1);
  GATV(z,INT,AN(w),wr,ws);
  // call routine based on types.  Only float and CMPX are supported
  switch(CTTZ(t)){

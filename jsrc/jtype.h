@@ -44,6 +44,7 @@ typedef unsigned int       UINT;
 typedef int                I4;
 typedef unsigned int       UI4;
 typedef double             D;
+typedef float              DS;
 typedef FILE*              F;
 
 typedef long double        LD;
@@ -250,7 +251,7 @@ typedef I SI;
 #define C4T             ((I)1L<<C4TX)         /* C4 unicode (4-byte characters)  */
 #define C4TSIZE sizeof(C4)
 #define XDX 19
-#define XD              ((I)1L<<XDX)   /* DX extended floating point      */
+#define XD              ((I)1L<<XDX)   // DX extended floating point   used to represent intolerant compare in jtiosc
 #define XDSIZE sizeof(DX)
 #define XZX 20
 #define XZ              ((I)1L<<XZX)   /* ZX extended complex             */
@@ -276,7 +277,7 @@ typedef I SI;
 #define LPARSIZE sizeof(I)
 #define VERBX 27
 #define VERB            ((I)1L<<VERBX)      /* V  verb                         */
-#define VERBSIZE sizeof(V)
+#define VERBSIZE sizeof(V)  // Note: size of ACV in bp() is INTSIZE because the allocation in fdef() is of INTs
 #define ADVX 28
 #define ADV             ((I)1L<<ADVX)      /* V  adverb                       */
 #define ADVSIZE sizeof(V)
@@ -411,6 +412,9 @@ typedef I SI;
 #define AFAUDITUCX      32   // this & above is used for auditing the stack (you must run stack audits on a 64-bit system)
 #define AFAUDITUC       ((I)1<<AFAUDITUCX)    // this field is used for auditing the tstack, holds the number of deletes implied on the stack for the block
 
+// Flags in the AR field of local symbol tables
+#define LSYMINUSE 1  // This bit is set in the rank of the original symbol table when it is in use
+#define LNAMEADDED LPERMANENT  // Set in rank when a new name is added to the local symbol table.  We transfer the bit from the L flags to the rank-flag
 
 
 typedef struct {I i;US n,go,source;C type;C canend;} CW;
@@ -474,9 +478,10 @@ typedef struct {I e,p;X x;} DX;
 typedef struct {A name,val;US flag;S sn;LX next;} L;
 
 /* symbol pool entry                           LINFO entry                 */
+//---------------------------------------------------------------------------
 /* name - name on LHS of assignment         or locale name                 */
 /* val  - value                             or locale search path          */
-/* flag - various flags                                                    */
+// flag - various flags                        locale flags
 /* sn   - script index                                                     */
 /* next - index of successor   in hash list or 0                           */
 
@@ -486,7 +491,8 @@ typedef struct {A name,val;US flag;S sn;LX next;} L;
 #define LPERMANENT      (I)8            // This is a permanent entry in a local symbol table; don't delete, just leave val=0
 #define LHASNAME        (I)16      // name is nonnull
 #define LHASVALUE       (I)32     // value is nonnull
-
+// in LINFO entry
+#define LMOD            (I)1          // table has had new entries added (used for local symbol tables only)
 
 
 // Definition of callstack
@@ -504,7 +510,7 @@ typedef struct {
 // Add an entry to the call stack, and increment the index variable
 #define pushcallstack(i,t,v) (jt->callstack[i].type=(t), jt->callstack[i].value=(v), ++i)
 #define pushcallstack1(t,v) {ASSERT(jt->callstacknext<jt->fcalln,EVSTACK);  pushcallstack(jt->callstacknext,(t),(v));}
-#define pushcallstack1d(t,v) {ASSERT(jt->callstacknext<jt->fcalln,(FDEPDEC(d),EVSTACK));  pushcallstack(jt->callstacknext,(t),(v));}
+#define pushcallstack1d(t,v) {FDEPDEC(d); ASSERT(jt->callstacknext<jt->fcalln,EVSTACK);  pushcallstack(jt->callstacknext,(t),(v));}
 
 
 typedef struct{UI4 hash;I4 bucket;I bucketx;UC m;C flag,s[1];} NM;
@@ -619,7 +625,7 @@ typedef struct{
 
 
 
-typedef struct {union { D lD; void *lvp;} localuse;AF valencefns[2];A fgh[3];I4 flag;UI4 fdep; UI4 flag2; RANKT mr,lr,rr; C id; C lc;} V;
+typedef struct {union { D lD; void *lvp; I lI;} localuse;AF valencefns[2];A fgh[3];I4 flag;UI4 fdep; UI4 flag2; RANKT mr,lr,rr; C id; C lc;} V;
 // the localuse field is not freed or counted for space, as the f/g/h fields are.  It is for local optimizations only.  We put if first so that the rest of
 // the block, which is used more, is in a single cacheline.  Local uses are:
 // for ATOMIC2 ops, pointer to the adocv block

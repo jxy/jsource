@@ -107,7 +107,7 @@ I Wi,Wj;A Wx; if(jt->peekdata){for(Wi=PMINL;Wi<=PLIML;++Wi){Wj=0; Wx=(jt->mfree[
 
 F1(jtspcount){A z;I c=0,i,j,*v;A x;
  ASSERTMTV(w);
- GATV(z,INT,2*(-PMINL+PLIML+1),2,0); v=AV(z);
+ GATV0(z,INT,2*(-PMINL+PLIML+1),2); v=AV(z);
  for(i=PMINL;i<=PLIML;++i){j=0; x=(jt->mfree[-PMINL+i].pool); while(x){x=AFCHAIN(x); ++j;} if(j){++c; *v++=(I)1<<i; *v++=j;}}
  v=AS(z); v[0]=c; v[1]=2; AN(z)=2*c;
  RETF(z);
@@ -249,7 +249,7 @@ F1(jtspforloc){A*wv,x,y,z;C*s;D*v,*zv;I i,j,m,n;L*u;LX *yv,c;
   ASSERT(y,EVLOCALE);
   *v=(D)(FHRHSIZE(AFHRH(y)));  // start with the size of the locale block (always a normal block)
   spfor1(LOCPATH(y)); spfor1(LOCNAME(y));  // add in the size of the path and name
-  m=AN(y); yv=LXAV(y); 
+  m=AN(y); yv=LXAV0(y); 
   for(j=SYMLINFOSIZE;j<m;++j){  // for each name in the locale
    c=yv[j];
    while(c){*v+=sizeof(L); u=c+jt->sympv; spfor1(u->name); spfor1(u->val); c=u->next;}  // add in the size of the name itself and the value, and the L block for the name
@@ -336,7 +336,7 @@ static void auditsimdelete(A w){I delct;
   // handle nonrecursive children.  All recursible types will be recursive
   if(AFLAG(w)&AFVIRTUAL && (AT(wb)^AFLAG(wb))&RECURSIBLE)SEGFAULT
   auditsimdelete(wb);  // delete backer of virtual block, recursibly
-  if(AT(wb)&(RAT|XNUM)) {A* v=AAV(wb);  DO(AT(wb)&RAT?2*AN(wb):AN(wb), if(*v)auditsimdelete(*v); ++v;)}  // finish fa() if nonrecursive
+// obsolete   if(AT(wb)&(RAT|XNUM)) {A* v=AAV(wb);  DO(AT(wb)&RAT?2*AN(wb):AN(wb), if(*v)auditsimdelete(*v); ++v;)}  // finish fa() if nonrecursive
  }
  if(delct==ACUC(w)&&(UCISRECUR(w))){  // we deleted down to 0.  process children
   if(AT(w)&BOX){
@@ -381,7 +381,7 @@ static void auditsimreset(A w){I delct;
 // Register the value to insert into leak-sniff records
 void jtsetleakcode(J jt, I code) {
 #if LEAKSNIFF
- if(!leakblock)GAT(leakblock,INT,10000,1,0); ras(leakblock);
+ if(!leakblock)GAT0(leakblock,INT,10000,1); ras(leakblock);
  leakcode = code;
 #endif
 }
@@ -446,7 +446,7 @@ void audittstack(J jt){
 }
 
 // Free all symbols pointed to by the SYMB block w.
-static void freesymb(J jt, A w){I j,wn=AN(w); LX k,kt,* RESTRICT wv=LXAV(w);
+static void freesymb(J jt, A w){I j,wn=AN(w); LX k,kt,* RESTRICT wv=LXAV0(w);
  L *jtsympv=jt->sympv;  // Move base of symbol block to a register.  Block 0 is the base of the free chain.  MUST NOT move the base of the free queue to a register,
   // because when we free a locale it frees its symbols here, and one of them might be a verb that contains a nested SYMB, giving recursion.  It is safe to move sympv to a register because
   // we know there will be no allocations during the free process.
@@ -960,7 +960,7 @@ RESTRICTF A jtga(J jt,I type,I atoms,I rank,I* shaape){A z;
   AK(z)=akx; AT(z)=type; AN(z)=atoms;   // Fill in AK, AT, AN
   // Set rank, and shape if user gives it.  This might leave the shape unset, but that's OK
   AR(z)=(RANKT)rank;   // Storing the extra last I (as was done originally) might wipe out rank, so defer storing rank till here
-  GACOPYSHAPE(z,type,atoms,rank,shaape)  /* 1==atoms always if t&SPARSE  */  // copy shape by hand since short
+  GACOPYSHAPEG(z,type,atoms,rank,shaape)  /* 1==atoms always if t&SPARSE  */  // copy shape by hand since short
   // because COPYSHAPE will always write one shape value, we have to delay the memset to handle the case of rank 0 with atoms (used internally only)
   if(!(type&DIRECT))memset((C*)z+akx,C0,bytes-akx);  // For indirect types, zero the data area.  Needed in case an indirect array has an error before it is valid
     // All non-DIRECT types have items that are multiples of I, so no need to round the length
@@ -1104,11 +1104,12 @@ B jtspc(J jt){A z; RZ(z=MALLOC(1000)); FREECHK(z); R 1; }
 A jtext(J jt,B b,A w){A z;I c,k,m,m1,t;
  RZ(w);                               /* assume AR(w)&&AN(w)    */
  m=*AS(w); PROD(c,AR(w)-1,AS(w)+1); t=AT(w); k=c*bp(t);
- GA(z,t,2*AN(w)+(AN(w)?0:c),AR(w),AS(w));  // ensure we allocate SOMETHING to make progress
+ GA(z,t,2*AN(w)+(AN(w)?0:c),AR(w),0);  // ensure we allocate SOMETHING to make progress
  m1=allosize(z)/k;  // start this divide before the copy
  MC(AV(z),AV(w),AN(w)*bp(t));                 /* copy old contents      */
+ MCISH(&AS(z)[1],&AS(w)[1],AR(w)-1);
  if(b){RZ(ras(z)); fa(w);}                 /* 1=b iff w is permanent.  This frees up the old space */
- *AS(z)=m1; AN(z)=m1*c;       /* "optimal" use of space */
+ AS(z)[0]=m1; AN(z)=m1*c;       /* "optimal" use of space */
  if(!(t&DIRECT))memset(CAV(z)+m*k,C0,k*(m1-m));  // if non-DIRECT type, zero out new values to make them NULL
  R z;
 }
