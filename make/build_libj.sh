@@ -39,7 +39,7 @@ OBJS_FMA=" blis/gemm_int-fma.o "
 TARGET=libj.so
 COMPILE="$common -DC_AVX=1 -flto "
 LINK=" $LDFLAGS $COMPILE -shared -Wl,-soname,libj.so -lm -ldl $LDOPENMP -o libj.so "
-if [ "x$javx2" = x'1' ] ; then
+if [ "x$javx2" != x'1' ] ; then
 CFLAGS_SIMD=" -mavx "
 else
 CFLAGS_SIMD=" -DC_AVX2=1 -mavx2 "
