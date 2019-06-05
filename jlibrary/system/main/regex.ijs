@@ -56,7 +56,7 @@ m 13!:8[12
 NB. =========================================================
 regerrormsg=: 3 : 0
 'msg off'=. 2 {. y,_1
-m=. ({.~ i.&(0{a.)) 2 pick jpcre2_get_error_message msg;(256#' ');256
+m=. (0 >. >{.rc) {. 2{::rc=. jpcre2_get_error_message msg;(256#' ');256
 if. off >: 0 do.
   m=. m,' at offset ',(":off),LF
   m=. m,lastpattern,LF,(off#' '),'^',LF
@@ -182,7 +182,7 @@ case. 'Win' do. t=. 'jpcre2.dll'
 case. 'Darwin' do. t=. 'libjpcre2.dylib'
 case. 'Linux' do. t=. 'libjpcre2.so'
 case. 'Android' do. t=. 'libjpcre2.so'
-case. 'FreeBSD' do. t=. 'libpcre2-8.so.0'
+case. 'FreeBSD' do. t=. 'libpcre2-posix.so'
 end.
 
 f=. BINPATH,'/',t
