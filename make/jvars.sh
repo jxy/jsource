@@ -15,6 +15,7 @@ if [ $jplatform = "darwin" ] ; then jsuffix=dylib ; fi
 
 CC=clang80 # compiler
 LDFLAGS='-fuse-ld=lld80 -L/usr/local/lib'
+USE_LINENOISE=0
 make=gmake
 
 # should not be necessary to edit after here
