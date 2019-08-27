@@ -303,6 +303,8 @@ void cpuInit(void)
 #elif defined(__MACH__)
 // TODO
   AVX=1;
+#elif defined(__FreeBSD__)
+  AVX=1;
 #else
   struct utsname unm;
   if (!uname(&unm) &&
