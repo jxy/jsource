@@ -86,7 +86,7 @@
 #define ZZSTARTATEND 0  // user defines as 1 to build result starting at the end
 #endif
 #ifndef ZZPOPNEVER
- I zzold;  // place to tpop to between executions
+ A *zzold;  // place to tpop to between executions
 #define ZZPOPNEVER 0  // user defines as 1 to force us to NEVER tpop in the loop
 #endif
 #undef ZZDECL
@@ -141,7 +141,7 @@ do{
        // XNUM (pop not OK), then to FL (pop OK again).  It's not vital to be perfect, but then again it's cheap to be
        ZZFLAGWORD&=~ZZFLAGNOPOP; ZZFLAGWORD|=((((zt&DIRECT)==0)|(ZZFLAGWORD>>ZZFLAGBOXALLOX))&1)<<ZZFLAGNOPOPX;
        // NOTE that if we are converting to an indirect type, the converted block might NOT be recursive
-       zzold=jt->tnextpushx;  // reset the pop-back point so we don't free zz during a pop.  Could gc if needed
+       zzold=jt->tnextpushp;  // reset the pop-back point so we don't free zz during a pop.  Could gc if needed
 #endif
       }
      }else{
@@ -160,17 +160,18 @@ do{
       // actually have to touch them.  This is a transfer of ownership, and would fail if the new block is not inplaceable: for example, if the block is in a name, with
       // no frees on the tstack, it could have usecount of 1.  Transferring ownership would then leave the block in the name without an owner, and when zz is deleted the
       // name would be corrupted
-// obsolete      if(ACIPISOK(z)&&AFLAG(z)&RECURSIBLE){
       if((AC(z)&(-(AFLAG(z)&RECURSIBLE)))<0){  // if z has AC <0 (inplaceable) and is recursive
        AFLAG(z)&=~RECURSIBLE;  // mark as nonrecursive, transferring ownership to the new block
-       if(!(zzcelllen&~(MEMCPYTUNELOOP-SZI))){MCISU(CAV(zz)+zzcellp,AV(z),zzcelllen>>LGSZI)}else{MC(CAV(zz)+zzcellp,AV(z),zzcelllen);}  // move the result-cell to the output
+       if(zzcelllen<MEMCPYTUNELOOP){I * RESTRICT d=(I*)(CAV(zz)+zzcellp); I * RESTRICT s=IAV(z); I n=zzcelllen; while((n-=SZI)>=0){*d++=*s++;} if(n&(SZI-1))STOREBYTES(d,*s,-n);}else{MC(CAV(zz)+zzcellp,AV(z),zzcelllen);}
+        // move the result-cell to the output.  Must not write outside cell boundaries in case we are going backwards.  Use test on STOREBYTES because this is repeated
       }else{
        // copy and raise the elements (normal path).  We copy the references as A types, since there may be 1 or 2 per atom of z
        // because these are cells of an ordinary array (i. e. not WILLBEOPENED) the elements cannot be virtual
        A *zzbase=(A*)(CAV(zz)+zzcellp), *zbase=AAV(z); DOU(zzcelllen>>LGSZI, A zblk=zbase[i]; ra(zblk); zzbase[i]=zblk;)
       }
      }else{  // not recursible
-      if(!(zzcelllen&~(MEMCPYTUNELOOP-SZI))){MCISU(CAV(zz)+zzcellp,AV(z),zzcelllen>>LGSZI)}else{MC(CAV(zz)+zzcellp,AV(z),zzcelllen);}  // move the result-cell to the output
+       if(zzcelllen<MEMCPYTUNELOOP){I * RESTRICT d=(I*)(CAV(zz)+zzcellp); I * RESTRICT s=IAV(z); I n=zzcelllen; while((n-=SZI)>=0){*d++=*s++;} if(n&(SZI-1))STOREBYTES(d,*s,-n);}else{MC(CAV(zz)+zzcellp,AV(z),zzcelllen);}
+        // move the result-cell to the output.  Must not write outside cell boundaries in case we are going backwards
      }
 #if !ZZSTARTATEND
      zzcellp+=zzcelllen;  // advance to next cell
@@ -196,11 +197,11 @@ do{
        if(zr>=AN(zzcellshape)){GATV0(zzcellshape,INT,zr+3,0);}   // If old cell not big enough to hold new, reallocate with a little headroom.  >= to leave 1 extra for later
        AR(zzcellshape)=(RANKT)zr;   // set the new result-cell rank
        I *zcsnew=AS(zzcellshape)+zr;  // pointer to end+1 of new cell size
-       DO(zcsr, *--zcsnew=*--zcsold;) DO(zr-zcsr, *--zcsnew=1;)   // move the old axes, followed by 1s for extra axes
+       DQ(zcsr, *--zcsnew=*--zcsold;) DQ(zr-zcsr, *--zcsnew=1;)   // move the old axes, followed by 1s for extra axes
        zcsr=zr;  // now the stored cell has a new rank
       }
       // compare the old against the new, taking the max.  extend new with 1s if short
-      I *zcs=AS(zzcellshape); I zcs0; I zs0; DO(zcsr-zr, zcs0=*zcs; zcs0=(zcs0==0)?1:zcs0; *zcs++=zcs0;)  DO(zr, zcs0=*zcs; zs0=*zs++; zcs0=(zs0>zcs0)?zs0:zcs0; *zcs++=zcs0;)
+      I *zcs=AS(zzcellshape); I zcs0; I zs0; DQ(zcsr-zr, zcs0=*zcs; zcs0=(zcs0==0)?1:zcs0; *zcs++=zcs0;)  DQ(zr, zcs0=*zcs; zs0=*zs++; zcs0=(zs0>zcs0)?zs0:zcs0; *zcs++=zcs0;)
       // Store the address of the result in the next slot
       INCORP(z);  // we can't store a virtual block, because its backer may change before we collect the final result
       *zzboxp=z;
@@ -233,33 +234,37 @@ do{
     }while(1);
    }
   }else{
-   // forced-boxed result.  Must not be sparse.  The result box is recursive to begin with, unless RAZERESULT is set
+   // forced-boxed result.  Must not be sparse.  The result box is recursive to begin with, unless WILLBEOPENED is set
    ASSERT(!(AT(z)&SPARSE),EVNONCE);
    if(ZZWILLBEOPENEDNEVER||!(ZZFLAGWORD&ZZFLAGWILLBEOPENED)) {  // scaf it might be better to allow the virtual to be stored in the main result, and realize it only for the looparound z
     // normal case where we are creating the result box.  Must incorp the result
     realizeifvirtual(z); ra(z);   // Since we are moving the result into a recursive box, we must ra() it.  This plus rifv=INCORP
+    *zzboxp=z;  // install the new box.  zzboxp is ALWAYS a pointer to a box when force-boxed result
    } else {
     // The result of this verb will be opened next, so we can take some liberties with it.  We don't need to realize any virtual block EXCEPT one that we might
     // be reusing in this loop.  The user flags those UNINCORPABLE.  Rather than realize it we just make a virtual clone, since realizing might be expensive.
     // That is, if z is one of the virtual blocks we use to track subarrays, we mustn't incorporate it, so we clone it.  These subarrays can be inputs to functions
     // but never an output from the block it is created in, since it changes during the loop.  Thus, UNINCORPABLEs are found only in the loop that created them.
+    // It might be better to keep the result recursive and transfer ownership of the virtual block, but not by much.
     if(AFLAG(z)&AFUNINCORPABLE){RZ(z=clonevirtual(z));}
     // since we are adding the block to a NONrecursive boxed result,  we DO NOT have to raise the usecount of the block.
-   }
-   *zzboxp=z;  // install the new box.  zzboxp is ALWAYS a pointer to a box when force-boxed result
-   if(ZZFLAGWORD&ZZFLAGCOUNTITEMS){
-    // if the result will be razed next, we will count the items and store that in AM.  We will also ensure that the result boxes' contents have the same type
-    // and item-shape.  If one does not, we turn off special raze processing.  It is safe to take over the AM field in this case, because we know this is WILLBEOPENED and
-    // (1) will never assemble or epilog; (2) will feed directly into a verb that will discard it without doing any usecount modification
+    *zzboxp=z;  // install the new box.  zzboxp is ALWAYS a pointer to a box when force-boxed result
+    if(ZZFLAGWORD&ZZFLAGCOUNTITEMS){
+     // if the result will be razed next, we will count the items and store that in AM.  We will also ensure that the result boxes' contents have the same type
+     // and item-shape.  If one does not, we turn off special raze processing.  It is safe to take over the AM field in this case, because we know this is WILLBEOPENED and
+     // (1) will never assemble or epilog; (2) will feed directly into a verb that will discard it without doing any usecount modification
 #if !ZZSTARTATEND  // going forwards
-    A result0=AAV(zz)[0];   // fetch pointer to the first 
+     A result0=AAV(zz)[0];   // fetch pointer to the first 
 #else
-    A result0=AAV(zz)[AN(zz)-1];  // fetch pointer to first value stored, which is in the last position
+     A result0=AAV(zz)[AN(zz)-1];  // fetch pointer to first value stored, which is in the last position
 #endif
-    I* zs=AS(z); I* ress=AS(result0); I zr=AR(z); I resr=AR(result0); //fetch info
-    I diff=TYPESXOR(AT(z),AT(result0))|(MAX(zr,1)^MAX(resr,1)); resr=(zr>resr)?resr:zr;  DO(resr-1, diff|=zs[i+1]^ress[i+1];)  // see if there is a mismatch.  Fixed loop to avoid misprediction
-    ZZFLAGWORD^=(diff!=0)<<ZZFLAGCOUNTITEMSX;  // turn off bit if so 
-    I nitems=1; nitems=(zr!=0)?zs[0]:nitems; AM(zz)+=nitems;  // add new items to count in zz.  zs[0] will never segfault, even if z is empty
+     I* zs=AS(z); I* ress=AS(result0); I zr=AR(z); I resr=AR(result0); //fetch info
+     I diff=TYPESXOR(AT(z),AT(result0))|(MAX(zr,1)^MAX(resr,1)); resr=(zr>resr)?resr:zr;  DO(resr-1, diff|=zs[i+1]^ress[i+1];)  // see if there is a mismatch.  Fixed loop to avoid misprediction
+     ZZFLAGWORD^=(diff!=0)<<ZZFLAGCOUNTITEMSX;  // turn off bit if so 
+     I nitems=1; nitems=(zr!=0)?zs[0]:nitems; AM(zz)+=nitems;  // add new items to count in zz.  zs[0] will never segfault, even if z is empty
+    }
+    // Note: by checking COUNTITEMS inside WILLBEOPENED we suppress support for COUNTITEMS in \. which sets WILLBEOPENEDNEVER.  It would be safe to
+    // count then, because no virtual contents would be allowed.  But we are not sure that the EPILOG is safe, and this path is now off to the side
    }
   }
   // zzboxp does double duty.  Before the first wreck, it just counts the number of times we wrote to zz before the wreck.  After the first
@@ -292,13 +297,13 @@ do{
 #if !ZZPOPNEVER
   ZZFLAGWORD |= (zzt&DIRECT)?0:ZZFLAGNOPOP;
   // Remember the point before which we allocated zz.  This will be the free-back-to point, unless we require boxes later
-  zzold=jt->tnextpushx;  // pop back to AFTER where we allocated our result and argument blocks
+  zzold=jt->tnextpushp;  // pop back to AFTER where we allocated our result and argument blocks
 #endif
   // Install frame by running user's routine.  zzs must be left pointing to the cell-shape
   ZZINSTALLFRAME(zzs)
   // Install the result shape.  If we encounter a sparse result,  We are going to have to box all the results and open them.  If the sparse result is the first,
   // we are going to have a situation where nothing can ever get moved into zz, so we have to come up with a plausible zz to make that happen.  We create a zz with negative shape
-  is = AS(z); zzt=-(zzt&SPARSE); DO(zzr, *zzs++=zzt|*is++;);    // copy result shape; but if SPARSE, make it negative to guarantee miscompare
+  is = AS(z); zzt=-(zzt&SPARSE); DQ(zzr, *zzs++=zzt|*is++;);    // copy result shape; but if SPARSE, make it negative to guarantee miscompare
   // Set up the pointers/sizes for the rest of the operation
   zzboxp=AAV(zz); zzboxp=ZZFLAGWORD&ZZFLAGBOXATOP?zzboxp:0;  // zzboxp=0 normally (to count stores), but for BOXATOP is the store pointer
 #if !ZZSTARTATEND  // going forwards

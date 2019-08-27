@@ -19,22 +19,22 @@ static F2(jtmatchs);
  {T h,* RESTRICT u=(T*)av,* RESTRICT v=(T*)wv;                                                   \
   q=k/sizeof(T);                                                             \
   switch(MCS(q,af,wf)){                                                      \
-   case MCS(1,0,1): h=*u; if(b1)DO(mn, *x++=h   ==*v++;) else DO(mn, *x++=h   !=*v++;)  break;  \
-   case MCS(1,1,0): h=*v; if(b1)DO(mn, *x++=*u++==h;   ) else DO(mn, *x++=*u++!=h;   ); break;  \
+   case MCS(1,0,1): h=*u; if(b1)DQ(mn, *x++=h   ==*v++;) else DQ(mn, *x++=h   !=*v++;)  break;  \
+   case MCS(1,1,0): h=*v; if(b1)DQ(mn, *x++=*u++==h;   ) else DQ(mn, *x++=*u++!=h;   ); break;  \
    case MCS(1,1,1): if(b1){                                                  \
-                     if(1==n)      DO(m,               *x++=*u++==*v++;  )   \
-                     else if(af<wf)DO(m, h=*u++; DO(n, *x++=h   ==*v++;);)   \
-                     else          DO(m, h=*v++; DO(n, *x++=*u++==h;   ););  \
+                     if(1==n)      DQ(m,               *x++=*u++==*v++;  )   \
+                     else if(af<wf)DQ(m, h=*u++; DQ(n, *x++=h   ==*v++;);)   \
+                     else          DQ(m, h=*v++; DQ(n, *x++=*u++==h;   ););  \
                     }else{                                                   \
-                     if(1==n)      DO(m,               *x++=*u++!=*v++;  )   \
-                     else if(af<wf)DO(m, h=*u++; DO(n, *x++=h   !=*v++;);)   \
-                     else          DO(m, h=*v++; DO(n, *x++=*u++!=h;   ););  \
+                     if(1==n)      DQ(m,               *x++=*u++!=*v++;  )   \
+                     else if(af<wf)DQ(m, h=*u++; DQ(n, *x++=h   !=*v++;);)   \
+                     else          DQ(m, h=*v++; DQ(n, *x++=*u++!=h;   ););  \
                     } break;                                                 \
-   case MCS(2,0,1): DO(mn, QLOOP;       v+=q;); break;                       \
-   case MCS(2,1,0): DO(mn, QLOOP; u+=q;      ); break;                       \
-   case MCS(2,1,1): if(1==n)      DO(m,       QLOOP; u+=q;   v+=q;)          \
-                    else if(af<wf)DO(m, DO(n, QLOOP; v+=q;); u+=q;)          \
-                    else          DO(m, DO(n, QLOOP; u+=q;); v+=q;); break;  \
+   case MCS(2,0,1): DQ(mn, QLOOP;       v+=q;); break;                       \
+   case MCS(2,1,0): DQ(mn, QLOOP; u+=q;      ); break;                       \
+   case MCS(2,1,1): if(1==n)      DQ(m,       QLOOP; u+=q;   v+=q;)          \
+                    else if(af<wf)DQ(m, DQ(n, QLOOP; v+=q;); u+=q;)          \
+                    else          DQ(m, DQ(n, QLOOP; u+=q;); v+=q;); break;  \
  }}
 
 // comparison function for non-float arrays, in chunks of size k, storing match results into *x and
@@ -50,8 +50,8 @@ static B eqv(I af,I wf,I m,I n,I k,C*av,C*wv,B* RESTRICT x,B b1){B b,* RESTRICT 
  else if(0==(k&(SZS-1))  )EQV(S)
  else if(1==k)            EQV(C)
  else{
-  if(af<wf)DO(m, DO(n, *x++=(!!memcmp(av,wv,k))^b1; wv+=k;); av+=k;)
-  else          DO(m, DO(n, *x++=(!!memcmp(av,wv,k))^b1; av+=k;); wv+=k;);
+  if(af<wf)DQ(m, DQ(n, *x++=(!!memcmp(av,wv,k))^b1; wv+=k;); av+=k;)
+  else          DQ(m, DQ(n, *x++=(!!memcmp(av,wv,k))^b1; av+=k;); wv+=k;);
  }
  R xx[0];
 }    /* what memcmp should have been */
@@ -145,7 +145,7 @@ static F2(jtmatchs){A ae,ax,p,q,we,wx,x;B*b,*pv,*qv;D d;I acr,an=0,ar,c,j,k,m,n,
  RZ(a&&w);
  ar=AR(a); acr=jt->ranks>>RANKTX; acr=ar<acr?ar:acr; r=ar;
  wr=AR(w); wcr=(RANKT)jt->ranks; wcr=wr<wcr?wr:wcr; RESETRANK;
- if(ar>acr||wr>wcr)R rank2ex(a,w,0L,RMAX,RMAX,acr,wcr,jtmatchs);
+ if(ar>acr||wr>wcr)R rank2ex(a,w,0L,acr,wcr,acr,wcr,jtmatchs);
  if(ar!=wr||memcmp(AS(a),AS(w),r*SZI)||!HOMO(AT(a),AT(w)))R num[0];
  GATV0(x,B01,r,1L); b=BAV(x); memset(b,C0,r);
  if(SPARSE&AT(a)){ap=PAV(a); x=SPA(ap,a); v=AV(x); an=AN(x); DO(an, b[v[i]]=1;);}

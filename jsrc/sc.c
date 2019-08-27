@@ -5,14 +5,12 @@
 
 #include "j.h"
 
-#if 1
-
-// This function handles both valences: monad as (w,fs,fs), dyad as (a,w,fs)
+// This function handles both valences: monad as (w,fs,fs), dyad as (a,w,fs).  self is the name reference
 //
 // This routine called a 'named' function, which was created by name~ or the equivalent for a stacked verb.
 // It also handles pseudo-named functions, which are anonymous entities that need to be given a temporary name
 // when they are running under debug.  Pseudo-named functions are created by namerefop.  We need to run them here so they get the debug side-effects of having a name.
-static DF2(jtunquote){A z;
+DF2(jtunquote){A z;
  F2PREFIP;  // We understand inplacing.  We check inplaceability of the called function.
  RE(0);
  JATTN;
@@ -21,24 +19,31 @@ static DF2(jtunquote){A z;
  A thisname=v->fgh[0]; A fs; A explocale; L *stabent;// the A block for the name of the function (holding an NM) - unless it's a pseudo-name   fs is the 'named' function itself  explocale=explicit locale if any stabent=symbol-table entry if any
  if(thisname){
   // normal path for named functions
-  if(AM(self)==jt->modifiercounter&&v->localuse.lvp){
+  if(AM(self)==jt->modifiercounter&&v->localuse.lvp[0]){
    // The most recent lookup is still valid, and it is nonzero.  Use it
-   fs=v->localuse.lvp;
+   fs=v->localuse.lvp[0];
    explocale=0;  // flag no explicit locale
   }else{
    NM* thisnameinfo=NAV(thisname);  // the NM block for the current name
-   if(!(thisnameinfo->flag&(NMLOC|NMILOC))) {  // simple name
+   if(!(thisnameinfo->flag&(NMLOC|NMILOC|NMIMPLOC))) {  // simple name, and not u./v.
     explocale=0;  // flag no explicit locale
     if(!(stabent = probelocal(thisname)))stabent=syrd1(thisnameinfo->m,thisnameinfo->s,thisnameinfo->hash,jt->global);  // Try local, then look up the name starting in jt->global
-   } else {  // locative
-    RZ(explocale=sybaseloc(thisname));  //  get the explicit locale .  0 if erroneous locale
-    stabent=syrd1(thisnameinfo->m,thisnameinfo->s,thisnameinfo->hash,explocale);  // Look up the name starting in the locale of the locative
+   } else {  // locative or u/v
+    if(!(thisnameinfo->flag&NMIMPLOC)){  // locative
+     RZ(explocale=sybaseloc(thisname));  //  get the explicit locale.  0 if erroneous locale
+     stabent=syrd1(thisnameinfo->m,thisnameinfo->s,thisnameinfo->hash,explocale);  // Look up the name starting in the locale of the locative
+    }else{  // u./v.  We have to look at the assigned name/value to know whether this is an implied locative (it usually is)
+     if(stabent = probelocal(thisname)){
+      // u/v, assigned by xdefn.  Implied locative.  Use switching to the local table as a flag for restoring the caller's environment
+      explocale=jt->locsyms;  // We have to use this flag trick, rather than stacking the locales here, because errors after the stack is set could corrupt the stack
+     }
+    }
    }
    ASSERT(stabent,EVVALUE);  // name must be defined
    fs=stabent->val;  // fetch the value of the name
    ASSERT(fs,EVVALUE); // make sure the name's value is given also
    // Remember the resolved value and the current modifiercounter, UNLESS the name does not permit remembering the lookup
-   if(v->localuse.lvp){v->localuse.lvp=fs; AM(self)=jt->modifiercounter;}
+   if(v->localuse.lvp[0]){v->localuse.lvp[0]=fs; AM(self)=jt->modifiercounter;}
    ASSERT(TYPESEQ(AT(self),AT(fs)),EVDOMAIN);   // make sure its part of speech has not changed since the name was parsed
   }
  }else{
@@ -52,14 +57,26 @@ static DF2(jtunquote){A z;
   ASSERT(TYPESEQ(AT(self),AT(fs)),EVDOMAIN);   // make sure its part of speech has not changed since the name was parsed
  }
  A savname=jt->curname; jt->curname=thisname;  // stack the name of the previous executing entity, replace it with new
- I dyadex = w!=(A)self;   // if we were called with w,fs,fs, we are a monad.  Otherwise (a,w,fs) dyad
+ I dyadex = w!=self;   // if we were called with w,fs,fs, we are a monad.  Otherwise (a,w,fs) dyad
  v=FAV(fs);  // repurpose v to point to the resolved verb block
+#if !USECSTACK
  I d=v->fdep; if(!d)RE(d=fdep(fs));  // get stack depth of this function, for overrun prevention
  FDEPINC(d);  // verify sufficient stack space - NO ERRORS until FDEPDEC below
+#endif
  STACKCHKOFL
- if(explocale){ pushcallstack1d(CALLSTACKPOPLOCALE,jt->global); jt->global=explocale;  ++jt->modifiercounter;}  // if locative, switch to it, stacking the prev value. invalidate any extant lookups of modifier names -
+ if(explocale){  // there is a locative or implied locative
+  // locative. switch to it, stacking the prev value.  If the switch is to the current local symbol table, that means 'switch to caller's environment'
+  if(explocale==jt->locsyms){
+   pushcallstack1d(CALLSTACKPUSHLOCALSYMS,jt->locsyms);  // save current locsyms
+   jt->locsyms=(A)AM(jt->locsyms);  // get the local syms at the time u/v was assigned; make them current.  Leave GST unchanged in it
+   explocale=AKGST(jt->locsyms);  // fetch global syms for the caller's environment, so we stack it next
+  }
+// obsolete  pushcallstack1d(CALLSTACKPOPLOCALE,jt->global); jt->global=explocale;  // move to new implied locale
+  pushcallstack1d(CALLSTACKPOPLOCALE,jt->global); SYMSETGLOBAL(jt->locsyms,explocale);  // move to new implied locale
+  ++jt->modifiercounter;  // invalidate any extant lookups of modifier names
+ }
  // ************** no errors till the stack has been popped
- w=dyadex?w:(A)fs;  // set up the bivalent argument with the new self
+ w=dyadex?w:(A)fs;  // set up the bivalent argument with the new self, since fs may have been changed
 
  // Execute the name.  First check 4 flags at once to see if anything special is afoot
  if(!(jt->uflags.ui4|(v->flag&VLOCK))) {
@@ -71,7 +88,7 @@ static DF2(jtunquote){A z;
   AF actionfn=v->valencefns[dyadex];
   ++AC(fs);  // protect the entity
   // Recursion through $: does not go higher than the name it was defined in.  We make this happen by pushing the name onto the $: stack
-  A s=jt->sf; jt->sf=fs; z=(*actionfn)((v->flag>>dyadex)&VJTFLGOK1?jtinplace:jt,a,w,fs); jt->sf=s;  // keep all flags in jtinplace
+  A s=jt->sf; jt->sf=fs; z=(*actionfn)(SGNIF(v->flag,dyadex+VJTFLGOK1X)<0?jtinplace:jt,a,w,fs); jt->sf=s;  // keep all flags in jtinplace
   // Undo the protection.  If, most unusually, the usecount goes to 0, back up and do the full recursive decrement
   if(--AC(fs)<=0){++AC(fs); fa(fs);}
  } else {
@@ -89,16 +106,19 @@ static DF2(jtunquote){A z;
   if(PMCTRBPMON&jt->uflags.us.uq.uq_c.pmctrbstk)pmrecord(thisname,jt->global?LOCNAME(jt->global):0,-2L,dyadex?VAL2:VAL1);  // record the return from call
   if(jt->uflags.us.uq.uq_c.spfreeneeded)spfree();   // if garbage collection required, do it
  }
+#if !USECSTACK
  FDEPDEC(d);
+#endif
 
  // Now pop the stack.  Execution may have added entries, but our stack frame always starts in the same place.
  // We may add entries to the end of the caller's stack frame
  jt->curname=savname;  // restore the executing name
  if(callstackx!=jt->callstacknext){  // normal case, with no stack, bypasses all this
   // There are stack entries.  Process them
-  if(callstackx+1==jt->callstacknext && jt->callstack[callstackx].type==CALLSTACKPOPLOCALE) {
+  if(jt->callstack[callstackx].type==CALLSTACKPOPLOCALE && callstackx+1==jt->callstacknext) {
    // The only thing on the stack is a simple POP.  Do the pop.  This & the previous case account for almost all the calls here
-   jt->global=jt->callstack[callstackx].value;  // restore global locale
+// obsolete    jt->global=jt->callstack[callstackx].value;  // restore global locale
+   SYMSETGLOBAL(jt->locsyms,jt->callstack[callstackx].value);  // restore global locale
    jt->callstacknext=(I4)callstackx;  // restore stackpointer for caller
    ++jt->modifiercounter;  // invalidate any extant lookups of modifier names
   } else {
@@ -109,12 +129,17 @@ static DF2(jtunquote){A z;
    i=jt->callstacknext;  // back to front
    do{
     --i;
-    fromfound|=jt->callstack[i].type&CALLSTACKPOPFROM;  // remember if FROM seen
-    if(jt->callstack[i].type&(CALLSTACKPOPFROM|CALLSTACKPOPLOCALE|CALLSTACKPOPLOCALEFIRST))earlyloc=jt->callstack[i].value;  // remember earliest POP[FROM]
-    // When we remove the earliest POPFROM, we can go back to processing names without requiring stacking the return locale
-    if(jt->callstack[i].type&CALLSTACKPOPLOCALEFIRST){jt->uflags.us.uq.uq_c.pmctrbstk &= ~PMCTRBSTKREQD;}
+    fromfound|=jt->callstack[i].type&CALLSTACKPOPFROM&&!(jt->callstack[callstackx].type&CALLSTACKPUSHLOCALSYMS);  // remember if FROM seen - but if we are processing u/v, always revert global, ignoring any hanging requests
+    if(jt->callstack[i].type&(CALLSTACKPOPFROM|CALLSTACKPOPLOCALE|CALLSTACKPOPLOCALEFIRST)){
+     earlyloc=jt->callstack[i].value;  // remember earliest POP[FROM]
+     // When we remove the earliest POPFROM, we can go back to processing names without requiring stacking the return locale
+     if(jt->callstack[i].type&CALLSTACKPOPLOCALEFIRST){jt->uflags.us.uq.uq_c.pmctrbstk &= ~PMCTRBSTKREQD;}
+// obsolete     }else if(jt->callstack[i].type&CALLSTACKPUSHLOCALSYMS)jt->locsyms=jt->callstack[i].value;  // restore locsyms if we stacked it
+    }else if(jt->callstack[i].type&CALLSTACKPUSHLOCALSYMS)SYMSETLOCAL((A)jt->callstack[i].value);  // restore locsyms if we stacked it, and restore possibly-changed global value therein
    }while(i!=callstackx);
-   if(earlyloc&&!fromfound){jt->global=earlyloc; ++jt->modifiercounter;} // If there is a POP to do, do it; invalidate any extant lookups of modifier names
+   // if we encountered u./v., we have now restored the previous local symbols so that it is OK to restore the globals into it
+// obsolete    if(earlyloc&&!fromfound){jt->global=earlyloc; ++jt->modifiercounter;} // If there is a POP to do, do it; invalidate any extant lookups of modifier names
+   if(earlyloc&&!fromfound){SYMSETGLOBAL(jt->locsyms,earlyloc); ++jt->modifiercounter;} // If there is a POP to do, do it; invalidate any extant lookups of modifier names
    // Delete the deletable locales.  If we encounter the (possibly new) current locale, remember that fact and don't delete it.
    I delcurr=0;  // set if we have to delete jt->global
    i=jt->callstacknext;  // back to front
@@ -149,71 +174,9 @@ static DF2(jtunquote){A z;
  R z;
 }
 
-#else
-
-where is call stack reset?
- oldn=jt->curname; jt->curname=aa;
- oln =jt->curlocn; jt->curlocn=ll=g?LOCNAME(g):0;  // should get rid of this
- ASSERT(jt->fcalln > jt->fcalli, EVSTACK);  // We will increment fcalli before use; 1+fcalln elements are allocated, so advancing to number fcalln is the limit
- i=++jt->fcalli; FDEPINC(d);   // No ASSERTs from here till the FDEPDEC below
- jt->fcallg[i].sw0=jt->stswitched; jt->fcallg[i].og=jtg;   // save previous locale
- jt->fcallg[i].flag=0; jt->stswitched=0; jt->fcallg[i].g=jt->global=g;
- // Execute.  ra() to protect against deleting the name while it is running.
- // This will be fast because we know any name has a recursive usecount before it is assigned
- if(!jt->stswitched)jt->global=jt->fcallg[i].og;  // do this better.  Remove stswitched?  og not needed elsewhere - just stack it here
- jt->stswitched=jt->fcallg[i].sw0;
- if(jt->fcallg[i].flag)locdestroy(i);
- jt->fcallg[i].g=jt->fcallg[i].og=0; jt->stswitched=0; // no need for this?
- --jt->fcalli;  // ASSERT OK now
- jt->curlocn=oln;
- jt->curname=oldn;
-
-
-static DF2(jtunquote){A aa,fs,g,ll,oldn,oln,z;B lk;I d,i;L*e;V*v;
- F2PREFIP;  // We understand inplacing.  We check inplaceability of the called function.
- RE(0);
- JATTN;
- v=FAV(self);
- A jtg = jt->global;  // fetch current locale
- aa=v->fgh[0]; RZ(g=sybaseloc(aa));   // if the name is a locative, get the explicit locale.  0 if erroneous locale, 1 if non-locative
- RE(e=syrdfromloc(aa,g));   // finish looking up name, which can be undefined (0 return) or error (0 return with error set)
- if((I)g&1)g=jtg;  // if not locative, default to current locale
- fs=v->fgh[2]?v->fgh[2]:e?e->val:0;  /* see namerefop() re v->fgh[2] */  // fs is the routine to call; 0 if name undefined
- oldn=jt->curname; jt->curname=aa;
- oln =jt->curlocn; jt->curlocn=ll=g?LOCNAME(g):0;  // should get rid of this
- ASSERT(fs,EVVALUE); 
- ASSERT(TYPESEQ(AT(self),AT(fs)),EVDOMAIN);
- V *fv=FAV(fs);  // point to V struct in fs
- RE(d=fdep(fs));
- ASSERT(jt->fcalln > jt->fcalli, EVSTACK);  // We will increment fcalli before use; 1+fcalln elements are allocated, so advancing to number fcalln is the limit
- if(0<jt->uflags.us.uq.uq_c.pmctrb)pmrecord(aa,ll,-1L,a?VAL2:VAL1);
- lk=jt->uflags.us.cx.cx_c.glock||VLOCK&fv->flag;
- i=++jt->fcalli; FDEPINC(d);   // No ASSERTs from here till the FDEPDEC below
- jt->fcallg[i].sw0=jt->stswitched; jt->fcallg[i].og=jtg;   // save previous locale
- jt->fcallg[i].flag=0; jt->stswitched=0; jt->fcallg[i].g=jt->global=g;
- if(jt->uflags.us.cx.cx_c.db&&!lk){jt->cursymb=e; z=dbunquote(a,w,fs);}  // if debugging, go do that.  save last sym lookup as debug parm
- // Execute.  ra() to protect against deleting the name while it is running.
- // This will be fast because we know any name has a recursive usecount before it is assigned
- else{ra(fs);  // should assert recursive usecount
-  if(a){if(!(fv->flag&VJTFLGOK2))jtinplace=jt; z=dfs2ip(a,w,fs);}else{if(!(fv->flag&VJTFLGOK1))jtinplace=jt; z=dfs1ip(w,fs);}
-  fa(fs);
- }
- if(!jt->stswitched)jt->global=jt->fcallg[i].og;  // do this better.  Remove stswitched?  og not needed elsewhere - just stack it here
- jt->stswitched=jt->fcallg[i].sw0;
- if(jt->fcallg[i].flag)locdestroy(i);
- jt->fcallg[i].g=jt->fcallg[i].og=0; jt->stswitched=0; // no need for this?
- FDEPDEC(d); --jt->fcalli;  // ASSERT OK now
- if(0<jt->uflags.us.uq.uq_c.pmctrb)pmrecord(aa,ll,-2L,a?VAL2:VAL1);
- jt->curlocn=oln;
- jt->curname=oldn;
- if(jt->uflags.us.uq.uq_c.spfreeneeded)spfree();
- R z;
-}
-
-#endif
 
 // The monad calls the bivalent case with (w,self,self) so that the inputs can pass through to the executed function
-static DF1(jtunquote1){R unquote(w,(A)self,self);}  // This just transfers to jtunquote.  It passes jt, with inplacing bits, unmodified
+static DF1(jtunquote1){R unquote(w,self,self);}  // This just transfers to jtunquote.  It passes jt, with inplacing bits, unmodified
 
 // return ref to adv/conj/verb whose name is a and whose symbol-table entry is w
 // if the value is a noun, we just return the value; otherwise we create a 'name~' block
@@ -232,13 +195,13 @@ A jtnamerefacv(J jt, A a, L* w){A y;V*v;
  // and let unquote use the up-to-date value.
  // ASGSAFE has a similar problem, and that's more serious, because unquote is too late to stop the inplacing.  We try to ameliorate the
  // problem by making [: unsafe.
- A z=fdef(0,CTILDE,AT(y), jtunquote1,jtunquote, a,0L,0L, (v->flag&VASGSAFE)+(VJTFLGOK1|VJTFLGOK2), v->mr,v->lr,v->rr);  // return value of 'name~', with correct rank, part of speech, and safe/inplace bits
+ A z=fdef(0,CTILDE,AT(y), jtunquote1,jtunquote, a,0L,0L, (v->flag&VASGSAFE)+(VJTFLGOK1|VJTFLGOK2), v->mr,lrv(v),rrv(v));  // return value of 'name~', with correct rank, part of speech, and safe/inplace bits
  RZ(z); 
  // To prevent having to look up the name every time it is executed, we will remember the address of the block (in localuse), AND the modifier counter at the time of the lookup (in AM).  We can't use
- // old lookups on locatives or canned names like xyuvmn, and we leave localuse 0 as a flag of that condition.
+ // old lookups on locatives or canned names like xyuvmn, and we leave localuse 0 as a flag of that condition to help logic in unquote
  // If the original name was not defined (w==0), don't set a value so that it will be looked up again to produce value error
  if(w&&!(NAV(a)->flag&(NMLOC|NMILOC|NMDOT))){
-  FAV(z)->localuse.lvp=y; AM(z)=jt->modifiercounter;
+  FAV(z)->localuse.lvp[0]=y; AM(z)=jt->modifiercounter;
  }
  R z;
 }
@@ -258,7 +221,7 @@ F1(jtnameref){
 F2(jtnamerefop){V*v;
  RZ(a&&w);
  v=FAV(w);
- R fdef(0,CCOLON,VERB,  jtunquote1,jtunquote, 0L,a,w, VXOPCALL|v->flag, v->mr,v->lr,v->rr);
+ R fdef(0,CCOLON,VERB,  jtunquote1,jtunquote, 0L,a,w, VXOPCALL|v->flag, v->mr,lrv(v),rrv(v));
 }    
 
 /* namerefop() is used by explicit defined operators when: */
@@ -266,3 +229,14 @@ F2(jtnamerefop){V*v;
 /* - operator arguments have been supplied                 */
 /* - function arguments have not yet been supplied         */
 // w is an anonymous entity that we want to give the name a to for debug purposes
+
+
+// u./v.
+// We process this as 'u'~ where the name is flagged as NMIMPLOC
+// Bivalent: called with (a,w,self) or (w,self).  We treat as dyad but turn it into monad if input w is not a noun
+DF2(jtimplocref){
+ self=AT(w)&NOUN?self:w;
+ self=jt->implocref[FAV(self)->id&1];
+ w=AT(w)&NOUN?w:self;
+ R unquote(a,w,self); // call as (w,self,self) or (a,w,self)
+}

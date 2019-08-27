@@ -10,7 +10,7 @@
 // When we move off of a parser frame, or when we go into debug with a new parser frame, fill the frame with
 // the info for the parse that was interrupted
 static void movesentencetosi(J jt,void *wds,I nwds,I errwd){if(jt->sitop&&jt->sitop->dctype==DCPARSE){jt->sitop->dcy=(A)wds; jt->sitop->dcn=(I)nwds; jt->sitop->dcix=(I)errwd; }}
-void moveparseinfotosi(J jt){movesentencetosi(jt,jt->parserqueue,jt->parserqueuelen,jt->parsercurrtok);}
+void moveparseinfotosi(J jt){movesentencetosi(jt,jt->parserstackframe.parserqueue,jt->parserstackframe.parserqueuelen,jt->parserstackframe.parsercurrtok);}
 
 
 /* deba() and debz() must be coded and executed in pairs */
@@ -93,12 +93,13 @@ static B jterrcap(J jt){A y,*yv;
  R 1;
 }    /* error capture */
 
-static void jtsusp(J jt){B t;DC d;I old=jt->tnextpushx;
+static void jtsusp(J jt){B t;DC d;A *old=jt->tnextpushp;
  jt->dbsusact=SUSCONT;
  d=jt->dcs; t=jt->tostdout;
  jt->dcs=0; jt->tostdout=1;
 #if USECSTACK
  jt->cstackmin=MAX(jt->cstackinit-(CSTACKSIZE-CSTACKRESERVE),jt->cstackmin-CSTACKSIZE/10);
+ if(jt->sm==SMJAVA)jt->cstackmin=0;
 #else
  jt->fdepn =MIN(NFDEP ,jt->fdepn +NFDEP /10);
 #endif
@@ -121,6 +122,7 @@ static void jtsusp(J jt){B t;DC d;I old=jt->tnextpushx;
  } else {
 #if USECSTACK
   jt->cstackmin=jt->cstackinit-(CSTACKSIZE-CSTACKRESERVE);
+  if(jt->sm==SMJAVA)jt->cstackmin=0;
 #else
   jt->fdepn =NFDEP;
 #endif
@@ -137,7 +139,7 @@ static A jtdebug(J jt){A z=0;C e;DC c,d;
  RZ(d=suspset(jt->sitop));
  if(d->dcix<0)R 0;  // if the verb has exited, all we can do is return
  e=jt->jerr; jt->jerr=0;
- /* obsolete if(DBERRCAP==jt->uflags.us.cx.cx_c.db)errcap(); else */susp();
+ susp();
  switch(jt->dbsusact){
   case SUSRUN:      
    DGOTO(d,d->dcix); break;
@@ -161,10 +163,10 @@ static A jtdebug(J jt){A z=0;C e;DC c,d;
 // we reconstruct conditions at the beginning of the parse, and set an error on token 1.
 A jtpee(J jt,A *queue,CW*ci,I err,I lk,DC c){A z=0;
  ASSERT(lk<=0,err);  //  locked fn is totally opaque, with no stack.  Exit with 0 result, indicating error
- jt->parserqueue=queue+ci->i; jt->parserqueuelen=(I4)ci->n; jt->parsercurrtok=1;  // unless locked, indicate failing-sentence info
+ jt->parserstackframe.parserqueue=queue+ci->i; jt->parserstackframe.parserqueuelen=(I4)ci->n; jt->parserstackframe.parsercurrtok=1;  // unless locked, indicate failing-sentence info
  jsignal(err);   // signal the requested error
  // enter debug mode if that is enabled
- if(c&&jt->uflags.us.cx.cx_c.db/*&&( obsolete DBTRY!=jt->uflags.us.cx.cx_c.db)*/){DC prevtop=jt->sitop->dclnk; prevtop->dcj=jt->sitop->dcj=jt->jerr; moveparseinfotosi(jt); z=debug(); prevtop->dcj=0;} //  d is PARSE type; set d->dcj=err#; d->dcn must remain # tokens debz();  not sure why we change previous frame
+ if(c&&jt->uflags.us.cx.cx_c.db){DC prevtop=jt->sitop->dclnk; prevtop->dcj=jt->sitop->dcj=jt->jerr; moveparseinfotosi(jt); z=debug(); prevtop->dcj=0;} //  d is PARSE type; set d->dcj=err#; d->dcn must remain # tokens debz();  not sure why we change previous frame
  if(jt->jerr)z=0; R z;  // if we entered debug, the error may have been cleared.  If not, clear the result.  Return debug result, which is result to use or 0 to indicate jump
 }
 
@@ -181,7 +183,7 @@ A jtparsex(J jt,A* queue,I m,CW*ci,DC c){A z;B s;
  else                      {z=parsea(queue,m);     }
  // If we hit a stop, or if we hit an error outside of try./catch., enter debug mode.  But if debug mode is off now, we must have just
  // executed 13!:0]0, and we should continue on outside of debug mode.  Fill in the current si line with the info from the parse
- if(!z&&jt->uflags.us.cx.cx_c.db/* obsolete &&(s||DBTRY!=jt->uflags.us.cx.cx_c.db)*/){DC t=jt->sitop->dclnk; t->dcj=jt->sitop->dcj=jt->jerr; moveparseinfotosi(jt); z=debug(); t->dcj=0;} //  d is PARSE type; set d->dcj=err#; d->dcn must remain # tokens
+ if(!z&&jt->uflags.us.cx.cx_c.db){DC t=jt->sitop->dclnk; t->dcj=jt->sitop->dcj=jt->jerr; moveparseinfotosi(jt); z=debug(); t->dcj=0;} //  d is PARSE type; set d->dcj=err#; d->dcn must remain # tokens
  R z;
 }
 
@@ -198,7 +200,7 @@ DF2(jtdbunquote){A t,z;B b=0,s;DC d;V*sv;
    else              {ras(self); z=a?dfs2(a,w,self):dfs1(w,self); fa(self);}
    // If we hit a stop, or if we hit an error outside of try./catch., enter debug mode.  But if debug mode is off now, we must have just
    // executed 13!:8]0, and we should continue on outside of debug mode
-   if(!z&&jt->uflags.us.cx.cx_c.db/* obsolete &&(s||DBTRY!=jt->uflags.us.cx.cx_c.db)*/){d->dcj=jt->jerr; moveparseinfotosi(jt); z=debug(); if(self!=jt->sitop->dcf)self=jt->sitop->dcf;}
+   if(!z&&jt->uflags.us.cx.cx_c.db){d->dcj=jt->jerr; moveparseinfotosi(jt); z=debug(); if(self!=jt->sitop->dcf)self=jt->sitop->dcf;}
    if(b){fa(a); fa(w);}
    if(b=jt->dbalpha||jt->dbomega){a=jt->dbalpha; w=jt->dbomega; jt->dbalpha=jt->dbomega=0;}
   }while(d->dcnewlineno&&d->dcix!=-1);  // if suspension tries to reexecute a line other than -1 (which means 'exit'), reexecute
@@ -214,7 +216,6 @@ F1(jtdbc){UC k;
  RZ(w);
  if(AN(w)){
   RE(k=(UC)i0(w));
-// obsolete    ASSERT(!k||k==DB1||k==DBERRCAP,EVDOMAIN);
   ASSERT(!(k&~1),EVDOMAIN);
   ASSERT(!k||!jt->uflags.us.cx.cx_c.glock,EVDOMAIN);
  }
@@ -223,6 +224,7 @@ F1(jtdbc){UC k;
   jt->uflags.us.cx.cx_c.db=jt->dbuser=k;
 #if USECSTACK
   jt->cstackmin=jt->cstackinit-((CSTACKSIZE-CSTACKRESERVE)>>k);
+  if(jt->sm==SMJAVA)jt->cstackmin=0;
 #else
   jt->fdepn=NFDEP>>k;
 #endif

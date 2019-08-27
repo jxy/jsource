@@ -6,11 +6,13 @@
 #include "j.h"
 
 // create inplace bits as copy of W, or swap A & W
-static DF1(swap1){DECLF; F1PREFIP; jtinplace = (J)(intptr_t)(((I)jtinplace&~JTINPLACEA)+2*((I)jtinplace&JTINPLACEW)); RANKT mr=(RANKT)jt->ranks;
- if(mr!=RMAX)R jtirs2(jtinplace,w,w,fs,mr,mr,f2); else{jt->ranks=(RANK2T)~0; R (f2)(jtinplace,w,w,fs);}}  // must expand infinite rank to dyadic size
-// obsolete static DF2(swap2){DECLF; F2PREFIP; jtinplace = (J)(intptr_t)((I)jtinplace+((JTINPLACEW+JTINPLACEA)&(4>>((I)jtinplace&JTINPLACEW+JTINPLACEA)))); RANK2T lrr=jt->ranks;  // exchange inplace flags
-static DF2(swap2){DECLF; F2PREFIP; jtinplace = (J)(intptr_t)((I)jtinplace^((JTINPLACEW+JTINPLACEA)&(0x3C>>(2*((I)jtinplace&JTINPLACEW+JTINPLACEA))))); RANK2T lrr=jt->ranks;  // exchange inplace flags
- if(lrr!=(RANK2T)~0)R jtirs2(jtinplace,w,a,fs,(RANKT)lrr,lrr>>RANKTX,f2); else R (f2)(jtinplace,w,a,fs);}
+static DF1(swap1){DECLF; F1PREFIP; jtinplace = (J)(intptr_t)(((I)jtinplace&~JTINPLACEA)+2*((I)jtinplace&JTINPLACEW));
+ // a~ carried the IRS flag from a and thus we might have ranks set.  If so, use them, and no need to check agreement again.  For ease, we just use whatever is set 
+ A z; IRSIP2(w,w,fs,(RANKT)jt->ranks,(RANKT)jt->ranks,f2,z); R z;
+}
+static DF2(swap2){DECLF; F2PREFIP; jtinplace = (J)(intptr_t)((I)jtinplace^((JTINPLACEW+JTINPLACEA)&(0x3C>>(2*((I)jtinplace&JTINPLACEW+JTINPLACEA)))));
+ A z; IRSIP2(w,a,fs,(RANKT)jt->ranks,jt->ranks>>RANKTX,f2,z); R z;
+}
 
 // w~, which is either reflexive/passive or evoke
 F1(jtswap){A y;C*s;I n;
@@ -46,8 +48,8 @@ static DF1(jtbasis1){DECLF;A z;D*x;I j;V*v;
   case 0:
    GAT0(z,FL,3,1); x=DAV(z); v=FAV(fs);
    j=v->mr; x[0]=j<=-RMAX?-inf:j>=RMAX?inf:j;
-   j=v->lr; x[1]=j<=-RMAX?-inf:j>=RMAX?inf:j;
-   j=v->rr; x[2]=j<=-RMAX?-inf:j>=RMAX?inf:j;
+   j=lrv(v); x[1]=j<=-RMAX?-inf:j>=RMAX?inf:j;
+   j=rrv(v); x[2]=j<=-RMAX?-inf:j>=RMAX?inf:j;
    R pcvt(INT,z);
   case -1: R lrep(inv (fs));
   case  1: R lrep(iden(fs));
@@ -59,19 +61,19 @@ F1(jtbdot){A b,h=0;I j,n,*v;
  if(VERB&AT(w))R ADERIV(CBDOT, jtbasis1,0L, 0L,0,0,0);
  RZ(w=vi(w));
  n=AN(w); v=AV(w);
- if(1==n){j=*v; ASSERT(-16<=j&&j<=34,EVINDEX);}
- else DO(n, j=*v++; ASSERT(-16<=j&&j<16,EVINDEX););
+ if(1==n){j=*v; ASSERT((UI)(j-(-16))<=(UI)(34-(-16)),EVINDEX);}
+ else DQ(n, j=*v++; ASSERT((UI)(j-(-16))<=(UI)(16-(-16)),EVINDEX););
  if(1!=n||j<16){
   GAT0(b,B01,64,2); AS(b)[0]=16; AS(b)[1]=4; MC(AV(b),booltab,64L);
   RZ(h=cant2(IX(AR(w)),from(w,b)));
-  R fdef(0,CBDOT,VERB, jtbdot1,jtbdot2, w,0L,h, VFLAGNONE, RMAX,0L,0L);
+  R fdef(0,CBDOT,VERB, jtbdot1,jtbdot2, 0L,w,h, VFLAGNONE, RMAX,0L,0L);
  }else switch(j){
-  case 32: R fdef(0,CBDOT,VERB, jtbitwise1,jtbitwiserotate, w,0L,0L, VASGSAFE|VJTFLGOK2, 0L,0L,0L);
-  case 33: R fdef(0,CBDOT,VERB, jtbitwise1,jtbitwiseshift, w,0L,0L, VASGSAFE|VJTFLGOK2, 0L,0L,0L);
-  case 34: R fdef(0,CBDOT,VERB, jtbitwise1,jtbitwiseshifta, w,0L,0L, VASGSAFE|VJTFLGOK2, 0L,0L,0L);
+  case 32: R fdef(0,CBDOT,VERB, jtbitwise1,jtbitwiserotate, 0L,w,0L, VASGSAFE|VJTFLGOK2, 0L,0L,0L);
+  case 33: R fdef(0,CBDOT,VERB, jtbitwise1,jtbitwiseshift, 0L,w,0L, VASGSAFE|VJTFLGOK2, 0L,0L,0L);
+  case 34: R fdef(0,CBDOT,VERB, jtbitwise1,jtbitwiseshifta, 0L,w,0L, VASGSAFE|VJTFLGOK2, 0L,0L,0L);
   // The code uses a VERB with id CBDOT to stand for the derived verb of m b. .  This is used for spellout and for inverses, so we retain it.
   // We copy the other information from the verb that executes the function.  This contains pointers to the routines, and to the function table
-  default: {A z=ca(ds(j)); RZ(z); FAV(z)->fgh[0]=w; FAV(z)->id=CBDOT; RETF(z);}
+  default: {A z=ca(ds(j)); RZ(z); FAV(z)->fgh[1]=w; FAV(z)->id=CBDOT; RETF(z);}  // use g field not f to avoid interfering with atomic2
  }
 }
 
@@ -106,7 +108,7 @@ static A jtmemoput(J jt,I x,I y,A self,A z){A*cv,h,*hv,q;I *jv,k,m,*mv,*v;
  q=hv[1]; jv= AV(q);
  q=hv[2]; cv=AAV(q); m=AN(q);
  // If the buffer must be extended, allocate a new one
- if(m<=2**mv){A cc,*cu=cv,jj;I i,*ju=jv,n=m,*u;I _ttop=jt->tnextpushx;
+ if(m<=2**mv){A cc,*cu=cv,jj;I i,*ju=jv,n=m,*u;A* _ttop=jt->tnextpushp;
   FULLHASHSIZE(2**mv,BOXSIZE,1,0,m);  // # boxes to allocate to get at least 2**mv slots
   RZ(jj=rifvs(reshape(v2(m,2L),sc(IMIN)))); jv= AV(jj);  // init arg table to IMIN
   GATV0(cc,BOX,m,1);                  cv=AAV(cc);
@@ -164,6 +166,6 @@ F1(jtmemo){PROLOG(300);A h,*hv,q;I m;V*v;
  GAT0(q,INT,1,0); *AV(q)=0;        hv[0]=q;  // is modified; musn't use sc()
  RZ(q=reshape(v2(m,2L),sc(IMIN)));  RZ(hv[1]=rifvs(q));
  GATV0(q,BOX,m,1);                 hv[2]=q;
- EPILOG(fdef(0,CMCAP,VERB,jtmemo1,jtmemo2,w,0L,h,0L,v->mr,v->lr,v->rr));
+ EPILOG(fdef(0,CMCAP,VERB,jtmemo1,jtmemo2,w,0L,h,0L,v->mr,lrv(v),rrv(v)));
  // Now we have converted the verb result to recursive usecount, and gotten rid of the pending tpops for the components of h
 }

@@ -37,23 +37,23 @@ static A jtmerge1(J jt,A w,A ind){A z;B*b;C*wc,*zc;D*wd,*zd;I c,it,j,k,m,r,*s,t,
  zi=AV(z); zc=(C*)zi; zd=(D*)zc;
  wi=AV(w); wc=(C*)wi; wd=(D*)wc;
  switch(MCASE(CTTZ(it),k)){
-  case MCASE(B01X,sizeof(C)): DO(c,         *zc++=wc[*b++?i+c:i];); break;
-  case MCASE(B01X,sizeof(I)): DO(c,         *zi++=wi[*b++?i+c:i];); break;
+  case MCASE(B01X,sizeof(C)): DO(c,         *zc++=wc[i+c*(I)*b++];); break;
+  case MCASE(B01X,sizeof(I)): DO(c,         *zi++=wi[i+c*(I)*b++];); break;
 #if !SY_64
-  case MCASE(B01X,sizeof(D)): DO(c,         *zd++=wd[*b++?i+c:i];); break;
+  case MCASE(B01X,sizeof(D)): DO(c,         *zd++=wd[i+c*(I)*b++];); break;
 #endif
   case MCASE(INTX,sizeof(C)): DO(c, MINDEX; *zc++=wc[i+c*j];); break;
   case MCASE(INTX,sizeof(I)): DO(c, MINDEX; *zi++=wi[i+c*j];); break;
 #if !SY_64
   case MCASE(INTX,sizeof(D)): DO(c, MINDEX; *zd++=wd[i+c*j];); break;
 #endif  
-  default: if(it&B01)DO(c,         MC(zc,wc+k*(*b++?i+c:i),k); zc+=k;)
+  default: if(it&B01)DO(c,         MC(zc,wc+k*(i+c*(I)*b++),k); zc+=k;)
            else      DO(c, MINDEX; MC(zc,wc+k*(i+c*j     ),k); zc+=k;); break;
  }
  R z;
 }
 
-#define CASE2Z(T)  {T*xv=(T*)AV(x),*yv=(T*)AV(y),*zv=(T*)AV(z); DO(n, zv[i]=bv[i]?yv[i]:xv[i];); R z;}
+#define CASE2Z(T)  {T*xv=(T*)AV(x),*yv=(T*)AV(y),*zv=(T*)AV(z); DO(n, zv[i]=(bv[i]?yv:xv)[i];); R z;}
 #define CASE2X(T)  {T*xv=(T*)AV(x),*yv=(T*)AV(y);               DO(n, if( bv[i])xv[i]=yv[i];);   R x;}
 #define CASE2Y(T)  {T*xv=(T*)AV(x),*yv=(T*)AV(y);               DO(n, if(!bv[i])yv[i]=xv[i];);   R y;}
 #define CASENZ(T)  {T*zv=(T*)AV(z); DO(n, j=iv[i]; if(0>j){j+=m; ASSERT(0<=j,EVINDEX);}else ASSERT(j<m,EVINDEX);  \
@@ -67,7 +67,7 @@ F1(jtcasev){A b,*u,*v,w1,x,y,z;B*bv,p,q;I*aa,c,*iv,j,m,n,r,*s,t;
  p=1; m=AN(w)-3; v=AAV(w); c=i0(v[m+1]);   // get # items in list, and index of the matching one
  // Now audit the input names (including pqr), since we haven't properly stacked them & checked them etc.
  // p is set to 0 if an audit fails
- DO(m+1, x=symbrd(v[i]); if(!x){p=0; RESETERR; break;} u[i]=x; p=p&&NOUN&AT(x););  // verify names defined, and are nouns
+ DO(m+1, x=symbrd(v[i]); if(!x){p=0; RESETERR; break;} u[i]=x; p=p&!!(NOUN&AT(x)););  // verify names defined, and are nouns
  if(p){
   b=u[m]; n=AN(b); r=AR(b); s=AS(b); t=AT(*u);  // length, rank, shape, of pqr; type of first value in list
   p=t&DIRECT&&AT(b)&NUMERIC;    // fail if first value in list is indirect or pqr is not numeric
@@ -88,7 +88,7 @@ F1(jtcasev){A b,*u,*v,w1,x,y,z;B*bv,p,q;I*aa,c,*iv,j,m,n,r,*s,t;
  // fast (no-error) case; and of course if the use-count is only 1.  But if the assignment is local, we also have to make
  // sure abc is locally defined
  if(p=q&&0<=c&&ACUC1>=AC(u[c])) {  // passes quick check
-   p= !jt->local || *CAV(AAV(v[m+2])[1])!=CASGN || probe(NAV(AAV(v[m+2])[0])->m,NAV(AAV(v[m+2])[0])->s,NAV(AAV(v[m+2])[0])->hash, jt->local);  // OK if not in explicit, or not local assignment, or name defined
+   p= (AN(jt->locsyms)==1) || *CAV(AAV(v[m+2])[1])!=CASGN || probe(NAV(AAV(v[m+2])[0])->m,NAV(AAV(v[m+2])[0])->s,NAV(AAV(v[m+2])[0])->hash, jt->locsyms);  // OK if not in explicit, or not local assignment, or name defined
     // Get the pointer to the parsed sentence; go to its data; take pointer for word[1]; go to its (character) data; take first character
     // then look up the symbol entry for word[0]
  }
@@ -132,7 +132,7 @@ static A jtmerge2(J jt,A a,A w,A ind,I cellframelen){F2PREFIP;A z;I t;
  // It is not possible to inplace a value that is backing a virtual block, because we inplace assigned names only when
  // the stack is empty, so if there is a virtual block it must be in a higher sentence, and the backing name must appear on the
  // stack in that sentence if the usecount is only 1.
- I ip = ((I)jtinplace&JTINPLACEW) && ASGNINPLACENJA(w)
+ I ip = ASGNINPLACESGNNJA(SGNIF((I)jtinplace,JTINPLACEWX),w)
       &&TYPESEQ(t,AT(w))&&(AT(w)&(DIRECT|RECURSIBLE))&&w!=a&&w!=ind&&(w!=ABACK(a)||!(AFLAG(a)&AFVIRTUAL));
  // if w is boxed, we have to make one more check, to ensure we don't end up with a loop if we do   (<a) m} a.  Force a to be recursive usecount, then see if the usecount of w is changed
  if(ip&&t&RECURSIBLE){
@@ -145,7 +145,7 @@ static A jtmerge2(J jt,A a,A w,A ind,I cellframelen){F2PREFIP;A z;I t;
  // If not inplaceable, create a new block (cvt always allocates a new block) with the common precision.  Relocate it if necessary.
  // after this, z cannot be virtual unless it is an inplace memory-mapped boxed array
  else{RZ(z=cvt(t,w));}
- // Here for non-relative blocks.  Could be in-place.  If boxed,
+ // Could be in-place.  If boxed,
  // a has been forced to be recursive usecount, so any block referred to by a will not be freed by a free of w.
  // If w has recursive usecount, all the blocks referred to in w have had their usecount incremented; we must
  // free them before we overwrite them, and we must increment the usecount in the block we store into them
@@ -156,22 +156,24 @@ static A jtmerge2(J jt,A a,A w,A ind,I cellframelen){F2PREFIP;A z;I t;
  I *iv=AV(ind);  // start of the cell-index array
  if(UCISRECUR(z)){
   cellsize<<=(t>>RATX);  // RAT has 2 boxes per atom, all others have 1 and are lower
-  {A * RESTRICT zv=AAV(z); A *RESTRICT av=(A*)av0; DO(AN(ind), I ix0=iv[i]*cellsize; DO(cellsize, INSTALLBOXRECUR(zv,ix0,*av); ++ix0; if((++av)==(A*)avn)av=(A*)av0;))}
+  {A * RESTRICT zv=AAV(z); A *RESTRICT av=(A*)av0; DO(AN(ind), I ix0=iv[i]*cellsize; DQ(cellsize, INSTALLBOXRECUR(zv,ix0,*av); ++ix0; ++av; av=(av==(A*)avn)?(A*)av0:av;))}
  }else{
   if(cellsize<=AN(a)){
    // there is more than one cell in a.  We can copy entire cells
    cellsize *= k;   // change cellsize to bytes
    switch(cellsize){
    case sizeof(C):
-    {C * RESTRICT zv=CAV(z); C *RESTRICT av=(C*)av0; DO(AN(ind), zv[iv[i]]=*av; if((++av)==(C*)avn)av=(C*)av0;); break;}  // scatter-copy the data, cyclically
+    {C * RESTRICT zv=CAV(z); C *RESTRICT av=(C*)av0; DO(AN(ind), zv[iv[i]]=*av; ++av; av=(av==(C*)avn)?(C*)av0:av;); break;}  // scatter-copy the data, cyclically
    case sizeof(I):  // may include D
-    {I * RESTRICT zv=AV(z); I *RESTRICT av=(I*)av0; DO(AN(ind), zv[iv[i]]=*av; if((++av)==(I*)avn)av=(I*)av0;); break;}  // scatter-copy the data
+    {I * RESTRICT zv=AV(z); I *RESTRICT av=(I*)av0; DO(AN(ind), zv[iv[i]]=*av; ++av; av=(av==(I*)avn)?(I*)av0:av;); break;}  // scatter-copy the data
    default:
     // handle small integral number of words with a local loop
-    if(!(cellsize&~(MEMCPYTUNELOOP-SZI))){  // length is an even number of I and not too big
-     C* RESTRICT zv=CAV(z); C *RESTRICT av=(C*)av0; DO(AN(ind), MCIS((I*)(zv+(iv[i]*cellsize)),(I*)av,cellsize>>LGSZI); if((av+=cellsize)==avn)av=av0;);  // use local copy
+    if(cellsize<MEMCPYTUNELOOP){  // length is not too big (0 is OK).  We must not copy outside cells boundaries here
+     // move full words followed by the remnant.  Must not overwrite the area, since we are scatter-writing
+     C* RESTRICT zv=CAV(z); I *RESTRICT av=(I*)av0; DO(AN(ind), I * RESTRICT d=(I*)(zv+(iv[i]*cellsize)); I n=cellsize; while((n-=SZI)>=0){*d++=*av++;} if(n&(SZI-1)){STOREBYTES(d,*av,-n); av=(I*)((C*)av+SZI+n);} av=av==(I*)avn?(I*)av0:av;);  // use local copy
+      // we test for the STOREBYTES because this is assumed repeated and might well have even length
     }else{
-     C* RESTRICT zv=CAV(z); C *RESTRICT av=(C*)av0; DO(AN(ind), MC(zv+(iv[i]*cellsize),av,cellsize); if((av+=cellsize)==avn)av=av0;);  // scatter-copy the data, cyclically
+     C* RESTRICT zv=CAV(z); C *RESTRICT av=(C*)av0; DO(AN(ind), MC(zv+(iv[i]*cellsize),av,cellsize); av+=cellsize; av=(av==avn)?av0:av;);  // scatter-copy the data, cyclically
     }
    }
   }else{
@@ -197,7 +199,7 @@ static A jtmerge2(J jt,A a,A w,A ind,I cellframelen){F2PREFIP;A z;I t;
 A jtcelloffset(J jt,AD * RESTRICT w,AD * RESTRICT ind){A z;
  RZ(w);
  if(AR(ind)<2){RZ(z=pind(AS(w)[0],ind));  // (m}only) treat a list as a list of independent indexes.  pind handles that case quickly and possibly in-place.
- }else if(AS(ind)[AR(ind)-1]==1){RZ(z=pind(AS(w)[0],irs1(ind,0L,2L,jtravel)));  // if rows are 1 long, pind handles that too - remove the last axis
+ }else if(AS(ind)[AR(ind)-1]==1){RZ(z=pind(AS(w)[0],IRS1(ind,0L,2L,jtravel,z)));  // if rows are 1 long, pind handles that too - remove the last axis
  }else{
   // rank of ind>1, and rows of ind are longer than 1. process each row to a cell offset
   I naxes = AS(ind)[AR(ind)-1];
@@ -210,25 +212,25 @@ A jtcelloffset(J jt,AD * RESTRICT w,AD * RESTRICT ind){A z;
   if(naxes<3){
    // rank 2
    I ln0=AS(w)[0], ln1=AS(w)[1];
-   DQ(nzcells, I in=iv[0]; if(in<0)in+=ln0; I r=in*ln1; ASSERT((UI)in<(UI)ln0,EVINDEX)
-                    in=iv[1]; if(in<0)in+=ln1; r+=in; ASSERT((UI)in<(UI)ln1,EVINDEX)
+   DQ(nzcells, I in=iv[0]; if((UI)in>=(UI)ln0){in+=ln0; ASSERT((UI)in<(UI)ln0,EVINDEX);} I r=in*ln1;
+                    in=iv[1]; if((UI)in>=(UI)ln1){in+=ln1; ASSERT((UI)in<(UI)ln1,EVINDEX);} r+=in;
                     *zv++=r; iv+=2;)
   }else if(naxes==3){
    // rank 3  Avoid Horner's Rule, which creates a carried dependency across the multiplies
    I ln0=AS(w)[0], ln1=AS(w)[1], ln2=AS(w)[2], ln12=ln1*ln2;
-   DQ(nzcells, I in=iv[0]; if(in<0)in+=ln0; I r=in*ln12; ASSERT((UI)in<(UI)ln0,EVINDEX)
-                    in=iv[1]; if(in<0)in+=ln1; r+=in*ln2; ASSERT((UI)in<(UI)ln1,EVINDEX)
-                    in=iv[2]; if(in<0)in+=ln2; r+=in; ASSERT((UI)in<(UI)ln2,EVINDEX)
+   DQ(nzcells, I in=iv[0]; if((UI)in>=(UI)ln0){in+=ln0; ASSERT((UI)in<(UI)ln0,EVINDEX);} I r=in*ln12;
+                    in=iv[1]; if((UI)in>=(UI)ln1){in+=ln1; ASSERT((UI)in<(UI)ln1,EVINDEX);} r+=in*ln2;
+                    in=iv[2]; if((UI)in>=(UI)ln2){in+=ln2; ASSERT((UI)in<(UI)ln2,EVINDEX);} r+=in;
                     *zv++=r; iv+=3;)
   }else{
    // rank 4+.  For simplicity we use Horner's Rule since this case is rare
    I ln0=AS(w)[0], ln1=AS(w)[1], lnn=AS(w)[naxes-1];
-   DQ(nzcells, I in=iv[0]; if(in<0)in+=ln0; ASSERT((UI)in<(UI)ln0,EVINDEX) I r=in*ln1;
-                    in=iv[1]; if(in<0)in+=ln1; ASSERT((UI)in<(UI)ln1,EVINDEX)
+   DQ(nzcells, I in=iv[0]; if((UI)in>=(UI)ln0){in+=ln0; ASSERT((UI)in<(UI)ln0,EVINDEX);} I r=in*ln1;
+                    in=iv[1]; if((UI)in>=(UI)ln1){in+=ln1; ASSERT((UI)in<(UI)ln1,EVINDEX);}
                     DO(naxes-3,                                               r=(r+in)*AS(w)[i+2];
-                    in=iv[i+2]; if(in<0)in+=AS(w)[i+2]; ASSERT((UI)in<(UI)AS(w)[i+2],EVINDEX))
+                    in=iv[i+2]; if((UI)in>=(UI)AS(w)[i+2]){in+=AS(w)[i+2]; ASSERT((UI)in<(UI)AS(w)[i+2],EVINDEX);})
                                                                               r=(r+in)*lnn;
-                    in=iv[naxes-1]; if(in<0)in+=lnn; ASSERT((UI)in<(UI)lnn,EVINDEX) r+=in;
+                    in=iv[naxes-1]; if((UI)in>=(UI)lnn){in+=lnn; ASSERT((UI)in<(UI)lnn,EVINDEX);} r+=in;
                     *zv++=r; iv+=naxes;)
   }
  }
@@ -237,25 +239,22 @@ A jtcelloffset(J jt,AD * RESTRICT w,AD * RESTRICT ind){A z;
 
 // Convert ind to a list of cell offsets.  Error if inhomogeneous cells.
 // Result *cellframelen gives the number of axes of w that have been boiled down to indices in the result
-static A jtjstd(J jt,A w,A ind,I *cellframelen){A j=0,k,*v,x;B b;I d,i,n,r,*u,wr,*ws;
+static A jtjstd(J jt,A w,A ind,I *cellframelen){A j=0,k,*v,x;B b;I d,i,n,r,*u,wr,*ws;D rkblk[16];
  wr=AR(w); ws=AS(w); b=AN(ind)&&BOX&AT(ind);  // b=indexes are boxed and nonempty
  if(!wr){x=from(ind,zeroionei[0]); *cellframelen=0; R x;}  // if w is an atom, the best you can get is indexes of 0.  No axes are used
  if(b&&AR(ind)){   // array of boxed indexes
   RE(aindex(ind,w,0L,&j));  // see if the boxes are homogeneous
   if(!j){  // if not...
    RZ(x=MODIFIABLE(from(ind,increm(iota(shape(w)))))); u=AV(x); // go back to the original indexes, select from table of all possible incremented indexes; since it is incremented, it is writable
-   DO(AN(x), ASSERT(*u,EVDOMAIN); --*u; ++u;);   // if anything required fill, it will leave a 0.  Fail then, and unincrement the indexes
+   DQ(AN(x), ASSERT(*u,EVDOMAIN); --*u; ++u;);   // if anything required fill, it will leave a 0.  Fail then, and unincrement the indexes
    *cellframelen=AR(w); R x;   // the indexes are what we want, and they include all the axes of w
   }
   // Homogeneous boxes.  j has them in a single table.  turn each row into an index
+  b=0; ind=j;  // use the code for numeric array
   // later this can use the code for table m
-  k=AAV0(ind); n=AN(k);  // k->contents of box 0, n=#atoms there.  Shouldn't we use AS(j)[1]?
-  fauxblockINT(xfaux,4,1); fauxINT(x,xfaux,n,1) d=1; DQ(n, IAV1(x)[i]=d; d*=AS(w)[i];);  // create vector x of sizes of each k-cell, but only within the axes used by the table 
-  AS(x)[0]=n; RZ(j=pdt(j,x)); *cellframelen=n; R j;  // shorten cell-size list to the ones we need; convert each index-list to an offset; remember the size of the cells
  }
  if(!b){
-  // Numeric m.  Each 1-cell is a list of indexes (if m is a list, each atom is a list of indexes)
-  ASSERT(AR(ind)<2,EVNONCE);
+  // Numeric m.  Each 1-cell is a list of indexes (if m is a list, each atom is a cell index)
   RZ(j=celloffset(w,ind));  // convert list/table to list of indexes, possibly in place
   n=AR(ind)<2?1:AS(ind)[AR(ind)-1];  // n=#axes used: 1, if m is a list; otherwise {:$m
  }else{  // a single box.
@@ -265,7 +264,7 @@ static A jtjstd(J jt,A w,A ind,I *cellframelen){A j=0,k,*v,x;B b;I d,i,n,r,*u,wr
   v=AAV(ind);   // now ind is a atom/list of boxes, one per axis
   ASSERT(1>=r,EVINDEX);  // not a table
   ASSERT(n<=wr,EVINDEX);  // not too many axes
-  d=n; DO(n, --d; if(!equ(ace,v[d]))break;); if(n)++d; n=d;  // discard trailing (boxed) empty axes
+  DQ(n, if(!equ(ace,v[i]))break; --n;);  // discard trailing (boxed) empty axes
   j=zeroionei[0];  // init list to a single 0 offset
   for(i=0;i<n;++i){  // for each axis, grow the cartesian product of the specified offsets
    x=v[i]; d=ws[i];
@@ -274,7 +273,8 @@ static A jtjstd(J jt,A w,A ind,I *cellframelen){A j=0,k,*v,x;B b;I d,i,n,r,*u,wr
     x=AAV0(x); k=IX(d);
     if(AN(x))k=less(k,pind(d,1<AR(x)?ravel(x):x));
    }else k=pind(d,x);
-   RZ(j=irs2(tymes(j,sc(d)),k,0L,VFLAGNONE, RMAX,jtplus));
+   RZ(x=tymes(j,sc(d)));
+   RZ(j=ATOMIC2(jt,x,k,rkblk,0, RMAX,CPLUS));
   }
  }
  // now j is an array of offsets.  n is the number of axes that went into each atom of j.  Return the offsets

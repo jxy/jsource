@@ -1,7 +1,7 @@
 /* Copyright 1990-2014, Jsoftware Inc.  All rights reserved.               */
 /* Licensed use only. Any other use is in violation of copyright.          */
 /*                                                                         */
-/* Adverbs: Reduce (Insert) and Outer Product                              */
+/* Adverbs: Reduce (Insert), Outer Product, and Fold                              */
 
 #include "j.h"
 #include "vasm.h"
@@ -24,28 +24,28 @@ static DF1(jtreduce);
 
 #if SY_ALIGN
 #define VDONE(T,PAR)  \
- {I q=n/sizeof(T);T s,*y=(T*)x; DO(m, s=0; DO(q, s^=*y++;); PAR; *z++=b==pc;);}
+ {I q=n/sizeof(T);T s,*y=(T*)x; DQ(m, s=0; DQ(q, s^=*y++;); PAR; *z++=b==pc;);}
 
 static void vdone(I m,I n,B*x,B*z,B pc){B b,*u;
  if(1==m){UI s,*xi;
   s=0; b=0;
-  xi=(I*)x; DO(n>>LGSZI, s^=*xi++;); 
-  u=(B*)xi; DO(n&(SZI-1), b^=*u++;);
-  u=(B*)&s; DO(SZI,   b^=*u++;);
+  xi=(I*)x; DQ(n>>LGSZI, s^=*xi++;); 
+  u=(B*)xi; DQ(n&(SZI-1), b^=*u++;);
+  u=(B*)&s; DQ(SZI,   b^=*u++;);
   *z=b==pc;
  }else if(0==(n&(sizeof(UI  )-1)))VDONE(UI,  PARITYW)
  else  if(0==(n&(sizeof(UINT)-1)))VDONE(UINT,PARITY4)
  else  if(0==(n&(sizeof(US  )-1)))VDONE(US,  PARITY2)
- else  DO(m, b=0; DO(n, b^=*x++;); *z++=b==pc;);
+ else  DQ(m, b=0; DQ(n, b^=*x++;); *z++=b==pc;);
 }
 #else
 static void vdone(I m,I n,B*x,B*z,B pc){B b;I q,r;UC*u;UI s,*y;
  q=n>>LGSZI; r=n&(SZI-1); y=(UI*)x;
  switch((r?2:0)+pc){
-  case 0: DO(m, s=0; DO(q, s^=*y++;); PARITYW;                            *z++=!b;); break;
-  case 1: DO(m, s=0; DO(q, s^=*y++;); PARITYW;                            *z++= b;); break;
-  case 2: DO(m, s=0; DO(q, s^=*y++;); PARITYW; u=(UC*)y; DO(r, b^=*u++;); *z++=!b; x+=n; y=(UI*)x;); break;
-  case 3: DO(m, s=0; DO(q, s^=*y++;); PARITYW; u=(UC*)y; DO(r, b^=*u++;); *z++= b; x+=n; y=(UI*)x;); break;
+  case 0: DQ(m, s=0; DQ(q, s^=*y++;); PARITYW;                            *z++=!b;); break;
+  case 1: DQ(m, s=0; DQ(q, s^=*y++;); PARITYW;                            *z++= b;); break;
+  case 2: DQ(m, s=0; DQ(q, s^=*y++;); PARITYW; u=(UC*)y; DQ(r, b^=*u++;); *z++=!b; x+=n; y=(UI*)x;); break;
+  case 3: DQ(m, s=0; DQ(q, s^=*y++;); PARITYW; u=(UC*)y; DQ(r, b^=*u++;); *z++= b; x+=n; y=(UI*)x;); break;
 }}
 #endif
 
@@ -53,16 +53,16 @@ static void vdone(I m,I n,B*x,B*z,B pc){B b;I q,r;UC*u;UI s,*y;
  {T* RESTRICT xx=(T*)x,* RESTRICT yy,*z0,* RESTRICT zz=(T*)z;   \
   q=d/sizeof(T);                  \
   for(j=0;j<m;++j){               \
-   yy=xx; xx-=q; z0=zz; DO(q, --xx; --yy; --zz; *zz=pfx(*xx,*yy););    \
-   DO(n-2,       zz=z0; DO(q, --xx;       --zz; *zz=pfx(*xx,*zz);););  \
+   yy=xx; xx-=q; z0=zz; DQ(q, --xx; --yy; --zz; *zz=pfx(*xx,*yy););    \
+   DQ(n-2,       zz=z0; DQ(q, --xx;       --zz; *zz=pfx(*xx,*zz);););  \
  }}  /* non-commutative */
 
 #define RCFXLOOP(T,pfx)  \
  {T* RESTRICT xx=(T*)x,* RESTRICT yy,*z0,* RESTRICT zz=(T*)z;   \
   q=d/sizeof(T);                  \
   for(j=0;j<m;++j){               \
-   yy=xx; xx+=q; z0=zz; DO(q, *zz++=pfx(*yy,*xx); ++xx; ++yy;);    \
-   DO(n-2,       zz=z0; DO(q, *zz++=pfx(*zz,*xx); ++xx;      ););  \
+   yy=xx; xx+=q; z0=zz; DQ(q, *zz++=pfx(*yy,*xx); ++xx; ++yy;);    \
+   DQ(n-2,       zz=z0; DQ(q, *zz++=pfx(*zz,*xx); ++xx;      ););  \
  }}  /* commutative */
 
 #if SY_ALIGN
@@ -74,9 +74,9 @@ static void vdone(I m,I n,B*x,B*z,B pc){B b;I q,r;UC*u;UI s,*y;
   q=d>>LGSZI; r=d&(SZI-1); xi=(I*)x; zz=z;                                             \
   for(j=0;j<m;++j,zz-=d){                                                       \
    yi=xi; xi=(I*)((B*)xi-d); zi=(I*)zz;                                         \
-   DO(q, --xi; --yi; *--zi=pfx(*xi,*yi););                                      \
+   DQ(q, --xi; --yi; *--zi=pfx(*xi,*yi););                                      \
     xi=(I*)((B*)xi-r); yi=(I*)((B*)yi-r); t=pfx(*xi,*yi); MC((B*)zi-r,&t,r);    \
-   DO(n-2, zi=(I*)zz; DO(q, --xi; --zi; *zi=pfx(*xi,*zi););                     \
+   DQ(n-2, zi=(I*)zz; DQ(q, --xi; --zi; *zi=pfx(*xi,*zi););                     \
     xi=(I*)((B*)xi-r); zi=(I*)((B*)zi-r); t=pfx(*xi,*zi); MC(    zi,  &t,r););  \
  }}  /* non-commutative */
 
@@ -84,14 +84,14 @@ static void vdone(I m,I n,B*x,B*z,B pc){B b;I q,r;UC*u;UI s,*y;
  {I r,t,*xi,*yi,*zi;                                                            \
   q=d>>LGSZI; r=d&(SZI-1);                                                             \
   for(j=0;j<m;++j,x+=d,z+=d){                                                   \
-   yi=(I*)x; x+=d; xi=(I*)x; zi=(I*)z; DO(q, *zi++=pfx(*yi,*xi); ++xi; ++yi;); t=pfx(*yi,*xi); MC(zi,&t,r);    \
-   DO(n-2,   x+=d; xi=(I*)x; zi=(I*)z; DO(q, *zi++=pfx(*zi,*xi); ++xi;      ); t=pfx(*zi,*xi); MC(zi,&t,r););  \
+   yi=(I*)x; x+=d; xi=(I*)x; zi=(I*)z; DQ(q, *zi++=pfx(*yi,*xi); ++xi; ++yi;); t=pfx(*yi,*xi); MC(zi,&t,r);    \
+   DQ(n-2,   x+=d; xi=(I*)x; zi=(I*)z; DQ(q, *zi++=pfx(*zi,*xi); ++xi;      ); t=pfx(*zi,*xi); MC(zi,&t,r););  \
  }}  /* commutative */
 
 #define REDUCECFX(f,pfx,ipfx,spfx,bpfx,vdo)  \
  AHDRP(f,B,B){B*y=0;I j,q;                       \
   if(d==1){vdo; R;}                                \
-  if(1==n)DO(d, *z++=*x++;)                        \
+  if(1==n)DQ(d, *z++=*x++;)                        \
   else if(0==d%sizeof(UI  ))RCFXLOOP(UI,   pfx)    \
   else if(0==d%sizeof(UINT))RCFXLOOP(UINT,ipfx)    \
   else if(0==d%sizeof(US  ))RCFXLOOP(US,  spfx)    \
@@ -104,7 +104,7 @@ static void vdone(I m,I n,B*x,B*z,B pc){B b;I q,r;UC*u;UI s,*y;
  AHDRP(f,B,B){B*y=0;I j,q;                       \
   if(d==1){vdo; R;}                                \
   x+=m*d*n; z+=m*d;                           \
-  if(1==n)DO(d, *--z=*--x;)                        \
+  if(1==n)DQ(d, *--z=*--x;)                        \
   else if(0==d%sizeof(UI  ))RBFXLOOP(UI,   pfx)    \
   else if(0==d%sizeof(UINT))RBFXLOOP(UINT,ipfx)    \
   else if(0==d%sizeof(US  ))RBFXLOOP(US,  spfx)    \
@@ -113,28 +113,28 @@ static void vdone(I m,I n,B*x,B*z,B pc){B b;I q,r;UC*u;UI s,*y;
 
 REDUCECFX(  eqinsB, EQ,  IEQ,  SEQ,  BEQ,  vdone(m,n,x,z,(B)(n&1)))
 REDUCECFX(  neinsB, NE,  INE,  SNE,  BNE,  vdone(m,n,x,z,1       ))
-REDUCECFX(  orinsB, OR,  IOR,  SOR,  BOR,  {I c=d*n; DO(m, *z++=1&&memchr(x,C1,n);                         x+=c;)}) 
-REDUCECFX( andinsB, AND, IAND, SAND, BAND, {I c=d*n; DO(m, *z++=!  memchr(x,C0,n);                         x+=c;}))
-REDUCEBFX(  ltinsB, LT,  ILT,  SLT,  BLT,  {I c=d*n; DO(m, *z++= *(x+n-1)&&!memchr(x,C1,n-1)?1:0;          x+=c;)})
-REDUCEBFX(  leinsB, LE,  ILE,  SLE,  BLE,  {I c=d*n; DO(m, *z++=!*(x+n-1)&&!memchr(x,C0,n-1)?0:1;          x+=c;)})
-REDUCEBFX(  gtinsB, GT,  IGT,  SGT,  BGT,  {I c=d*n; DO(m, y=memchr(x,C0,n); *z++=1&&(y?1&(y-x):1&n);      x+=c;)})
-REDUCEBFX(  geinsB, GE,  IGE,  SGE,  BGE,  {I c=d*n; DO(m, y=memchr(x,C1,n); *z++=!  (y?1&(y-x):1&n);      x+=c;)})
-REDUCEBFX( norinsB, NOR, INOR, SNOR, BNOR, {I c=d*n; DO(m, y=memchr(x,C1,n); d=y?y-x:n; *z++=(1&d)==d<n-1; x+=c;)})
-REDUCEBFX(nandinsB, NAND,INAND,SNAND,BNAND,{I c=d*n; DO(m, y=memchr(x,C0,n); d=y?y-x:n; *z++=(1&d)!=d<n-1; x+=c;)})
+REDUCECFX(  orinsB, OR,  IOR,  SOR,  BOR,  {I c=d*n; DQ(m, *z++=1&&memchr(x,C1,n);                         x+=c;)}) 
+REDUCECFX( andinsB, AND, IAND, SAND, BAND, {I c=d*n; DQ(m, *z++=!  memchr(x,C0,n);                         x+=c;}))
+REDUCEBFX(  ltinsB, LT,  ILT,  SLT,  BLT,  {I c=d*n; DQ(m, *z++= *(x+n-1)&&!memchr(x,C1,n-1)?1:0;          x+=c;)})
+REDUCEBFX(  leinsB, LE,  ILE,  SLE,  BLE,  {I c=d*n; DQ(m, *z++=!*(x+n-1)&&!memchr(x,C0,n-1)?0:1;          x+=c;)})
+REDUCEBFX(  gtinsB, GT,  IGT,  SGT,  BGT,  {I c=d*n; DQ(m, y=memchr(x,C0,n); *z++=1&&(y?1&(y-x):1&n);      x+=c;)})
+REDUCEBFX(  geinsB, GE,  IGE,  SGE,  BGE,  {I c=d*n; DQ(m, y=memchr(x,C1,n); *z++=!  (y?1&(y-x):1&n);      x+=c;)})
+REDUCEBFX( norinsB, NOR, INOR, SNOR, BNOR, {I c=d*n; DQ(m, y=memchr(x,C1,n); d=y?y-x:n; *z++=(1&d)==d<n-1; x+=c;)})
+REDUCEBFX(nandinsB, NAND,INAND,SNAND,BNAND,{I c=d*n; DQ(m, y=memchr(x,C0,n); d=y?y-x:n; *z++=(1&d)!=d<n-1; x+=c;)})
 
 
 #if SY_ALIGN
 REDUCEPFX(plusinsB,I,B,PLUS, plusBB, plusBI)
 #else
 AHDRR(plusinsB,I,B){I dw,i,p,q,r,r1,s;UC*tu;UI*v;
- if(d==1&n<SZI)DO(m, s=0; DO(n, s+=*x++;); *z++=s;)
+ if(d==1&n<SZI)DQ(m, s=0; DQ(n, s+=*x++;); *z++=s;)
  else if(d==1){UI t;
   p=n>>LGSZI; q=p/255; r=p%255; r1=n&(SZI-1); tu=(UC*)&t;
   for(i=0;i<m;++i){
    s=0; v=(UI*)x; 
    DO(q, t=0; DO(255, t+=*v++;); DO(SZI, s+=tu[i];));
          t=0; DO(r,   t+=*v++;); DO(SZI, s+=tu[i];);
-   x=(B*)v; DO(r1, s+=*x++;); 
+   x=(B*)v; DQ(r1, s+=*x++;); 
    *z++=s;
  }}else{A t;UI*tv;
   dw=(d+SZI-1)>>LGSZI; p=dw*SZI; memset(z,C0,m*d*SZI);
@@ -176,9 +176,8 @@ REDUCCPFX(tymesinsO, D, I, TYMESO)
    _mm_storel_pd(z++,_mm256_castpd256_pd128 (acc0)); /* store the single result */ \
   )
 
-#if 1 // scaf
 AHDRR(plusinsD,D,D){I i;D* RESTRICT y;
-  NAN0;if(d*m*n==0)SEGFAULT; /* scaf*/ 
+  NAN0;
   // latency of add is 4, so use 4 accumulators
   if(d==1){
 #if C_AVX&&SY_64
@@ -191,15 +190,12 @@ AHDRR(plusinsD,D,D){I i;D* RESTRICT y;
   else if(1==n){if(sizeof(D)!=sizeof(D)){DQ(n, *z++=    *x++;)}else{MC((C*)z,(C*)x,d*sizeof(D));}}
   else{z+=(m-1)*d; x+=(m*n-1)*d;
    for(i=0;i<m;++i,z-=d){
-    y=x; x-=d; plusDD(jt,d,z,x,y,1); x-=d;
-    DQ(n-2,    plusDD(jt,d,z,x,z,1); x-=d; );
+    y=x; x-=d; plusDD(1,d,x,y,z,jt); x-=d;
+    DQ(n-2,    plusDD(1,d,x,z,z,jt); x-=d; );
    }
   }
   NAN1V;
 }
-#else
-REDUCENAN( plusinsD, D, D, PLUS, plusDD  ) 
-#endif
 
 REDUCENAN( plusinsZ, Z, Z, zplus, plusZZ )
 REDUCEPFX( plusinsX, X, X, xplus, plusXX, plusXX )
@@ -232,7 +228,7 @@ static DF1(jtred0){DECLF;A x;I f,r,wr,*s;
 }    /* f/"r w identity case */
 
 // general reduce.  We inplace the results into the next iteration.  This routine cannot inplace its inputs.
-static DF1(jtredg){F1PREFIP;PROLOG(0020);DECLF;AD * RESTRICT a;I i,k,n,old,r,wr;
+static DF1(jtredg){F1PREFIP;PROLOG(0020);DECLF;AD * RESTRICT a;I i,k,n,r,wr;A *old;
  RZ(w);
  ASSERT(DENSE&AT(w),EVNONCE);
  // loop over rank
@@ -244,7 +240,7 @@ static DF1(jtredg){F1PREFIP;PROLOG(0020);DECLF;AD * RESTRICT a;I i,k,n,old,r,wr;
  // Allocate virtual block for the running x argument.
  A origw=w; I origwc=AC(w);  // save inplaceability of the original w
  fauxblock(virtafaux); fauxvirtual(a,virtafaux,w,r-1,ACUC1|ACINPLACE);  // allocate UNINCORPORABLE block, allow inplacing (only if jtinplace determines that the backer is inplaceable)
- old=jt->tnextpushx; // save stack mark for subsequent frees.  We keep the a argument over the calls, but allow the w to be deleted
+ old=jt->tnextpushp; // save stack mark for subsequent frees.  We keep the a argument over the calls, but allow the w to be deleted
  // w will hold the result from the iterations.  Init to value of last cell
  // Since there are multiple cells, w may be in a virtual block; but we don't rely on that.
  RZ(w=tail(w)); k=AN(w)<<bplg(AT(w)); // k=length of input cell in bytes
@@ -300,7 +296,7 @@ static A jtredsp1(J jt,A w,A self,C id,VF ado,I cv,I f,I r,I zt){A e,x,z;I m,n;P
  RZ(w);
  wp=PAV(w); e=SPA(wp,e); x=SPA(wp,x); n=AN(x); m=*AS(w);
  GA(z,zt,1,0,0);
- if(n){ado(jt,1L,1L,n,AV(z),AV(x)); RE(0); if(m==n)R z;}
+ if(n){((AHDRRFN*)ado)(1L,n,1L,AV(x),AV(z),jt); RE(0); if(m==n)R z;}
  R redsp1a(id,z,e,n,AR(w),AS(w));
 }    /* f/"r w for sparse vector w */
 
@@ -314,7 +310,7 @@ DF1(jtredravel){A f,x,z;I n;P*wp;
   VA2 adocv = vains(FAV(f)->fgh[0],AT(x));
   ASSERT(adocv.f,EVNONCE);
   GA(z,rtype(adocv.cv),1,0,0);
-  if(n)adocv.f(jt,(I)1,(I)1,n,AV(z),AV(x));  // mustn't adocv on empty
+  if(n)((AHDRRFN*)adocv.f)((I)1,n,(I)1,AV(x),AV(z),jt);  // mustn't adocv on empty
   if(jt->jerr<EWOV){RE(0); R redsp1a(vaid(FAV(f)->fgh[0]),z,SPA(wp,e),n,AR(w),AS(w));}
 }}  /* f/@, w */
 
@@ -325,7 +321,7 @@ static A jtredspd(J jt,A w,A self,C id,VF ado,I cv,I f,I r,I zt){A a,e,x,z,zx;I 
  xr=r; v=AV(a); DO(AN(a), if(f<v[i])--xr;); xf=AR(x)-xr;
  m=prod(xf,s); c=m?AN(x)/m:0; n=s[xf];
  GA(zx,zt,AN(x)/n,AR(x)-1,s); MCISH(xf+AS(zx),1+xf+s,xr-1); 
- ado(jt,m,c/n,n,AV(zx),AV(x)); RE(0);
+ ((AHDRRFN*)ado)(c/n,n,m,AV(x),AV(zx),jt); RE(0);
  switch(id){
   case CPLUS: if(!equ(e,num[0]))RZ(e=tymes(e,sc(n))); break; 
   case CSTAR: if(!equ(e,num[1] )&&!equ(e,num[0]))RZ(e=expn2(e,sc(n))); break;
@@ -404,7 +400,7 @@ static A jtredsps(J jt,A w,A self,C id,VF ado,I cv,I f,I r,I zt){A a,a1,e,sn,x,x
  for(i=0;i<m;++i){A y;B*p1;C*u;I*vv;
   p1=1+(B*)memchr(pv,C1,yr); n=p1-pv; if(sn)sv[i]=wm-n; pv=p1;
   vv=qv?yv+yc**v:yv; DO(yc-1, *yu++=vv[dv[i]];);
-  if(1<n){if(qv){u=xxv; DO(n, MC(u,xv+xk*v[i],xk); u+=xk;);} ado(jt,1L,xc,n,zv,qv?xxv:xv); RE(0);}
+  if(1<n){if(qv){u=xxv; DO(n, MC(u,xv+xk*v[i],xk); u+=xk;);} ((AHDRRFN*)ado)(xc,n,1L,qv?xxv:xv,zv,jt); RE(0);}
   else   if(zk==xk)MC(zv,qv?xv+xk**v:xv,xk);
   else   {if(!x1)GA(x1,xt,xc,1,0); MC(AV(x1),qv?xv+xk**v:xv,xk); RZ(y=cvt(zt,x1)); MC(zv,AV(y),zk);}
   zv+=zk; if(qv)v+=n; else{xv+=n*xk; yv+=n*yc;}
@@ -430,7 +426,7 @@ static DF1(jtreducesp){A a,g,z;B b;I f,n,r,*v,wn,wr,*ws,wt,zt;P*wp;
  C id=vaid(g);
  VA2 adocv = vains(g,wt);
  if(2==n&&!(adocv.f&&strchr(fca,id))){
-  A x=irs2(num[0],w,0L,0,r,jtfrom); A y=irs2(num[1],w,0L,0,r,jtfrom);
+  A x; IRS2(num[0],w,0L,0,r,jtfrom,x); A y; IRS2(num[1],w,0L,0,r,jtfrom,y);
   R df2(x,y,g);  // rank has been reset for this call
  }
  // original rank still set
@@ -444,18 +440,18 @@ static DF1(jtreducesp){A a,g,z;B b;I f,n,r,*v,wn,wr,*ws,wt,zt;P*wp;
   b=0; DO(AN(a), if(f==v[i]){b=1; break;});
   z=b?redsps(w,self,id,adocv.f,adocv.cv,f,r,zt):redspd(w,self,id,adocv.f,adocv.cv,f,r,zt);
  }
- R jt->jerr>=EWOV?irs1(w,self,r,jtreducesp):z;
+ R jt->jerr>=EWOV?IRS1(w,self,r,jtreducesp,z):z;
 }    /* f/"r for sparse w */
 
 #define BR2IFX(T,F)     {T*u=(T*)wv,*v=u+d,x,y;                                           \
                          GATV(z,B01,wn>>1,wr-1,ws); zv=BAV(z);                               \
-                         if(1<d)DO(m, DO(d, x=*u++; y=*v++; *zv++=x F y; ); u+=d; v+=d;)  \
-                         else   DO(m,       x=*u++; y=*u++; *zv++=x F y;               ); \
+                         if(1<d)DQ(m, DQ(d, x=*u++; y=*v++; *zv++=x F y; ); u+=d; v+=d;)  \
+                         else   DQ(m,       x=*u++; y=*u++; *zv++=x F y;               ); \
                         }
 #define BR2PFX(T,F)     {T*u=(T*)wv,*v=u+d,x,y;                                           \
                          GATV(z,B01,wn>>1,wr-1,ws); zv=BAV(z);                               \
-                         if(1<d)DO(m, DO(d, x=*u++; y=*v++; *zv++=F(x,y);); u+=d; v+=d;)  \
-                         else   DO(m,       x=*u++; y=*u++; *zv++=F(x,y);              ); \
+                         if(1<d)DQ(m, DQ(d, x=*u++; y=*v++; *zv++=F(x,y);); u+=d; v+=d;)  \
+                         else   DQ(m,       x=*u++; y=*u++; *zv++=F(x,y);              ); \
                         }
 #define BTABIFX(F)      {btab[0                        ]=0 F 0;  \
                          btab[C_LE?256:  1]=0 F 1;  \
@@ -511,8 +507,8 @@ static B jtreduce2(J jt,A w,C id,I f,I r,A*zz){A z=0;B b=0,btab[258],*zv;I c,d,m
   case BR2CASE(FLX, CGE     ): BR2PFX(D,TGE); break;
   case BR2CASE(FLX, CNE     ): BR2PFX(D,TNE); break;
  }
- if(b){S*u=(S*)wv; GATV(z,B01,wn>>1,wr-1,ws); zv=BAV(z); DO(m, *zv++=btab[*u++];);}
- if(z&&1<r){I*u=f+AS(z),*v=f+1+ws; DO(r-1, *u++=*v++;);}
+ if(b){S*u=(S*)wv; GATV(z,B01,wn>>1,wr-1,ws); zv=BAV(z); DQ(m, *zv++=btab[*u++];);}
+ if(z&&1<r){I*u=f+AS(z),*v=f+1+ws; DQ(r-1, *u++=*v++;);}
  *zz=z;
  R 1;
 }    /* f/"r for dense w over an axis of length 2 */
@@ -551,11 +547,11 @@ static DF1(jtreduce){A z;I d,f,m,n,r,t,wn,wr,*ws,wt,zt;
   // Convert inputs if needed 
   if((t=atype(adocv.cv))&&TYPESNE(t,wt))RZ(w=cvt(t,w));
   // call the selected reduce routine.
-  adocv.f(jt,m,d,n,AV(z),AV(w));
+  ((AHDRRFN*)adocv.f)(d,n,m,AV(w),AV(z),jt);
   // if return is EWOV, it's an integer overflow and we must restart, after restoring the ranks
   // EWOV1 means that there was an overflow on a single result, which was calculated accurately and stored as a D.  So in that case all we
   // have to do is change the type of the result.
-  if(jt->jerr)if(jt->jerr==EWOV1){RESETERR;AT(z)=FL;RETF(z);}else {RETF(jt->jerr>=EWOV?irs1(w,self,r,jtreduce):0);} else {RETF(adocv.cv&VRI+VRD?cvz(adocv.cv,z):z);}
+  if(jt->jerr)if(jt->jerr==EWOV1){RESETERR;AT(z)=FL;RETF(z);}else {RETF(jt->jerr>=EWOV?IRS1(w,self,r,jtreduce,z):0);} else {RETF(adocv.cv&VRI+VRD?cvz(adocv.cv,z):z);}
 
   // special cases:
  }else if(n==1)R head(w);    // reduce on single items - ranks are still set
@@ -579,14 +575,14 @@ static A jtredcatsp(J jt,A w,A z,I r){A a,q,x,y;B*b;I c,d,e,f,j,k,m,n,n1,p,*u,*v
   SPB(zp,x,ca(x));
   SPB(zp,i,repeatr(ne(a,sc(f)),y)); q=SPA(zp,i);  // allow for virtualization of SPB
   v=j+AV(q); u=j+AV(y);
-  DO(m, *v=p*u[0]+u[1]; v+=n1; u+=n;);
+  DQ(m, *v=p*u[0]+u[1]; v+=n1; u+=n;);
  }else if(!c&&!d){  /* dense dense */
   u=AS(x); GA(q,AT(x),AN(x),xr-1,u); v=k+AS(q); *v=u[k]*u[1+k]; MCISH(1+v,2+k+u,xr-k-2);
   MC(AV(q),AV(x),AN(x)<<bplg(AT(x)));
   SPB(zp,x,q); SPB(zp,i,ca(y));
  }else{             /* other */
   GATV0(q,INT,xr,1); v=AV(q); 
-  if(1!=k){*v++=0; *v++=k; e=0; DO(xr-1, ++e; if(e!=k)*v++=e;); RZ(x=cant2(q,x));}
+  if(1!=k){*v++=0; *v++=k; e=0; DQ(xr-1, ++e; if(e!=k)*v++=e;); RZ(x=cant2(q,x));}
   v=AV(q); u=AS(x); *v=u[0]*u[1]; MCISH(1+v,2+u,xr-1); RZ(x=reshape(vec(INT,xr-1,v),x));
   e=ws[f+c]; RZ(y=repeat(sc(e),y)); v=j+AV(y);
   if(c)DO(m, k=p**v; DO(e, *v=k+  i; v+=n;);)
@@ -619,7 +615,7 @@ static DF1(jtredsemi){I f,n,r,*s,wr;
  wr=AR(w); r=(RANKT)jt->ranks; r=wr<r?wr:r; f=wr-r; s=AS(w); n=r?s[f]:1;  // let the rank run into tail   n=#items  in a cell of w
  if(2>n){ASSERT(n,EVDOMAIN); R tail(w);}  // rank still set
  if(BOX&AT(w))R jtredg(jt,w,self);  // the old way failed because it did not mimic scalar replication; revert to the long way.  ranks are still set
- else R irs1(w,0L,r-1,jtbox);  // unboxed, just box the cells
+ else{A z; R IRS1(w,0L,r-1,jtbox,z);}  // unboxed, just box the cells
 }    /* ;/"r w */
 
 static DF1(jtredstitch){A c,y;I f,n,r,*s,*v,wr;
@@ -627,9 +623,9 @@ static DF1(jtredstitch){A c,y;I f,n,r,*s,*v,wr;
  wr=AR(w); r=(RANKT)jt->ranks; r=wr<r?wr:r; f=wr-r; RESETRANK;
  s=AS(w); n=r?s[f]:1;
  ASSERT(n,EVDOMAIN);
- if(1==n)R irs1(w,0L,r,jthead);
- if(1==r)R 2==n?RETARG(w):irs2(irs2(num[-2],w,0L,0L,1L,jtdrop),irs2(num[-2],w,0L,0L,1L,jttake),0L,1L,0L,jtover);
- if(2==r)R irs1(w,0L,2L,jtcant1);
+ if(1==n)R IRS1(w,0L,r,jthead,y);
+ if(1==r){if(2==n)R RETARG(w); A z1,z2,z3; RZ(IRS2(num[-2],w,0L,0L,1L,jtdrop,z1)); RZ(IRS2(num[-2],w,0L,0L,1L,jttake,z2)); R IRS2(z1,z2,0L,1L,0L,jtover,z3);}
+ if(2==r)R IRS1(w,0L,2L,jtcant1,y);
  RZ(c=apvwr(wr,0L,1L)); v=AV(c); v[f]=f+1; v[f+1]=f; RZ(y=cant2(c,w));  // transpose last 2 axes
  if(SPARSE&AT(w)){A x;
   GATV0(x,INT,f+r-1,1); v=AV(x); MCISH(v,AS(y),f+1);
@@ -647,7 +643,7 @@ static DF1(jtredstiteach){A*wv,y;I n,p,r,t;
  n=AN(w);
  if(!(2<n&&1==AR(w)&&BOX&AT(w)))R reduce(w,self);
  wv=AAV(w);  y=wv[0]; p=IC(y); t=AT(y);
- DO(n, y=wv[i]; r=AR(y); if(!(r&&r<=2&&p==IC(y)&&TYPESEQ(t,AT(y))))R reduce(w,self););
+ DO(n, y=wv[i]; r=AR(y); if(!((((r-1)&-2)==0)&&p==IC(y)&&TYPESEQ(t,AT(y))))R reduce(w,self););  // rank 1 or 2, rows match, equal types
  R box(razeh(w));
 }    /* ,.&.>/ w */
 
@@ -658,7 +654,7 @@ static DF1(jtredcateach){A*u,*v,*wv,x,*xv,z,*zv;I f,m,mn,n,r,wr,*ws,zm,zn;I n1=0
  if(!r||1>=n)R reshape(repeat(ne(sc(f),IX(wr)),shape(w)),n?w:ace);
  if(!(BOX&AT(w)))R df1(cant2(sc(f),w),qq(ds(CBOX),zeroionei[1]));
 // bug: ,&.>/ y does scalar replication wrong
-// wv=AN(w)+AAV(w); DO(AN(w), if(AN(*--wv)&&AR(*wv)&&n1&&n2) ASSERT(0,EVNONCE); if((!AR(*wv))&&n1)n2=1; if(AN(*wv)&&1<AR(*wv))n1=1;);
+// wv=AN(w)+AAV(w); DQ(AN(w), if(AN(*--wv)&&AR(*wv)&&n1&&n2) ASSERT(0,EVNONCE); if((!AR(*wv))&&n1)n2=1; if(AN(*wv)&&1<AR(*wv))n1=1;);
  zn=AN(w)/n; PROD(zm,f,ws); PROD(m,r-1,ws+f+1); mn=m*n;
  GATV(z,BOX,zn,wr-1,ws); MCISH(AS(z)+f,ws+f+1,r-1);
  GATV0(x,BOX,n,1); xv=AAV(x);
@@ -667,7 +663,7 @@ static DF1(jtredcateach){A*u,*v,*wv,x,*xv,z,*zv;I f,m,mn,n,r,wr,*ws,zm,zn;I n1=0
  RETF(z);
 }    /* ,&.>/"r w */
 
-static DF2(jtoprod){R df2(a,w,FAV(self)->fgh[2]);}
+static DF2(jtoprod){R df2(a,w,FAV(self)->fgh[2]);}  // x u/ y - transfer to the u"lr,_ verb (precalculated)
 
 
 F1(jtslash){A h;AF f1;C c;V*v;I flag=0;
@@ -689,27 +685,6 @@ A jtaslash (J jt,C c,    A w){RZ(   w); R df1(  w,   slash(ds(c))     );}
 A jtaslash1(J jt,C c,    A w){RZ(   w); R df1(  w,qq(slash(ds(c)),zeroionei[1]));}
 A jtatab   (J jt,C c,A a,A w){RZ(a&&w); R df2(a,w,   slash(ds(c))     );}
 
-#if 0 // obsolete 
-static AHDRR(jtmeanD,D,D){I i;D*y;D v,*zz;
- NAN0;
- if(1==d)DO(m, v=   *x++; DO(n-1, v+=*x++;); *z++=v/n;)
- else for(i=0;i<m;++i){
-  y=x; x+=d; zz=z; DO(d, *z++ =*x+++   *y++;);
-  DO(n-3,    z=zz; DO(d, *z+++=*x++;        ));
-             z=zz; DO(d, *z   =(*z+*x++)/n; ++z;);
- }
- NAN1V;
-}    /* based on REDUCEPFX; 2<n */
-
-static AHDRR(jtmeanI,D,I){I i;I*y;D v,*zz;
- if(1==d)DO(m, v=(D)*x++; DO(n-1, v+=*x++;); *z++=v/n;)
- else for(i=0;i<m;++i){
-  y=x; x+=d; zz=z; DO(d, *z++ =*x+++(D)*y++;);
-  DO(n-3,    z=zz; DO(d, *z+++=*x++;        ));
-             z=zz; DO(d, *z   =(*z+*x++)/n; ++z;);
-}}   /* based on REDUCEPFX; 2<n */
-#endif
-
 DF1(jtmean){
  RZ(w);
  I wr=AR(w); I r=(RANKT)jt->ranks; r=wr<r?wr:r;
@@ -718,15 +693,58 @@ DF1(jtmean){
 A sum=reduce(w,FAV(self)->fgh[0]);  // calculate +/"r
  RESETRANK;  // back to infinite rank for the divide
  RZ(sum);
- RZ(w=JTIPAEX2(divide,sum,sc(n)));  // take quotient inplace and return it
+ RZ(w=jtatomic2(JTIPA,sum,sc(n),ds(CDIV)));  // take quotient inplace and return it
  RETF(w);
-#if 0 // obsolete
- if(!(wn&&2<n&&wt&INT+FL))R divide(df1(w,qq(slash(ds(CPLUS)),sc(r))),sc(n));
- // there must be atoms, so it's OK to PROD infixes of shape
- PROD(m,f,ws); PROD(d,r-1,f+ws+1);
- GATV(z,FL,m*d,MAX(0,wr-1),ws); if(1<r)MCISH(f+AS(z),f+1+ws,r-1);
- if(wt&INT)meanI(m,d,n,DAV(z), AV(w)); 
- else      meanD(m,d,n,DAV(z),DAV(w));
- RE(0); RETF(z);
-#endif
 }    // (+/%#)"r w, implemented as +/"r % cell-length
+
+// entry point to execute monad/dyad Fold after the noun arguments are supplied
+static DF2(jtfoldx){
+ // see if this is monad or dyad
+ I foldflag=(~AT(w)&VERB)>>(VERBX-3);  // flags: dyad mult fwd rev  if w is not conj, this must be a dyad call
+ self=foldflag&8?self:w; w=foldflag&8?w:a; a=foldflag&8?a:mtv; // if monad, it's w self garbage,  move to '' w self
+ // get the rest of the flags from the original ID byte, which was moved to lc
+ foldflag|=FAV(self)->lc-CFDOT;  // this sets mult fwd rev
+ // define the flags as the special global
+ RZ(symbis(nfs(11,"Foldtype_j_"),sc(foldflag),jt->locsyms));
+ // execute the Fold.  While it is running, set the flag to allow Z:
+ B foldrunning=jt->foldrunning; jt->foldrunning=1; A z=(*(FAV(self)->localuse.lfns[1]))(jt,a,w,self); jt->foldrunning=foldrunning;
+ // if there was an error, save the error code and recreate the error at this level, to cover up details inside the script
+ if(jt->jerr){I e=jt->jerr; RESETERR; jsignal(e);}
+ R z;
+}
+
+// entry point for monad and dyad F. F.. F.: F: F:. F::
+DF2(jtfold){
+ // The name Fold_j_ should have been loaded at startup.  If not, try loading its script.  If that still fails, quit
+ A foldconj; I step;
+ for(step=0;step<2;++step){
+  switch(step){  // try the startup, from the bottom up
+  case 1: eval("load'dev/fold'");  // fall through
+  case 0: if((foldconj=nameref(nfs(7,"Fold_j_")))&&AT(foldconj)&CONJ)goto found;  // there is always a ref, but it may be to [:
+  }
+  RESETERR;  // if we loop back, clear errors
+ }
+ ASSERT(0,EVNONCE);  // not found or not conjunction - error
+found: ;
+
+ // Apply Fold_j_ to the input arguments, creating a derived verb to do the work
+ A derivvb; RZ(derivvb=unquote(a,w,foldconj));
+ // Modify the derived verb to go to our preparatory stub.  Save the dyadic entry point for the derived verb so the stub can call it
+ FAV(derivvb)->localuse.lfns[1]=FAV(derivvb)->valencefns[1];
+ FAV(derivvb)->valencefns[0]=FAV(derivvb)->valencefns[1]=jtfoldx;
+ // Tell the stub what the original fold type was
+ FAV(derivvb)->lc=FAV(self)->id;
+ R derivvb;
+}
+
+// x Z: y
+DF2(jtfoldZ){
+ ASSERT(jt->foldrunning,EVSYNTAX);  // If fold not running, fail.  Should be a semantic error rather than syntax
+ // The name FoldZ_j_ should have been loaded at startup.  If not, fail
+ A foldvb; RZ(foldvb=nameref(nfs(8,"FoldZ_j_"))); ASSERT((AT(foldvb)&VERB),EVNONCE);   // error if undefined or not verb
+ // Apply FoldZ_j_ to the input arguments, creating a derived verb to do the work
+ A z=unquote(a,w,foldvb);
+ // if there was an error, save the error code and recreate the error at this level, to cover up details inside the script
+ if(jt->jerr){I e=jt->jerr; RESETERR; jsignal(e);}
+ R z;
+}

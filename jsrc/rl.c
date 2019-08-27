@@ -21,9 +21,9 @@ static B jtlp(J jt,A w){B b=1,p=0;C c,d,q=CQUOTE,*v;I j=0,n;
  RZ(w);
  n=AN(w); v=CAV(w); c=*v; d=*(v+n-1);
  if(1==n||(2==n||3>=n&&' '==c)&&(d==CESC1||d==CESC2)||vnm(n,v))R 0;
- if(C9==ctype[(UC)c])DO(n-1, d=c; c=ctype[(UC)*++v]; if(b=!NUMV(c)||d==CS&&c!=C9)break;)
- else if(c==q)   DO(n-1, c=*v++; if(c==q)p=!p; if(b=p?0:c!=q)break;)
- else if(c=='(') DO(n-1, c=*v++; j+=c=='('?1:c==')'?-1:0; if(b=!j)break;)
+ if(C9==ctype[(UC)c])DQ(n-1, d=c; c=ctype[(UC)*++v]; if(b=!NUMV(c)||d==CS&&c!=C9)break;)
+ else if(c==q)   DQ(n-1, c=*v++; p^=(c==q); if(b=(p^1)&(c!=q)){break;})
+ else if(c=='(') DQ(n-1, c=*v++; j+=c=='('?1:c==')'?-1:0; if(b=!j)break;)
  R b;
 }    /* 1 iff put parens around w */
 
@@ -38,9 +38,9 @@ static A jtlcpb(J jt,B b,A w){A z=w;B p;C c,*v,*wv,*zv;I n;
  n=AN(w); wv=CAV(w); 
  if(!b){
   c=ctype[(UC)*wv]; v=wv; p=0;
-  if     (c==CQ)DO(n-1, c=ctype[(UC)*++v]; if(c==CQ)p=!p; else if(p){b=1; break;})
-  else if(c==C9)DO(n-1, c=ctype[(UC)*++v]; if(!(c==C9   ||c==CS   )){b=1; break;})
-  else          DO(n-1, c=      *++v ; if(!(c==CESC1||c==CESC2)){b=1; break;});
+  if     (c==CQ)DQ(n-1, c=ctype[(UC)*++v]; p^=(c==CQ); if(p&(c!=CQ)){b=1; break;})
+  else if(c==C9)DQ(n-1, c=ctype[(UC)*++v]; if(!(c==C9   ||c==CS   )){b=1; break;})
+  else          DQ(n-1, c=      *++v ; if(!(c==CESC1||c==CESC2)){b=1; break;});
   if(b&&vnm(n,wv))b=0;
  }
  if(b){GATV0(z,LIT,2+n,1); zv=CAV(z); *zv='('; MC(1+zv,wv,n); zv[1+n]=')';}
@@ -54,7 +54,7 @@ static F1(jtltiea){A t,*v,*wv,x,y;B b;C c;I n;
  n=AN(w); wv=AAV(w);  RZ(t=spellout(CGRAVE));
  GATV0(y,BOX,n+n,1); v=AAV(y);
  DO(n, *v++=i?t:mtv; x=wv[i]; c=ID(x); RZ(x=lrr(x)); 
-     b=c==CHOOK||c==CFORK||i&&lp(x); RZ(*v++=CALL2(jt->lcp,b,x,0)););
+     b=(C)(c-CHOOK)<=(C)(CFORK-CHOOK)||i&&lp(x); RZ(*v++=CALL2(jt->lcp,b,x,0)););
  R raze(y);
 }
 
@@ -62,9 +62,9 @@ static F1(jtltieb){A pt,t,*v,*wv,x,y;B b;C c,*s;I n;
  RZ(w);
  n=AN(w); wv=AAV(w);  RZ(t=spellout(CGRAVE)); RZ(pt=over(scc(')'),t));
  GATV0(y,BOX,n+n,1); v=AAV(y);
- if(1>=n)x=mtv; else{GATV0(x,LIT,n-2,1); s=CAV(x); DO(n-2, *s++='(';);}
- DO(n, *v++=0==i?x:1==i?t:pt; x=wv[i]; c=ID(x); RZ(x=lrr(x)); 
-     b=c==CHOOK||c==CFORK||i&&lp(x); RZ(*v++=CALL2(jt->lcp,b,x,0)););
+ if(1>=n)x=mtv; else{GATV0(x,LIT,n-2,1); s=CAV(x); DQ(n-2, *s++='(';);}
+ DO(n, x=i==1?t:x; x=i>1?pt:x; *v++=x; x=wv[i]; c=ID(x); RZ(x=lrr(x)); 
+     b=(C)(c-CHOOK)<=(C)(CFORK-CHOOK)||i&&lp(x); RZ(*v++=CALL2(jt->lcp,b,x,0)););
  R raze(y);
 }
 
@@ -90,7 +90,7 @@ static F1(jtlchar){A y;B b,p=1,r1;C c,d,*u,*v;I j,k,m,n;
   R over(over(cstr("a. "),lcpx(lnum(y))),over(cstr("}~"),lchar(from(y,w))));
  }
  j=2; b=7<n||1<n&&1<AR(w);
- DO(n, c=*v++; if(c==CQUOTE)++j; b&=c==d; p&=31<c&&c<127;); 
+ DQ(n, c=*v++; j+=c==CQUOTE; b&=c==d; p&=(C)(c-32)<(C)(127-32);); 
  if(b){n=1; j=MIN(3,j);}
  if(!p){
   k=(UC)d; RZ(y=indexof(alp,w));
@@ -100,7 +100,7 @@ static F1(jtlchar){A y;B b,p=1,r1;C c,d,*u,*v;I j,k,m,n;
  }
  GATV0(y,LIT,n+j,1); v=CAV(y);
  *v=*(v+n+j-1)=CQUOTE; ++v;
- if(2==j)MC(v,u,n); else DO(n, *v++=c=*u++; if(c==CQUOTE)*v++=c;);
+ if(2==j)MC(v,u,n); else DQ(n, *v++=c=*u++; if(c==CQUOTE)*v++=c;);
  R over(b?lsh(w):lshape(w),y);
 }    /* non-empty character array */
 
@@ -108,19 +108,19 @@ static F1(jtlbox){A p,*v,*vv,*wv,x,y;B b=0;I n;
  RZ(w);
  if(equ(ace,w)&&B01&AT(AAV0(w)))R cstr("a:");
  n=AN(w); wv=AAV(w); 
- DO(n, x=wv[i]; if(BOX&AT(x)){b=1; break;}); b=b||1==n;
- GATV0(y,BOX,n+n-!b,1); v=vv=AAV(y);
+ DO(n, x=wv[i]; if(BOX&AT(x)){b=1; break;}); b|=1==n;
+ GATV0(y,BOX,n+n-(1^b),1); v=vv=AAV(y);
  if(b){
   RZ(p=cstr("),(<"));
   DO(n, x=wv[i]; *v++=p; RZ(*v++=lnoun(x)););
   RZ(*vv=cstr(1==n?"<":"(<")); if(1<n)RZ(vv[n+n-2]=cstr("),<"));
   R over(lshape(w),raze(y));
  }
- DO(n, x=wv[i]; if(b=1!=AR(x)||!(LIT&AT(x)))break;);
+ DO(n, x=wv[i]; if((AR(x)^1)|(~AT(x)&LIT)){b=1; break;});
  if(!b){C c[256],d,*t;UC*s;
-  DO(256,c[i]=1;); 
+  memset(c,1,sizeof(c)); 
   RZ(x=raze(w)); s=UAV(x);
-  DO(AN(x), c[*s++]=0;);
+  DQ(AN(x), c[*s++]=0;);
   if(c[CQUOTE]&&equ(w,words(x)))R over(cstr(";:"),lchar(x));
   if(c[d=' ']||c[d='|']||c[d='/']||c[d=',']||c[d=';']){
    GATV0(y,LIT,n+AN(x),1); t=CAV(y);
@@ -134,11 +134,31 @@ static F1(jtlbox){A p,*v,*vv,*wv,x,y;B b=0;I n;
  R over(lshape(w),raze(y));
 }    /* non-empty boxed array */
 
+// Apply decoration as needed to a numeric character string w to give it the correct type t
+// Result is A block for decorated string
+A jtdecorate(J jt,A w,I t){
+ if(AN(w)==0)R w;  // if empty string, don't decorate
+ if(t&FL){
+  // float: make sure there is a . somewhere, or infinity/indefinite ('_' followed by space/end/.), else put '.' on the end
+  B needdot = !memchr(CAV(w),'.',AN(w));  // check for decimal point
+  if(needdot){DO(AN(w), if(CAV(w)[i]=='_' && (i==AN(w)-1 || CAV(w)[i+1]==' ')){needdot=0; break;} )}  // check for infinity
+  if(needdot)w=over(w,scc('.'));
+ }else if(t&INT){
+  // integer: if the string contains nothing but one-digit 0/1 values, prepend a '0'
+  I l=AN(w); C *s=CAV(w); do{if((*s&-2)!='0')break; ++s; if(--l==0)break; if(*s!=' ')break; ++s;}while(--l);
+  if(l==0)w=over(scc('0'),w);
+ }else if(t&XNUM+RAT){
+  // numeric/rational: make sure there is an r/x somewhere in the string, else put one on the end
+  if(!memchr(CAV(w),t&XNUM?'x':'r',AN(w)))w=over(w,scc('x'));
+ }
+ R w;
+}
+
 static F1(jtlnum1){A z;I t;
  RZ(w);
  t=AT(w);
  RZ(z=t&FL+CMPX?df1(w,fit(ds(CTHORN),sc((I)18))):thorn1(w));
- R t&XNUM+RAT&&!memchr(CAV(z),t&XNUM?'x':'r',AN(z))?over(z,scc('x')):z;
+ R decorate(z,t);
 }    /* dense non-empty numeric vector */
 
 static F1(jtlnum){A b,d,t,*v,y;B p;I n;
@@ -168,7 +188,7 @@ static F1(jtlnum){A b,d,t,*v,y;B p;I n;
 static F1(jtlsparse){A a,e,q,t,x,y,z;B ba,be,bn;I j,r,*v;P*p;
  RZ(w);
  r=AR(w); p=PAV(w); a=SPA(p,a); e=SPA(p,e); y=SPA(p,i); x=SPA(p,x);
- bn=0; v=AS(w); DO(r, if(!*v++){bn=1; break;});
+ bn=0; v=AS(w); DQ(r, if(!*v++){bn=1; break;});
  ba=0; if(r==AR(a)){v=AV(a); DO(r, if(i!=*v++){ba=1; break;});}
  be=!(AT(w)&SFL&&0==*DAV(e));
  if(be)RZ(z=over(lnoun(e),cstr(SB01&AT(w)?"":SINT&AT(w)?"+-~2":SFL&AT(w)?"+-~2.1":"+-~2j1")));
@@ -247,9 +267,10 @@ static F2(jtlinsert){A*av,f,g,h,t,t0,t1,t2,*u,y;B b,ft,gt,ht;C c,id;I n;V*v;
  n=AN(a); av=AAV(a);  
  v=VAV(w); id=v->id;
  b=id==CCOLON&&VXOP&v->flag;
+ I fndx=(AT(w)&ADV)&&!v->fgh[0]; A fs=v->fgh[fndx]; A gs=v->fgh[fndx^1];  // In adverbs, if f is empty look to g for the left arg (used by m b.)
 // ?t tells whether () is needed around the f/g/h component
- if(1<=n){f=av[0]; t=v->fgh[0]; c=ID(t); ft=c==CHOOK||c==CFORK||c==CADVF||(b||id==CFORK)&&NOUN&AT(t)&&lp(f);}  // f: () if it's hook fork && or noun left end of nvv or n (op)
- if(2<=n){g=av[1]; t=v->fgh[1]; c=ID(t); gt=VERB&AT(w)    ?c==CHOOK||c==CFORK:lp(g);}
+ if(1<=n){f=av[0]; t=fs; c=ID(t); ft=c==CHOOK||c==CFORK||c==CADVF||(b||id==CFORK)&&NOUN&AT(t)&&lp(f);}  // f: () if it's hook fork && or noun left end of nvv or n (op)
+ if(2<=n){g=av[1]; t=gs; c=ID(t); gt=VERB&AT(w)    ?c==CHOOK||c==CFORK:lp(g);}
  if(3<=n){h=av[2]; t=v->fgh[2]; c=ID(t); ht=VERB&AT(w)&&!b?c==CHOOK          :lp(h);}
  switch(!b?id:2==n?CHOOK:CFORK){
   case CADVF:
@@ -266,7 +287,7 @@ static F2(jtlinsert){A*av,f,g,h,t,t0,t1,t2,*u,y;B b,ft,gt,ht;C c,id;I n;V*v;
    RZ(u[4]=h=CALL2(jt->lcp,ht,             h,0)); RZ(u[3]=str(' '==cf(h)?0L:1L," "));
    R raze(y);
   default:
-   t0=CALL2(jt->lcp,ft||NOUN&AT(v->fgh[0])&&!(VGERL&v->flag)&&lp(f),f,0);
+   t0=CALL2(jt->lcp,ft||NOUN&AT(fs)&&!(VGERL&v->flag)&&lp(f),f,0);
    t1=lsymb(id,w);
    y=over(t0,laa(t0,t1)?over(chr[' '],t1):t1);
    if(1==n)R y;
@@ -294,16 +315,19 @@ static F1(jtlcolon){A*v,x,y;C*s,*s0;I m,n;
 }
 
 // Main routine for () and linear rep.  w is to be represented
-static DF1(jtlrr){A fs,gs,hs,t,*tv;C id;I fl,m;V*v;
+static DF1(jtlrr){A hs,t,*tv;C id;I fl,m;V*v;
  RZ(w);
- // If noun, return the linear rep of the noun.  If name, use bare string form of the name UNLESS the name is also flagged as a noun - then treat as a noun  (used by ".@'name')
- if(AT(w)&NAME){RZ(t=sfn(0,w)); if(!(AT(w)&NOUN))R t; w=t;}
+ // If name, it must be in ".@'name', or (in debug mode) the function name, which we will discard
+ if(AT(w)&NAME){RZ(w=sfn(0,w));}
  if(AT(w)&NOUN)R lnoun(w);
- v=VAV(w); id=v->id; fs=v->fgh[0]; gs=v->fgh[1]; hs=v->fgh[2]; fl=v->flag; if(id==CBOX)gs=0;  // ignore gs field in BOX, there to simulate BOXATOP
+ // if f is 0, we take f from g.  In other words, adverbs can put their left arg in either f or g.  u b. uses g so that it can leave f=0 to allow it to function as an ATOMIC2 op
+ v=VAV(w); id=v->id;
+ I fndx=(AT(w)&ADV)&&!v->fgh[0]; A fs=v->fgh[fndx]; A gs=v->fgh[fndx^1];  // In adverbs, if f is empty look to g for the left arg (used by m b.)
+ hs=v->fgh[2]; fl=v->flag; if(id==CBOX)gs=0;  // ignore gs field in BOX, there to simulate BOXATOP
  if(fl&VXOPCALL)R lrr(hs);
  m=(I )!!fs+(I )(gs&&id!=CBOX)+(I )(id==CFORK)+(I )(hs&&id==CCOLON&&VXOP&fl);  // BOX has g for BOXATOP; ignore it
  if(!m)R lsymb(id,w);
- if(evoke(w))R sfn(0,fs);
+ if(evoke(w)){RZ(w=sfne(w)); if(FUNC&AT(w))w=lrr(w); R w;}  // keep named verb as a string, UNLESS it is NMDOT, in which case use the (f.'d) verb value
  if(!(VXOP&fl)&&hs&&BOX&AT(hs)&&id==CCOLON)R lcolon(w);
  GATV0(t,BOX,m,1); tv=AAV(t);
  if(2<m)RZ(tv[2]=lrr(hs));

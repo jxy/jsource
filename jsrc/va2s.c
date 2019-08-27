@@ -25,7 +25,7 @@ F1(jtvaspz){A e,x,y;B c,*u,*xu,*xv;I j,n,*v,*yu,*yv,xc,yc;P*wp;
  while(u=memchr(xv+xc*j,c,xc*(n-j))){
   j=(u-xv)/xc; v=yv+yc*j;
   if(v==yu){yu+=yc; xu+=xc;}
-  else{DO(yc, *yu++=*v++;); if(1<xc){MC(xu,xv+xc*j,xc); xu+=xc;}}
+  else{DQ(yc, *yu++=*v++;); if(1<xc){MC(xu,xv+xc*j,xc); xu+=xc;}}
   ++j;
  }
  n=(yu-yv)/yc;
@@ -42,8 +42,8 @@ static A jtvasp0(J jt,A a,A w,VF ado,I cv,I t,I zt){A e,x,xx,y,z,ze,zx;B b;I n;P
   if(TYPESNE(t,AT(x))){RZ(x=cvt(t,x)); RZ(e=cvt(t,e));} 
   if(TYPESNE(t,AT(y))) RZ(y=cvt(t,y));
  }
- GA(ze,zt,1,0,    0    );      ado(jt,(I)1,AV(ze),b?AV(e):AV(y),b?AV(y):AV(e),(I)1); RE(0);
- GA(zx,zt,n,AR(x),AS(x)); if(n)ado(jt,(I)1,AV(zx),b?AV(x):AV(y),b?AV(y):AV(x),n^(b-1)); RE(0);  // was !b
+ GA(ze,zt,1,0,    0    );      ((AHDR2FN*)ado)((I)1,(I)1,b?AV(e):AV(y),b?AV(y):AV(e),AV(ze),jt); RE(0);
+ GA(zx,zt,n,AR(x),AS(x)); if(n)((AHDR2FN*)ado)(n^(b-1),(I)1,b?AV(x):AV(y),b?AV(y):AV(x),AV(zx),jt); RE(0);  // was !b
  if(cv&VRI+VRD){RZ(ze=cvz(cv,ze)); RZ(zx=cvz(cv,zx));}
  GASPARSE(z,STYPE(AT(zx)),1,AR(xx),AS(xx)); zp=PAV(z);
  SPB(zp,a,ca(SPA(p,a)));
@@ -101,7 +101,7 @@ static I zcount(A ay,A wy,B ab,B wb){I c,d,i,j,m,n,*u,*v,yc;
 
 #define ADVA   axv+=ak; u+=yc; ++i;
 #define ADVW   wxv+=wk; v+=yc; ++j;
-#define FLUSH  if(d){c=d*yc; ICPY(zyv,u-c,c); ado(jt,d*xc,zxv,axv-d*ak,wxv-d*wk,(I)1); \
+#define FLUSH  if(d){c=d*yc; ICPY(zyv,u-c,c); ((AHDR2FN*)ado)((I)1,d*xc,axv-d*ak,wxv-d*wk,zxv,jt); \
                      zxv+=d*zk; zyv+=c; d=0;}
 
 static A jtvaspeq(J jt,A a,A w,C id,VF ado,I cv,I t,I zt,I f,I r){A ae,ax,ay,we,wx,wy,z,za,ze,zx,zy;
@@ -117,14 +117,14 @@ static A jtvaspeq(J jt,A a,A w,C id,VF ado,I cv,I t,I zt,I f,I r){A ae,ax,ay,we,
  i=j=d=0; u=AV(ay); v=AV(wy);
  while(m>i&&n>j){
   c=0; DO(yc, if(c=u[i]-v[i])break;);
-  if(0>c)   {FLUSH; if(wb){ICPY(zyv,u,yc); ado(jt,(I)1,zxv,axv,wev,xc); zxv+=zk; zyv+=yc;} ADVA;}
-  else if(c){FLUSH; if(ab){ICPY(zyv,v,yc); ado(jt,(I)1,zxv,aev,wxv,~xc); zxv+=zk; zyv+=yc;} ADVW;}
+  if(0>c)   {FLUSH; if(wb){ICPY(zyv,u,yc); ((AHDR2FN*)ado)(xc,(I)1,axv,wev,zxv,jt); zxv+=zk; zyv+=yc;} ADVA;}
+  else if(c){FLUSH; if(ab){ICPY(zyv,v,yc); ((AHDR2FN*)ado)(~xc,(I)1,aev,wxv,zxv,jt); zxv+=zk; zyv+=yc;} ADVW;}
   else      {++d; ADVA; ADVW;}
  }
  FLUSH;
- if     (wb&&m>i){c=m-i; ICPY(zyv,u,c*yc); ado(jt,(I)1,zxv,axv,wev,c*xc);}
- else if(ab&&n>j){c=n-j; ICPY(zyv,v,c*yc); ado(jt,(I)1,zxv,aev,wxv,~(c*xc));}
- GA(ze,zt,1,0,0); ado(jt,(I)1,AV(ze),aev,wev,(I)1);
+ if     (wb&&m>i){c=m-i; ICPY(zyv,u,c*yc); ((AHDR2FN*)ado)(c*xc,(I)1,axv,wev,zxv,jt);}
+ else if(ab&&n>j){c=n-j; ICPY(zyv,v,c*yc); ((AHDR2FN*)ado)(~(c*xc),(I)1,aev,wxv,zxv,jt);}
+ GA(ze,zt,1,0,0); ((AHDR2FN*)ado)((I)1,(I)1,aev,wev,AV(ze),jt);
  RE(0);
  if(cv&VRI+VRD){A e,x; RZ(e=cvz(cv,ze)); RZ(x=cvz(cv,zx)); if(TYPESEQ(AT(e),AT(x))){ze=e; zx=x;}}
  GASPARSE(z,STYPE(AT(zx)),1,AR(a),AS(a));
@@ -136,7 +136,7 @@ static A jtvaspeq(J jt,A a,A w,C id,VF ado,I cv,I t,I zt,I f,I r){A ae,ax,ay,we,
 A jtvasp(J jt,A a,A w,C id,VF ado,I cv,I t,I zt,I af,I acr,I wf,I wcr,I f,I r){A fs,z;
  if(!AR(a)||!AR(w))R vasp0(a,w,ado,cv,t,zt);
  if((SPARSE&AT(a)||SPARSE&AT(w))&&spmult(&z,a,w,id,af,acr,wf,wcr))R z;
- if(af!=wf){RZ(fs=ds(id)); R sprank2(a,w,0L,acr,wcr,VAV(fs)->valencefns[1]);}
+ if(af!=wf){RZ(fs=ds(id)); R sprank2(a,w,fs,acr,wcr,VAV(fs)->valencefns[1]);}
  if(acr!=wcr)R vaspc(a,w,id,ado,cv,t,zt,af,acr,wf,wcr,f,r);
  R vaspeq(a,w,id,ado,cv,t,zt,f,r);
 }    /* scalar dyadic fns with one or both arguments sparse */

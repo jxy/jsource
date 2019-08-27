@@ -53,24 +53,24 @@ static NUMH(jtnumj){C*t,*ta;D x,y;Z*v;
  R 1;
 }
 
-static NUMH(jtnumi){B neg;C*t;I j;static C*dig="0123456789";
+static NUMH(jtnumi){I neg;I j;
  if(neg='-'==*s){++s; --n; if(!n)R 0;}
  for(;*s=='0'&&n>1;--n,++s);  // skip leading zeros, as long as there is more than one character
  if(!(19>=n))R 0;   // 2^63 is 9223372036854775808.  So a 20-digit input must overflow, and the most a
   // 19-digit number can be is a little way into the negative; so testing for negative will be a valid test for overflow
- j=0; DO(n, if(!(t=memchr(dig,*s++,10L)))R 0; j=10*j+(t-dig););
- if(!(0<=j||neg&&j==IMIN))R 0;  // overflow if negative AND not the case of -2^63, whichs shows as IMIN with a negative flag
- *(I*)vv=0>j||!neg?j:-j;   // if j<0, it must be IMIN, keep it neg; otherwise change sign if neg
+ j=0; DQ(n, I dig=*s++; if((UI)(dig-'0')>(UI)('9'-'0'))R 0; j=10*j+(dig-'0'););
+ if(j<0&&j!=(neg<<(BW-1)))R 0;  // overflow if negative AND not the case of -2^63, which shows as IMIN with a negative flag
+ *(I*)vv=(j^(-neg))+neg;   // if - was coded, take 2's comp, which will leave IMIN unchanged
  R 1;
 }     /* called only if SY_64 */
 
-static NUMH(jtnumx){A y;B b,c;C d,*t;I j,k,m,*yv;X*v;static C*dig="0123456789";
+static NUMH(jtnumx){A y;B b,c;C d;I j,k,m,*yv;X*v;
  v=(X*)vv;
  d=*(s+n-1); b='-'==*s; c='x'==d||'r'==d; s+=b;
  if('-'==d){if(!(2>=n))R 0; if(!(*v=rifvs(vci(1==n?XPINF:XNINF))))R 0; R 1;}
  n-=b+c; if(!(m=(n+XBASEN-1)/XBASEN))R 0; k=n-XBASEN*(m-1);
  GATV0(y,INT,m,1); yv=m+AV(y);
- DO(m, j=0; DO(k, if(!(t=memchr(dig,*s++,10L)))R 0; j=10*j+(t-dig);); *--yv=b?-j:j; k=XBASEN;);
+ DQ(m, j=0; DQ(k, I dig=*s++; if((UI)(dig-'0')>(UI)('9'-'0'))R 0; j=10*j+(dig-'0');); *--yv=b?-j:j; k=XBASEN;);
  if(!(*v=yv[m-1]?y:rifvs(xstd(y))))R 0;  // this stores into the extended result
  R 1;
 }
@@ -78,8 +78,8 @@ static NUMH(jtnumx){A y;B b,c;C d,*t;I j,k,m,*yv;X*v;static C*dig="0123456789";
 static X jtx10(J jt,I e){A z;I c,m,r,*zv;
  m=1+e/XBASEN; r=e%XBASEN;
  GATV0(z,INT,m,1); zv=AV(z);
- DO(m-1, *zv++=0;);
- c=1; DO(r, c*=10;); *zv=c;
+ DQ(m-1, *zv++=0;);
+ c=1; DQ(r, c*=10;); *zv=c;
  R z;
 }     /* 10^e as a rational number */
 
@@ -110,7 +110,7 @@ static NUMH(jtnumr){C c,*t;I m,p,q;Q*v;
 }
 
 static NUMH(jtnumq){B b=0;C c,*t;
- t=s; DO(n, c=*t++; if(c=='e'||c=='.'){b=1; break;});
+ t=s; DQ(n, c=*t++; if(c=='e'||c=='.'){b=1; break;});
  R b?nume(n,s,vv):numr(n,s,vv);
 }
 
@@ -151,7 +151,7 @@ static NUMH(jtnumbpx){B ne,ze;C*t,*u;I k,m;Z b,p,q,*v,x,y;
    k=m-(1+k);
    if(ze=!(b.re||b.im))b.re=1;
    if(!(numb(k,1+u,&q,b)))R 0;
-   if(ze){if(q.re)p.re=inf;} else{DO(k,q=zdiv(q,b);); p=zplus(p,q);}
+   if(ze){if(q.re)p.re=inf;} else{DQ(k,q=zdiv(q,b);); p=zplus(p,q);}
   }
   *v=p; if(ne){v->re=-v->re; v->im=-v->im;}
   R 1;
@@ -179,6 +179,7 @@ static NUMH(jtnumbpx){B ne,ze;C*t,*u;I k,m;Z b,p,q,*v,x,y;
 /* x:  1 iff contains 123x                                    */
 /* q:  1 iff contains 3r4                                     */
 /* ii: 1 iff integer (but not x)                              */
+// kludge this should simply return a bitmask
 
 static void jtnumcase(J jt,I n,C*s,B*b,B*j,B*x,B*q,B*ii){B e;C c;
  *x=*q=*ii=0;
@@ -202,23 +203,26 @@ static void jtnumcase(J jt,I n,C*s,B*b,B*j,B*x,B*q,B*ii){B e;C c;
   DO(n, c=s[i]; e=!s[1+i]; if(c=='.'||c=='e'||c=='x'&&!e){*x=*q=*ii=0; R;});
 }}
 
-A jtconnum(J jt,I n,C*s){PROLOG(0101);A y,z;B b,(*f)(),ii,j,p=1,q,x;C c,*v;I d=0,e,k,m,t,*yv;
- if(1==n)                {if(k=s[0]-'0',0<=k&&k<=9)R num[ k]; else R ainf;}
- else if(2==n&&CSIGN==*s){if(k=s[1]-'0',0<=k&&k<=9)R num[-k];}
- RZ(y=str(1+n,s)); rifvs(y); s=v=CAV(y); s[n]=0;  // s->null-terminated string
- GATV0(y,INT,1+n,1); yv=AV(y);
- DO(n, c=*v; *v++=c=c==CSIGN?'-':c==CTAB||c==' '?C0:c; b=C0==c; if(p!=b)yv[d++]=i; p=b;);
- if(d&1)yv[d++]=n; m=d>>1;
- numcase(n,s,&b,&j,&x,&q,&ii);
- f=q?jtnumq:x?jtnumx:b||j?jtnumbpx:ii?jtnumi:jtnumd; 
- t=q?RAT   :x?XNUM  :b||j?CMPX    :ii?INT   :FL;     k=bpnoun(t);
+// n is string length, s is string representing valid J numbers
+A jtconnum(J jt,I n,C*s){PROLOG(0101);A y,z;B b,(*f)(J,I,C*,void*),ii,j,p=1,q,x;C c,*v;I d=0,e,k,m,t,*yv;
+ if(1==n)                {if(k=s[0]-'0',(UI)k<=(UI)9)R num[ k]; else R ainf;}  // single digit - a number or _
+ else if(2==n&&CSIGN==*s){if(k=s[1]-'0',(UI)k<=(UI)9)R num[-k];}
+ RZ(y=str(1+n,s)); rifvs(y); s=v=CAV(y); s[n]=0;  // s->null-terminated string in new copy, which we will modify
+ GATV0(y,INT,1+n,1); yv=AV(y);  // allocate area for start/end positions
+ C bcvtmask=0;  // bit 1 set to suppress B01, bit 2 to suppress INT
+ DO(n, c=*v; c=c==CSIGN?'-':c; c=(c==CTAB)|(c==' ')?C0:c; *v++=c; b=C0==c; bcvtmask=bcvtmask|(4*(c=='.')+2*((p|b)^1)); yv[d]=i; d+=p!=b; p=b;);  // replace _ with -, whitespace with \0; and record start and end positions
+   // if we encounter '.', make sure the result is at least FL; if we encounter two non-whitespace in a row, make sure result is at least INT
+ yv[d++]=n; m=d>>1;  // append end for last field in case it is missing; m=#fields.  If end was not missing the extra store is harmless
+ numcase(n,s,&b,&j,&x,&q,&ii);   // analyze contents of values
+ f=jtnumd; t=FL;  f=ii?jtnumi:f; t=ii?INT:t;  f=b|j?jtnumbpx:f; t=b|j?CMPX:t;  f=x?jtnumx:f; t=x?XNUM:t;  f=q?jtnumq:f; t=q?RAT:t;  // routine to use, and type of result
+ k=bpnoun(t);   // size in bytes of 1 result value
  GA(z,t,m,1!=m,0); v=CAV(z);
- if(ii){
-  DO(m, d=i+i; e=yv[d]; if(!numi(yv[1+d]-e,e+s,v)){ii=0; break;} v+=k;);
-  if(!ii){t=FL; f=jtnumd; GA(z,t,m,1!=m,0); v=CAV(z);}
+ if(ii){  // if we think the values are ints, see if they really are
+  DO(m, d=i+i; e=yv[d]; if(!numi(yv[1+d]-e,e+s,v)){ii=0; break;} v+=k;);  // read all values, stopping if a value overflows
+  if(!ii){f=jtnumd; if(SZI==SZD){AT(z)=FL;}else{GATV0(z,FL,m,1!=m);} v=CAV(z);}  // if there was overflow, repurpose/allocate the input with enough space for floats
  }
- if(!ii)DO(m, d=i+i; e=yv[d]; ASSERT(f(jt,yv[1+d]-e,e+s,v),EVILNUM); v+=k;);
- z=bcvt(0,z);
+ if(!ii)DO(m, d=i+i; e=yv[d]; ASSERT(f(jt,yv[1+d]-e,e+s,v),EVILNUM); v+=k;);  // read the values as larger-than-int
+ z=bcvt(bcvtmask,z);
  EPILOG(z);
 }
 
@@ -390,7 +394,7 @@ F2(jtexec2){A z;B b,ii,j,p,q,x;C d,*v;I at,c,i,k,m,n,r,*s;
  // use this to set the shape of the result area
  if(!r||*(AS(w)+r-1)){    // skip the count if y is atom, or the last axis of y has dimension 0.   Nothing to count.
   // Calculate w ,"1 0 ' '   to end each (or only) line with delimiter
-  RZ(w=irs2(w,chr[' '],0L,1L,0L,jtover));  // New w will be created
+  {A t; RZ(w=IRS2(w,chr[' '],0L,1L,0L,jtover,t));}  // New w will be created
   v=CAV(w); r=AR(w); s=AS(w); n=s[r-1]; m=prod(r-1,s);  // v->data, m = #lists, n = length of each list
   for(i=0;i<m;++i){I j;
    // b is set when the current character is a space/TAB; p when the previous character was a space/TAB

@@ -184,32 +184,6 @@ A jtifb(J jt,I n,B* RESTRICT b){A z;I p,* RESTRICT zv;
  p=bsum(n,b); 
  if(p==n)R IX(n);
  GATV0(z,INT,p,1); zv=AV(z);
-#if 0
-#if !SY_64 && SY_WIN32
- {I i,q=n&-SZI,*u=(I*)b;
-  for(i=0;i<q;i+=SZI)switch(*u++){
-    case B0001:                                *zv++=i+3; break;
-    case B0010:                     *zv++=i+2;            break;
-    case B0011:                     *zv++=i+2; *zv++=i+3; break;
-    case B0100:          *zv++=i+1;                       break;
-    case B0101:          *zv++=i+1;            *zv++=i+3; break;
-    case B0110:          *zv++=i+1; *zv++=i+2;            break;
-    case B0111:          *zv++=i+1; *zv++=i+2; *zv++=i+3; break;
-    case B1000: *zv++=i;                                  break;
-    case B1001: *zv++=i;                       *zv++=i+3; break;
-    case B1010: *zv++=i;            *zv++=i+2;            break;
-    case B1011: *zv++=i;            *zv++=i+2; *zv++=i+3; break;
-    case B1100: *zv++=i; *zv++=i+1;                       break;
-    case B1101: *zv++=i; *zv++=i+1;            *zv++=i+3; break;
-    case B1110: *zv++=i; *zv++=i+1; *zv++=i+2;            break;
-    case B1111: *zv++=i; *zv++=i+1; *zv++=i+2; *zv++=i+3;
-  }
-  b=(B*)u; DO(n&(SZI-1), if(*b++)*zv++=q+i;);
- }
-#else
- DO(n, if(b[i])*zv++=i;);
-#endif
-#else
  n+=(n&(SZI-1))?SZI:0; I zbase=0; UI *wvv=(UI*)b; UI bits=*wvv++;  // prime the pipeline for top of loop
  while(n>0){    // where we load bits SZI at a time
   // skip empty words, to get best speed on near-zero a.  This exits with the first unskipped word in bits
@@ -224,7 +198,6 @@ A jtifb(J jt,I n,B* RESTRICT b){A z;I p,* RESTRICT zv;
   zbase+=BW;  // advance base to next batch of 64
   n-=BW;  // decr count left
  }
-#endif
  R z;
 }    /* integer vector from boolean mask */
 
@@ -259,10 +232,10 @@ void mvc(I m,void*z,I n,void*w){I p=n,r;static I k=sizeof(D);
   e=(C*)d; s=w; DO(p, *e++=s[i%n];);
   v=(D*)z; d0=*d;
   switch(p){
-   case  8: DO(m/p, *v++=d0;); break;
-   case 24: DO(m/p, *v++=d0; *v++=d[1]; *v++=d[2];); break;
-   case 40: DO(m/p, *v++=d0; *v++=d[1]; *v++=d[2]; *v++=d[3]; *v++=d[4];); break;
-   case 56: DO(m/p, *v++=d0; *v++=d[1]; *v++=d[2]; *v++=d[3]; *v++=d[4]; *v++=d[5]; *v++=d[6];);
+   case  8: DQ(m/p, *v++=d0;); break;
+   case 24: DQ(m/p, *v++=d0; *v++=d[1]; *v++=d[2];); break;
+   case 40: DQ(m/p, *v++=d0; *v++=d[1]; *v++=d[2]; *v++=d[3]; *v++=d[4];); break;
+   case 56: DQ(m/p, *v++=d0; *v++=d[1]; *v++=d[2]; *v++=d[3]; *v++=d[4]; *v++=d[5]; *v++=d[6];);
   }
   if(r=m%p){s=(C*)v; e=(C*)d; DO(r, *s++=e[i];);}
 }}
@@ -308,15 +281,89 @@ A jtvci(J jt,I k){A z; GAT0(z,INT,1,1); *IAV(z)=k; RETF(z);}
 // return A-block for list of type t, length n, and values *v 
 A jtvec(J jt,I t,I n,void*v){A z; GA(z,t,n,1,0); MC(AV(z),v,n<<bplg(t)); RETF(z);}
 
+// return A-block for list of type t, length n, and values *v
+// with special handling to coerce boolean type
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma push_options
+#pragma optimize ("unroll-loops")
+#endif
+#if C_AVX2&&SY_64
+A jtvecb01(J jt,I t,I n,void*v){A z; GA(z,t,n,1,0);if(t&B01){C*p=(C*)AV(z),*q=v; 
+__m256i zeros=_mm256_setzero_si256();
+__m256i ones=_mm256_set1_epi8(1);
+__m256i ffs=_mm256_set1_epi8(0xffu);
+UI n0=n<<bplg(t);
+UI mis=((uintptr_t)q)&31u;
+mis=(mis>n0)?n0:mis;
+if(mis){
+n0-=mis;
+#if defined(__clang__)
+#pragma clang loop vectorize(enable) interleave_count(4)
+#endif
+while(mis--)*p++=!!(*q++);
+}
+while (n0 >= 32) {
+ _mm256_storeu_si256((__m256i *)p,_mm256_and_si256(_mm256_xor_si256(_mm256_cmpeq_epi8(_mm256_load_si256((__m256i*)q),zeros),ffs),ones));
+ n0-=32;p+=32;q+=32;
+}
+if (n0 >= 16) {
+__m128i zeros=_mm_setzero_si128();
+__m128i ones=_mm_set1_epi8(1);
+__m128i ffs=_mm_set1_epi8(0xffu);
+ _mm_storeu_si128((__m128i *)p,_mm_and_si128(_mm_xor_si128(_mm_cmpeq_epi8(_mm_load_si128((__m128i*)q),zeros),ffs),ones));
+ n0-=16;p+=16;q+=16;
+}
+#if defined(__clang__)
+#pragma clang loop vectorize(enable) interleave_count(4)
+#endif
+while(n0--)*p++=!!(*q++);
+}else MC(AV(z),v,n<<bplg(t)); RETF(z);}
+#elif __SSE2__
+A jtvecb01(J jt,I t,I n,void*v){A z; GA(z,t,n,1,0);if(t&B01){C*p=(C*)AV(z),*q=v; 
+__m128i zeros=_mm_setzero_si128();
+__m128i ones=_mm_set1_epi8(1);
+__m128i ffs=_mm_set1_epi8(0xffu);
+UI n0=n<<bplg(t);
+UI mis=((uintptr_t)q)&15u;
+mis=(mis>n0)?n0:mis;
+if(mis){
+n0-=mis;
+#if defined(__clang__)
+#pragma clang loop vectorize(enable) interleave_count(4)
+#endif
+while(mis--)*p++=!!(*q++);
+}
+while (n0 >= 16) {
+ _mm_storeu_si128((__m128i *)p,_mm_and_si128(_mm_xor_si128(_mm_cmpeq_epi8(_mm_load_si128((__m128i*)q),zeros),ffs),ones));
+ n0-=16;p+=16;q+=16;
+}
+#if defined(__clang__)
+#pragma clang loop vectorize(enable) interleave_count(4)
+#endif
+while(n0--)*p++=!!(*q++);
+}else MC(AV(z),v,n<<bplg(t)); RETF(z);}
+#else
+A jtvecb01(J jt,I t,I n,void*v){A z; I i; GA(z,t,n,1,0);if(t&B01){C*p=(C*)AV(z),*q=v; 
+#if defined(__clang__)
+#pragma clang loop vectorize(enable) interleave_count(4)
+#endif
+for(i=0;i<n<<bplg(t);i++)*p++=!!(*q++);
+}else MC(AV(z),v,n<<bplg(t)); RETF(z);}
+#endif
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma pop_options
+#endif
+
 // Convert w to integer if it isn't integer already (the usual conversion errors apply)
 F1(jtvi){RZ(w); R INT&AT(w)?w:cvt(INT,w);}
 
 // Audit w to ensure valid integer value(s).  Error if non-integral.  Result is A block for integer array.  Infinities converted to IMAX
-F1(jtvib){A z;D d,e,*wv;I i,n,p=-IMAX,q=IMAX,*zv;
+F1(jtvib){A z;D d,e,*wv;I i,n,*zv;
  RZ(w);
  if(AT(w)&INT)R RETARG(w);  // handle common non-failing cases quickly: INT and boolean
  if(AT(w)&B01){if(!AR(w))R zeroionei[BAV(w)[0]]; R cvt(INT,w);}
  if(w==ainf)R imax;  // sentence words of _ always use the same block, so catch that too
+ I p=-IMAX,q=IMAX;
  RANK2T oqr=jt->ranks; RESETRANK;
  if(AT(w)&SPARSE)RZ(w=denseit(w));
  switch(CTTZNOFLAG(AT(w))){
@@ -338,7 +385,7 @@ F1(jtvib){A z;D d,e,*wv;I i,n,p=-IMAX,q=IMAX,*zv;
 }
 
 // Convert w to integer if needed, and verify every atom is nonnegative
-F1(jtvip){I*v; RZ(w); if(!(INT&AT(w)))RZ(w=cvt(INT,w)); v=AV(w); DO(AN(w), ASSERT(0<=*v++,EVDOMAIN);); RETF(w);}
+F1(jtvip){I*v; RZ(w); if(!(INT&AT(w)))RZ(w=cvt(INT,w)); v=AV(w); DQ(AN(w), ASSERT(0<=*v++,EVDOMAIN);); RETF(w);}
 
 // Convert w to string, verify it is a list or atom
 F1(jtvs){RZ(w); ASSERT(1>=AR(w),EVRANK); R LIT&AT(w)?w:cvt(LIT,w);}    

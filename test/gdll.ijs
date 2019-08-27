@@ -75,6 +75,25 @@ add=: mema 2*IF64{4 8
 (9;(,9);2;<<add)=         'xbasic x *x x *x' dcd (,2);2;<<add
 0=memf add
 
+NB. memr/memw boolean
+add=: mema n=: 127+1e5*1024
+(a=: n$a.) memw add,0,n,JCHAR
+a -: memr add,0,n,JCHAR
+NB. noise margin for memr
+(0~:a.i.a) -: memr add,0,n,JB01
+(0~:a.i.a) = memr add,0,n,JB01
+(+/0=a.i.a) = +/ 0= memr add,0,n,JB01
+(+/0~:a.i.a) = +/ 1= memr add,0,n,JB01
+NB. timing
+NB. 1:@:echo 6!:2'memr add,0,n,JB01'
+NB. 1:@:echo 6!:2'({.a.) ~: memr add,0,n,JCHAR'
+NB. no noise margin for memw
+'domain error' -: (a.i.a) memw etx add,0,n,JB01
+NB. int looks like boolean is ok
+((2-2)+0~:a.i.a) memw add,0,n,JB01
+((2-2)+0~:a.i.a) -: memr add,0,n,JB01
+0=memf add
+
 NB. l type is same as x on J64 and and error on J32
 3 : 0''
 if. IF64 do.
@@ -141,6 +160,6 @@ cder''
 
 2 0-:f''
 
-4!:55 ;:'a a1 add address b b1 cdrc dcd f i lib obj_add pc s s0 s1 td td1a td3 td4 tf tf3'
+4!:55 ;:'a a1 add address b b1 cdrc dcd f i lib n obj_add pc s s0 s1 td td1a td3 td4 tf tf3'
 4!:55 ;:'v0 v1 v2 v3 v4 v5 x xbasic_add xx yy z'
 

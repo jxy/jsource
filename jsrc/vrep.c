@@ -14,8 +14,8 @@ static REPF(jtrepzdx){A p,q,x;P*wp;
  if(SPARSE&AT(w)){wp=PAV(w); x=SPA(wp,e);}
  else x=jt->fill&&AN(jt->fill)?jt->fill:filler(w);
  RZ(p=repeat(ravel(rect(a)),ravel(stitch(IX(wcr?*(wf+AS(w)):1),num[-1]))));
- RZ(q=irs2(w,x,0L,wcr,0L,jtover));
- R irs2(p,q,0L,1L,wcr+!wcr,jtfrom);
+ RZ(IRS2(w,x,0L,wcr,0L,jtover,q));
+ R IRS2(p,q,0L,1L,wcr+!wcr,jtfrom,x);
 }    /* (dense complex) # (dense or sparse) */
 
 static REPF(jtrepzsx){A q,x,y;I c,d,j,k=-1,m,p=0,*qv,*xv,*yv;P*ap;
@@ -31,13 +31,13 @@ static REPF(jtrepzsx){A q,x,y;I c,d,j,k=-1,m,p=0,*qv,*xv,*yv;P*ap;
    if(AN(a)&&!*AV(a)){
     y=SPA(wp,i); v=AS(y); m=v[0]; n=v[1]; v=AV(y);
     k=m?v[(m-1)*n]+1:0; q=0; 
-    DO(m, if(q==*v)++q; else if(q<*v){k=q; break;} v+=n;);
+    DQ(m, if(q==*v)++q; else if(q<*v){k=q; break;} v+=n;);
   }}
   ASSERT(k<=IMAX-1,EVLIMIT);
   if(c==k)RZ(w=irs2(sc(1+k),w,0L,0L,wcr,jttake));
   DO(2*m, ASSERT(0<=xv[i],EVDOMAIN); p+=xv[i]; ASSERT(0<=p,EVLIMIT););
   GATV0(q,INT,p,1); qv=AV(q);
-  DO(m, c=*xv++; d=*xv++; j=yv[i]; DO(c, *qv++=j;); DO(d, *qv++=k;);); 
+  DO(m, c=*xv++; d=*xv++; j=yv[i]; DQ(c, *qv++=j;); DQ(d, *qv++=k;);); 
   R irs2(q,w,0L,1L,wcr,jtfrom);
  }
  ASSERT(0,EVNONCE);
@@ -68,50 +68,6 @@ static REPF(jtrepzsx){A q,x,y;I c,d,j,k=-1,m,p=0,*qv,*xv,*yv;P*ap;
    if(r){B*c=(B*)iv; DO(r, if(c[i])*v++=u[i];);}                      \
  }}
 
-#if 0 && !SY_64 && SY_WIN32  // obsolete - bit-oriented version is better
-static REPF(jtrepbdx){A z;B*b;C*wv,*zv;I c,i,*iv,j,k,m,p,q,r,zn;
- RZ(a&&w);
- if(SPARSE&AT(w))R irs2(ifb(AN(a),BAV(a)),w,0L,1L,wcr,jtfrom);
- m=AN(a); q=m>>LGSZI; r=m&(SZI-1);
- ASSERT(m==*(wf+AS(w)),EVLENGTH);
- b=BAV(a); p=bsum(m,b); zn=m?p*(AN(w)/m):0; 
- ASSERT(0<=zn,EVLIMIT);
- GA(z,AT(w),zn,AR(w),AS(w)); *(wf+AS(z))=p;
- wv=CAV(w); zv=CAV(z);
- RE(c=prod(wf,AS(w)));
- if(zn)switch(k=(AN(w)/(c*m))<<bplg(AT(w)),FL&AT(w)||k!=sizeof(D)?k:0){
-  case sizeof(C): REPB(C); break;
-  case sizeof(S): REPB(S); break;
-#if SY_64
-  case sizeof(int): REPB(int); break;
-#endif
-  case sizeof(I): REPB(I); break;
-  case sizeof(D): REPB(D); break;
-  default: {C*u;I k1=k,k2=k*2,k3=k*3,k4=k*4,km=k*m;                                                     
-  for(i=0;i<c;++i){
-   u=i*km+wv;                                                      
-   for(j=0,iv=(I*)b;j<q;++j,u+=k4)switch(*iv++){                                  
-    case B0001: MC(zv,k3+u,k1); zv+=k1;                         break;
-    case B0010: MC(zv,k2+u,k1); zv+=k1;                         break;
-    case B0011: MC(zv,k2+u,k2); zv+=k2;                         break;
-    case B0100: MC(zv,k1+u,k1); zv+=k1;                         break;
-    case B0101: MC(zv,k1+u,k1); zv+=k1; MC(zv,k3+u,k1); zv+=k1; break;
-    case B0110: MC(zv,k1+u,k2); zv+=k2;                         break;
-    case B0111: MC(zv,k1+u,k3); zv+=k3;                         break;
-    case B1000: MC(zv,   u,k1); zv+=k1;                         break;
-    case B1001: MC(zv,   u,k1); zv+=k1; MC(zv,k3+u,k1); zv+=k1; break;
-    case B1010: MC(zv,   u,k1); zv+=k1; MC(zv,k2+u,k1); zv+=k1; break;
-    case B1011: MC(zv,   u,k1); zv+=k1; MC(zv,k2+u,k2); zv+=k2; break;
-    case B1100: MC(zv,   u,k2); zv+=k2;                         break;
-    case B1101: MC(zv,   u,k2); zv+=k2; MC(zv,k3+u,k1); zv+=k1; break;
-    case B1110: MC(zv,   u,k3); zv+=k3;                         break;
-    case B1111: MC(zv,   u,k4); zv+=k4;
-   }
-   if(r){B*c=(B*)iv; DO(r, if(c[i]){MC(zv,u+i*k,k); zv+=k;});}
- }}}
- R z;
-}    /* (dense boolean)#"r (dense or sparse) */
-#else
 static REPF(jtrepbdx){A z;I c,k,m,p;
  // wf and wcr are set
  RZ(a&&w);F2PREFIP;
@@ -126,7 +82,7 @@ static REPF(jtrepbdx){A z;I c,k,m,p;
  // We retain the old block as long as the new one is at least half as big, without looking at total size of the allocation,
  // This could result in a very small block's remaining in a large allocation after repeated trimming.  We will accept the risk.
  // Accept only DIRECT blocks so we don't have to worry about explicitly freeing uncopied cells
- if(!(((I)jtinplace&(((UI)(m-2*p))>>((BW-1)-JTINPLACEWX))) && ASGNINPLACE(w) && AT(w)&DIRECT)) {
+ if(!ASGNINPLACESGN(SGNIF((I)jtinplace,JTINPLACEWX)&(m-2*p)&(-(AT(w)&DIRECT)),w)) {
   // normal non-in-place copy
     // no overflow possible unless a is empty; nothing  moved then, and zn is 0
   GA(z,AT(w),zn,AR(w),0); MCISH(AS(z),AS(w),AR(w)) // allocate result
@@ -178,7 +134,6 @@ static REPF(jtrepbdx){A z;I c,k,m,p;
 
  R z;
 }    /* (dense boolean)#"r (dense or sparse) */
-#endif
 
 static REPF(jtrepbsx){A ai,c,d,e,g,q,x,wa,wx,wy,y,y1,z,zy;B*b;I*dv,*gv,j,m,n,*u,*v,*v0;P*ap,*wp,*zp;
  RZ(a&&w);
@@ -219,8 +174,8 @@ static REPF(jtrepidx){A y;I j,m,p=0,*v,*x;
  m=*AS(a);
  DO(m, ASSERT(0<=x[i],EVDOMAIN); p+=x[i]; ASSERT(0<=p,EVLIMIT););
  GATV0(y,INT,p,1); v=AV(y); 
- DO(m, j=i; DO(x[j], *v++=j;););
- R irs2(y,w,0L,1L,wcr,jtfrom);
+ DO(m, j=i; DQ(x[j], *v++=j;););
+ A z; R IRS2(y,w,0L,1L,wcr,jtfrom,z);
 }    /* (dense  integer) #"r (dense or sparse) */
 
 static REPF(jtrepisx){A e,q,x,y;I c,j,m,p=0,*qv,*xv,*yv;P*ap;
@@ -233,7 +188,7 @@ static REPF(jtrepisx){A e,q,x,y;I c,j,m,p=0,*qv,*xv,*yv;P*ap;
   m=AN(x);  
   DO(m, ASSERT(0<=xv[i],EVDOMAIN); p+=xv[i]; ASSERT(0<=p,EVLIMIT););
   GATV0(q,INT,p,1); qv=AV(q); 
-  DO(m, c=xv[i]; j=yv[i]; DO(c, *qv++=j;);); 
+  DO(m, c=xv[i]; j=yv[i]; DQ(c, *qv++=j;);); 
   R irs2(q,w,0L,1L,wcr,jtfrom);
  }
  ASSERT(0,EVNONCE);
@@ -242,10 +197,10 @@ static REPF(jtrepisx){A e,q,x,y;I c,j,m,p=0,*qv,*xv,*yv;P*ap;
 
 static REPF(jtrep1d){A z;C*wv,*zv;I c,k,m,n,p=0,q,t,*ws,zk,zn;
  RZ(a&&w);
- t=AT(a); m=AN(a); ws=AS(w); n=wcr?ws[wf]:1;  // n=length of item axis in input.  If aton, is repeated to length of a
+ t=AT(a); m=AN(a); ws=AS(w); n=wcr?ws[wf]:1;  // n=length of item axis in input.  If atom, is repeated to length of a
  if(t&CMPX){
   if(wcr)R repzdx(from(apv(n,0L,0L),a),w,                wf,wcr);
-  else   R repzdx(a,irs2(apv(m,0L,0L),w,0L,1L,0L,jtfrom),wf,1L ); 
+  else{A za; RZ(za=apv(m,0L,0L)); R repzdx(a,IRS2(za,w,0L,1L,0L,jtfrom,z),wf,1L );}
  }
  if(t&B01){p=bsum(m,BAV(a)); // bsum in case a is big.  Atomic boolean was handled earlier
  }else{I*x; 
@@ -259,7 +214,7 @@ static REPF(jtrep1d){A z;C*wv,*zv;I c,k,m,n,p=0,q,t,*ws,zk,zn;
  wv=CAV(w); zv=CAV(z);
  PROD(c,wf+(I )(wcr!=0),ws); PROD1(k,wcr-1,ws+wf+1); k <<=bplg(AT(w));  // c=#cell-items to process  k=#atoms per cell-item
  zk=p*k;  // # bytes to fill per item
- DO(c, mvc(zk,zv,k,wv); zv+=zk; wv+=k;);
+ DQ(c, mvc(zk,zv,k,wv); zv+=zk; wv+=k;);
  R z;
 }    /* scalar #"r dense   or   dense #"0 dense */
 
@@ -328,7 +283,7 @@ F2(jtrepeat){A z;I acr,ar,wcr,wf,wr;
    if(!(AT(w)&SPARSE)){GA(z,AT(w),0,AR(w),0); MCISH(AS(z),AS(w),AR(w)) AS(z)[wf]=0; RETF(z);}  // 0 # y, return empty
   }
  }
- if(1<acr||acr<ar)R rank2ex(a,w,0L,1L,RMAX,acr,wcr,jtrepeat);  // loop if multiple cells of a
+ if(((1-acr)|(acr-ar))<0)R rank2ex(a,w,0L,MIN(1,acr),wcr,acr,wcr,jtrepeat);  // loop if multiple cells of a
  ASSERT(!acr||!wcr||(AS(a)[0]==AS(w)[wf]),EVLENGTH);
  if(!acr||!wcr){RZ(z=!((AT(a)|AT(w))&SPARSE)?rep1d(a,w,wf,wcr):rep1s(a,w,wf,wcr)); RETF(z);}   // a is atom, or w is an atom and a has rank <= 1
  if(AT(a)&B01 +SB01 ){RZ(z=AT(a)&DENSE?repbdx(a,w,wf,wcr):repbsx(a,w,wf,wcr)); RETF(z);}

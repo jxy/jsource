@@ -41,11 +41,11 @@ static DF2(jtfindrange2){
  R v2(rng.min,rng.range);
 }
 
-static F2(jtforeigncreate){I p,q;
+F2(jtforeign){I p,q;
  RZ(a&&w);
  p=i0(a); q=i0(w); RE(0);
  if(11==p)R fdef(0,CIBEAM,VERB, jtwd,0L, a,w,0L, VASGSAFE, 1L,RMAX,RMAX);
-// obsolete  if(q<0||XCC<=q)R CDERIV(CIBEAM, 0,0,  VASGSAFE,RMAX,RMAX,RMAX);
+ ASSERT((UI)p<=(UI)128 && (UI)q<XCC,EVDOMAIN);
  switch(XC(p,q)){
   case XC(0,  0): 
   case XC(0,100): R SDERI2(CIBEAM, jtscm00,      jtscm002,     VASGSAFE,RMAX,RMAX,RMAX);
@@ -92,7 +92,8 @@ static F2(jtforeigncreate){I p,q;
   case XC(2,3):   R SDERIV(CIBEAM, jtjwait,      0,            VASGSAFE,0,   0,   0   );
   case XC(2,5):   R SDERIV(CIBEAM, jtjgetenv,    0,            VASGSAFE,1,   0,   0   );
   case XC(2,6):   R SDERIV(CIBEAM, jtjgetpid,    0,            VASGSAFE,1,   0,   0   );
-  case XC(2,55):  R CDERIV(CIBEAM, jtjoff,       0,            VASGSAFE,RMAX,0,   0   );
+  case XC(2,7):   R SDERIV(CIBEAM, jtjgetx,      0,            VASGSAFE,1,   0,   0   );
+  case XC(2,55):  R CDERIV(CIBEAM,jtjoff,0,VASGSAFE,RMAX,0,0);
 
   case XC(3,0):   R CDERIV(CIBEAM, jtstype,      0,            VASGSAFE,RMAX,0,   0  );
   case XC(3,1):   R CDERIV(CIBEAM, jtbinrep1,    jtbinrep2,    VASGSAFE,RMAX,RMAX,RMAX);
@@ -101,7 +102,6 @@ static F2(jtforeigncreate){I p,q;
   case XC(3,4):   R CDERIV(CIBEAM, 0,            jtic2,        VASGSAFE,0,   RMAX,RMAX);
   case XC(3,5):   R CDERIV(CIBEAM, 0,            jtfc2,        VASGSAFE,0,   RMAX,RMAX);
   case XC(3,6):   R CDERIV(CIBEAM, jtlock1,      jtlock2,      VASGSAFE,RMAX,RMAX,RMAX);
-// obsolete   case XC(3,7):   R CDERIV(CIBEAM, jtbit1,       jtbit2,       VASGSAFE,RMAX,RMAX,RMAX);
   case XC(3,9):   R CDERIV(CIBEAM, 0,            jtnouninfo2,  VASGSAFE,RMAX,RMAX,RMAX);
 
   case XC(4,0):   R CDERIV(CIBEAM, jtnc,         0,            VASGSAFE,0,   0,   0   );
@@ -109,6 +109,8 @@ static F2(jtforeigncreate){I p,q;
   case XC(4,3):   R CDERIV(CIBEAM, jtsnl,        0,            VASGSAFE,RMAX,0,   0   );
   case XC(4,4):   R CDERIV(CIBEAM, jtscind,      0,            VASGSAFE,0,   0,   0   );
   case XC(4,5):   R CDERIV(CIBEAM, jtnch,        0,            VASGSAFE,RMAX,0,   0   );
+  case XC(4,6):   R CDERIV(CIBEAM, jtscriptstring,        0,   VASGSAFE,RMAX,0,   0   );
+  case XC(4,7):   R CDERIV(CIBEAM, jtscriptnum,        0,      VASGSAFE,RMAX,0,   0   );
   case XC(4,55):  R CDERIV(CIBEAM, jtex,         0,            VASGSAFE,0,   0,   0   );
 
   case XC(5,0):   R fdef(0,CIBEAM,ADV, jtfxx,0L,  a,w,0L,        VASGSAFE,0L,  0L,  0L  );
@@ -134,6 +136,10 @@ static F2(jtforeigncreate){I p,q;
   case XC(6,11):  R CDERIV(CIBEAM, jtpmunpack,   0,            VASGSAFE,RMAX,0,   0   );
   case XC(6,12):  R CDERIV(CIBEAM, jtpmctr,      0,            VASGSAFE,RMAX,0,   0   );
   case XC(6,13):  R CDERIV(CIBEAM, jtpmstats,    0,            VASGSAFE,RMAX,0,   0   );
+  case XC(6,14):  R CDERIV(CIBEAM, jtinttoe,    0,      VASGSAFE,RMAX,RMAX,RMAX);
+  case XC(6,15):  R CDERIV(CIBEAM, jtetoint,    0,      VASGSAFE,RMAX,RMAX,RMAX);
+  case XC(6,16):  R CDERIV(CIBEAM, jtetoiso8601,jtetoiso8601,  VASGSAFE,RMAX,RMAX,RMAX);
+  case XC(6,17):  R CDERIV(CIBEAM, jtiso8601toe,jtiso8601toe,  VASGSAFE,RMAX,RMAX,RMAX);
 
   case XC(7,0):   R CDERIV(CIBEAM, jtsp,         0,            VASGSAFE,RMAX,0,   0   );
   case XC(7,2):   R CDERIV(CIBEAM, jtspit,       0,            VFLAGNONE,1,   0,   0   );
@@ -193,6 +199,7 @@ static F2(jtforeigncreate){I p,q;
   case XC(9,53):  R CDERIV(CIBEAM, jtasgzombs,   0,            VFLAGNONE,RMAX,0,   0   );
   case XC(9,54):  R CDERIV(CIBEAM, jtunicodex78q, 0,            VASGSAFE,RMAX,0,    0  );
   case XC(9,55):  R CDERIV(CIBEAM, jtunicodex78s, 0,            VFLAGNONE,RMAX,0,   0  );
+  case XC(9,56):  R CDERIV(CIBEAM, jtcpufeature, jtcpufeature2, VASGSAFE,RMAX,RMAX,RMAX);
   case XC(9,57):  R CDERIV(CIBEAM, jtaudittdisab, 0,            VFLAGNONE,RMAX,0,   0  );
   case XC(9,60):  R CDERIV(CIBEAM, jtleakblockread, 0,            VFLAGNONE,RMAX,0,   0  );
   case XC(9,61):  R CDERIV(CIBEAM, jtleakblockreset, 0,            VFLAGNONE,RMAX,0,   0  );
@@ -212,13 +219,13 @@ static F2(jtforeigncreate){I p,q;
   case XC(13,7):  R CDERIV(CIBEAM, jtdbjump,     0,            VFLAGNONE,RMAX,0,   0   );
   case XC(13,8):  R CDERIV(CIBEAM, jtdbsig1,     jtdbsig2,     VFLAGNONE,RMAX,RMAX,RMAX);
   case XC(13,9):  R CDERIV(CIBEAM, jtdbrr1,      jtdbrr2,      VFLAGNONE,RMAX,RMAX,RMAX);
-  case XC(13,10):  R CDERIV(CIBEAM, 0,0, VFLAGNONE,RMAX,RMAX,RMAX);  // obsolete but still in stdlib
+  case XC(13,10):  R CDERIV(CIBEAM, 0,0, VFLAGNONE,RMAX,RMAX,RMAX);  // still in stdlib
   case XC(13,11): R CDERIV(CIBEAM, jtdberr,      0,            VFLAGNONE,RMAX,0,   0   );
   case XC(13,12): R CDERIV(CIBEAM, jtdbetx,      0,            VFLAGNONE,RMAX,0,   0   );
   case XC(13,13): R CDERIV(CIBEAM, jtdbcall,     0,            VFLAGNONE,RMAX,0,   0   );
   case XC(13,14): R CDERIV(CIBEAM, jtdbtrapq,    0,            VFLAGNONE,RMAX,0,   0   );
   case XC(13,15): R CDERIV(CIBEAM, jtdbtraps,    0,            VFLAGNONE,RMAX,0,   0   );
-  case XC(13,16):  R CDERIV(CIBEAM, 0,0, VFLAGNONE,RMAX,RMAX,RMAX);  // obsolete but still in stdlib
+  case XC(13,16):  R CDERIV(CIBEAM, 0,0, VFLAGNONE,RMAX,RMAX,RMAX);  // still in stdlib
   case XC(13,17): R CDERIV(CIBEAM, jtdbq,        0,            VFLAGNONE,RMAX,0,   0   );
   case XC(13,18): R CDERIV(CIBEAM, jtdbstackz,   0,            VFLAGNONE,RMAX,0,   0   );
   case XC(13,19): R CDERIV(CIBEAM, jtdbcutback,  0,            VFLAGNONE,RMAX,0,   0   );
@@ -271,6 +278,7 @@ static F2(jtforeigncreate){I p,q;
   case XC(128,4): R CDERIV(CIBEAM, jtrngraw,     0,            VASGSAFE,RMAX,0,   0   );
   case XC(128,5): R CDERIV(CIBEAM, jtisnan,      0,            VASGSAFE,RMAX,0,   0   );
   case XC(128,6): R CDERIV(CIBEAM, jtshasum1,    jtshasum2,    VASGSAFE,1,1,RMAX);
+  case XC(128,7): R CDERIV(CIBEAM, 0,            jtaes2,       VASGSAFE,RMAX,RMAX,RMAX);
 #ifdef LOCALFOREIGNS
   case XC(128,20): R CDERIV(CIBEAM, 0,    jtpartitiongrades,    VASGSAFE,1,1,RMAX);
   case XC(128,21): R CDERIV(CIBEAM, jtfindsplit,    0,    VASGSAFE,1,0,0);
@@ -280,34 +288,6 @@ static F2(jtforeigncreate){I p,q;
 //  default:        R foreignextra(a,w);
   default:        ASSERT(0,EVDOMAIN);  // any unknown combination is a domain error right away
 }}
-
-// Look up the function to apply for a foreign
-// To avoid the long switch statement (and the cost of building the verb), we keep a hash of the recent combinations used.
-// (The localuse field in the verb holds the actual m,n, and we keep only 2 values per hashslot)
-// This may be a stupid idea since most people use cover names for foreigns, but now that it's implemented we'll keep it
-F2(jtforeign){
- RZ(a&&w);
- I p=i0(a); I q=i0(w); RE(0);
- if(p==11 && q!=0)R fdef(0,CIBEAM,VERB, jtwd,0L, a,w,0L, VASGSAFE, 1L,RMAX,RMAX);  // 11!:n special: hash 11!:0, do the rest individually
- ASSERT((UI)p<=(UI)128 && (UI)q<XCC,EVDOMAIN);
- I hash=(p*3+q)&(sizeof(jt->foreignhash)/sizeof(jt->foreignhash[0])-1);  // hash m,n
- I mn = (p<<8)+q;  // unique value for the foreign
- A ha=jt->foreignhash[hash][0];
- // 2-way set-associative cache.  element 0 is MRU
- // if either bucket has the right value, use it.
- if(ha){
-  if(mn==FAV(ha)->localuse.lI)R ha;  // use it if match
-  if(ha=jt->foreignhash[hash][1]){  // there is a second set, try it
-   if(mn==FAV(ha)->localuse.lI)R ha;  // use it if match
-   // Free the bucket if it has the wrong value
-   fa(ha);  // the incumbent is about to be removed - take away its protection
-  }
-  jt->foreignhash[hash][1]=jt->foreignhash[hash][0];  // no match - we will replace the second set
- }
- // create the correct entity and save it in the table (must ra)
- RZ(jt->foreignhash[hash][0]=ha=jtforeigncreate(jt,a,w)); FAV(ha)->localuse.lI=mn; ras(ha);  // create the block, save it, protect from free
- R ha;
-}
 
 /* SY_64 double trick - null routines here to avoid optimization */
 #if SY_64 & SY_WIN32

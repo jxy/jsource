@@ -38,8 +38,8 @@ static F1(jtfacit){A c;V*u,*v;
  R folk(ds(CBANG),ds(CSTAR),w);
 }
 
-static A jttayamp(J jt,A w,B nf,A x,A h){A y;B ng=!nf;I j,n;V*v=FAV(h);
- ASSERT(AR(x)<=(nf?v->lr:v->rr),EVRANK);
+static A jttayamp(J jt,A w,B nf,A x,A h){A y;B ng=nf^1;I j,n;V*v=FAV(h);
+ ASSERT(AR(x)<=(nf?lrv(v):rrv(v)),EVRANK);
  switch(v->id){
   case CPLUS:  R tpoly(over(x,num[1]));
   case CMINUS: R tpoly(nf?over(x,num[-1]):over(negate(x),num[1]));
@@ -179,9 +179,9 @@ static F1(jttayatop){A c,d,e,f,ft,g,gt,h;I k,m,n;V*v=FAV(w);
  R AN(d)?tpoly(df2(c,d,h)):eva(atco(amp(c,h),gt),"[ { x@:(i.@>:@(>./)@,)");
 }
 
-static AS1(jttdot1, df1(w,tdot(fix(fs))),0104)
-static AS1(jttco1,  df1(w,tco (fix(fs))),0105)
-static CS1(jttcap1, df1(w,tcap(fix(fs),gs)),0106)
+static AS1(jttdot1, df1(w,tdot(fix(fs,zeroionei[0]))),0104)
+static AS1(jttco1,  df1(w,tco (fix(fs,zeroionei[0]))),0105)
+static CS1(jttcap1, df1(w,tcap(fix(fs,zeroionei[0]),gs)),0106)
 
 static DF1(jttcoh1){R hgcoeff(w,FAV(self)->fgh[0]);}
 
@@ -228,7 +228,7 @@ F1(jttdot){A f,g,h;B nf,ng;C id;V*v;
       ft=tdot(f); RZ(c=d=coeff(ft)); m=AN(c);
       ASSERT(m,EVDOMAIN);
       RZ(h=eval("4 : '+/x*y([:+//.*/)^:(i.#x) 1'"));
-      DO(n-1, RZ(d=df2(c,d,h)););
+      DQ(n-1, RZ(d=df2(c,d,h)););
       R tpoly(d);
  }}}
  ASSERT(id==CFCONS,EVDOMAIN); 

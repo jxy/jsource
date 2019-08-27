@@ -88,22 +88,22 @@
 #define binsert(x,y,z)              jtbinsert(jt,(x),(y),(z))
 #define binzz(x,y)                  jtbinzz(jt,(x),(y))
 #define bitmatch(x,y)               jtbitmatch(jt,(x),(y))
-#define bitwise0000(x,y)            jtbitwise0000(jt,(x),(y))
-#define bitwise0001(x,y)            jtbitwise0001(jt,(x),(y))
-#define bitwise0010(x,y)            jtbitwise0010(jt,(x),(y))
-#define bitwise0011(x,y)            jtbitwise0011(jt,(x),(y))
-#define bitwise0100(x,y)            jtbitwise0100(jt,(x),(y))
-#define bitwise0101(x,y)            jtbitwise0101(jt,(x),(y))
-#define bitwise0110(x,y)            jtbitwise0110(jt,(x),(y))
-#define bitwise0111(x,y)            jtbitwise0111(jt,(x),(y))
-#define bitwise1000(x,y)            jtbitwise1000(jt,(x),(y))
-#define bitwise1001(x,y)            jtbitwise1001(jt,(x),(y))
-#define bitwise1010(x,y)            jtbitwise1010(jt,(x),(y))
-#define bitwise1011(x,y)            jtbitwise1011(jt,(x),(y))
-#define bitwise1100(x,y)            jtbitwise1100(jt,(x),(y))
-#define bitwise1101(x,y)            jtbitwise1101(jt,(x),(y))
-#define bitwise1110(x,y)            jtbitwise1110(jt,(x),(y))
-#define bitwise1111(x,y)            jtbitwise1111(jt,(x),(y))
+#define bitwise0000(x,y)            jtatomic2(jt,(x),(y),ds(CBW0000))
+#define bitwise0001(x,y)            jtatomic2(jt,(x),(y),ds(CBW0001))
+#define bitwise0010(x,y)            jtatomic2(jt,(x),(y),ds(CBW0010))
+#define bitwise0011(x,y)            jtatomic2(jt,(x),(y),ds(CBW0011))
+#define bitwise0100(x,y)            jtatomic2(jt,(x),(y),ds(CBW0100))
+#define bitwise0101(x,y)            jtatomic2(jt,(x),(y),ds(CBW0101))
+#define bitwise0110(x,y)            jtatomic2(jt,(x),(y),ds(CBW0110))
+#define bitwise0111(x,y)            jtatomic2(jt,(x),(y),ds(CBW0111))
+#define bitwise1000(x,y)            jtatomic2(jt,(x),(y),ds(CBW1000))
+#define bitwise1001(x,y)            jtatomic2(jt,(x),(y),ds(CBW1001))
+#define bitwise1010(x,y)            jtatomic2(jt,(x),(y),ds(CBW1010))
+#define bitwise1011(x,y)            jtatomic2(jt,(x),(y),ds(CBW1011))
+#define bitwise1100(x,y)            jtatomic2(jt,(x),(y),ds(CBW1100))
+#define bitwise1101(x,y)            jtatomic2(jt,(x),(y),ds(CBW1101))
+#define bitwise1110(x,y)            jtatomic2(jt,(x),(y),ds(CBW1110))
+#define bitwise1111(x,y)            jtatomic2(jt,(x),(y),ds(CBW1111))
 #define bitwisecharamp(x0,x1,x2,x3) jtbitwisecharamp(jt,(x0),(x1),(x2),(x3))
 #define genbitwiserotate(x,y)       jtgenbitwiserotate(jt,(x),(y))
 #define genbitwiseshift(x,y)        jtgenbitwiseshift(jt,(x),(y))
@@ -143,7 +143,7 @@
 #define cdot1(x)                    jtcdot1(jt,(x))   
 #define cdot2(x,y)                  jtcdot2(jt,(x),(y))  
 #define cdparse(x,y)                jtcdparse(jt,(x),(y))
-#define ceil1(x)                    jtceil1(jt,(x))
+#define ceil1(x)                    jtatomic1(jt,(x),ds(CCEIL))
 #define celloffset(x,y)             jtcelloffset(jt,(x),(y))
 #define center(x0,x1,x2,x3)         jtcenter(jt,(x0),(x1),(x2),(x3))
 #define cex(x,y,z)                  jtcex(jt,(x),(y),(z))
@@ -169,7 +169,7 @@
 #define congoto(x,y,z)              jtcongoto(jt,(x),(y),(z))
 #define congotoblk(x,y)             jtcongotoblk(jt,(x),(y))
 #define congotochk(x,y,z)           jtcongotochk(jt,(x),(y),(z))
-#define conjug(x)                   jtconjug(jt,(x))
+#define conjug(x)                   jtatomic1(jt,(x),ds(CPLUS))
 #define connum(x,y)                 jtconnum(jt,(x),(y))
 #define consinit()                  jtconsinit(jt)
 #define constr(x,y)                 jtconstr(jt,(x),(y))
@@ -192,7 +192,9 @@
 #define cut2bx(x,y,z)               jtcut2bx(jt,(x),(y),(z))
 #define cut2sx(x,y,z)               jtcut2sx(jt,(x),(y),(z))
 #define cvt(x,y)                    jtcvt(jt,(x),(y))
+#if !C_CRC32C
 #define cvt0(x)                     jtcvt0(jt,(x))
+#endif
 #define cvt2bit(x,y)                jtcvt2bit(jt,(x),(y))
 #define cvz(x,y)                    jtcvz(jt,(x),(y))
 #define daxis(x,y)                  jtdaxis(jt,(x),(y))
@@ -215,6 +217,7 @@
 #define debdisp(x)                  jtdebdisp(jt,(x))
 #define debsi1(x)                   jtdebsi1(jt,(x))
 #define debug()                     jtdebug(jt)
+#define decorate(x,y)               jtdecorate(jt,(x),(y))
 #define debz()                      jtdebz(jt)
 #define decrem(x)                   jtdecrem(jt,(x))
 #define deflate(x0,x1,x2,x3)        jtdeflate(jt,(x0),(x1),(x2),(x3))
@@ -251,7 +254,7 @@
 #define diffamp0(x)                 jtdiffamp0(jt,(x))
 #define dir1(x)                     jtdir1(jt,(x))
 #define disp(x)                     jtdisp(jt,(x))
-#define divide(x,y)                 jtdivide(jt,(x),(y)) 
+#define divide(x,y)                 jtatomic2(jt,(x),(y),ds(CDIV)) 
 #define dlcm(x,y)                   jtdlcm(jt,(x),(y))
 #define dllsymaddr(x,y)             jtdllsymaddr(jt,(x),(y)) 
 #define dloc(x)                     jtdloc(jt,(x))
@@ -295,7 +298,7 @@
 #define eputq(x)                    jteputq(jt,(x))
 #define eputs(x)                    jteputs(jt,(x))
 #define eputv(x)                    jteputv(jt,(x))
-#define eq(x,y)                     jteq(jt,(x),(y))     
+#define eq(x,y)                     jtatomic2(jt,(x),(y),ds(CEQ))     
 #define eqa(x0,x1,x2,x3,x4)         jteqa(jt,(x0),(x1),(x2),(x3),(x4))
 #define eqa0(x0,x1,x2,x3,x4)        jteqa0(jt,(x0),(x1),(x2),(x3),(x4))
 #define eqd(x,y,z)                  jteqd(jt,(x),(y),(z))
@@ -327,11 +330,12 @@
 #define exec2z(x0,x1,x2,x3,x4)      jtexec2z(jt,(x0),(x1),(x2),(x3),(x4))
 #define exg(x)                      jtexg(jt,(x))
 #define expand(x,y)                 jtexpand(jt,(x),(y))
-#define expn1(x)                    jtexpn1(jt,(x))   
-#define expn2(x,y)                  jtexpn2(jt,(x),(y))  
+#define expn1(x)                    jtatomic1(jt,(x),ds(CEXP))   
+#define expn2(x,y)                  jtatomic2(jt,(x),(y),ds(CEXP))   // bypass sqrt test for internal calls  
 #define exprndID(x,y)               jtexprndID(jt,(x),(y))  
 #define ext(x,y)                    jtext(jt,(x),(y))
 #define exta(x0,x1,x2,x3)           jtexta(jt,(x0),(x1),(x2),(x3))
+#define extnvr()                    jtextnvr(jt)
 // Handle top level of fa(), which decrements use count and decides whether recursion is needed.  We recur if the contents are traversible and
 // the current block is being decremented to 0 usecount or does not have recursive usecount
 // fa() audits the tstack, for use outside the usual system
@@ -340,7 +344,7 @@
 #define fana(x)                     {if(x){I Zc=AC(x); if(!ACISPERM(Zc)){I tt=AT(x); I Zczero=-(I )(--Zc<=0); if((tt&=TRAVERSIBLE)&(Zczero|~AFLAG(x)))jtfa(jt,(x),tt); if(Zczero){jtmf(jt,x);}else {AC(x)=Zc;}}}}
 #define fac_ecm(x)                  jtfac_ecm(jt,(x))
 #define facit(x)                    jtfacit(jt,(x))
-#define fact(x)                     jtfact(jt,(x))
+#define fact(x)                     jtatomic1(jt,(x),ds(CBANG))
 #define factor(x)                   jtfactor(jt,(x))
 #define fauxblock(z) I z[NORMAH+4]  // define a block that can be passed in to fauxvirtual.  The 4 is the max rank, and must match fauxvirtual and fauxplain
 #define fauxblockINT(z,n,r) I z[(AKXR(r)>>LGSZI)+(n)]   // define a block, big enough to hold n atoms at rank r, for use in fauxINT
@@ -353,7 +357,11 @@
 #define fauxvirtual(z,v,w,r,c) {if(r<=4){z=ABACK(w); AK((A)(v))=(CAV(w)-(C*)(v)); AT((A)(v))=AT(w); AR((A)(v))=(RANKT)r; AFLAG((A)(v))=AFVIRTUAL|AFUNINCORPABLE/*|AFNJA*/; z=AFLAG(w)&AFVIRTUAL?z:w; ABACK((A)(v))=z; z=(A)(v);} \
                               else{RZ(z=virtual(w,0,r)); AFLAG(z)|=AFUNINCORPABLE;}  AC(z)=(c);}
 #define fdef(x0,x1,x2,x3,x4,x5,x6,x7,x8,x9,x10,x11)     jtfdef(jt,(x0),(x1),(x2),(x3),(x4),(x5),(x6),(x7),(x8),(x9),(x10),(x11))
+#if !USECSTACK
 #define fdep(x)                     jtfdep(jt,(x))
+#else
+#define fdep(x)                     0
+#endif
 #define fdepger(x)                  jtfdepger(jt,(x))
 #define fh(x)                       jtfh(jt,(x))
 #define filler(x)                   jtfiller(jt,(x))  
@@ -363,10 +371,10 @@
 // only for non-reuse #define findnlz(x,z)                {if((UI)(n)>=jt->numlocsize)z=0; else {z=(A)(jt->numloctbl[n]); z=((UI)((I*)z-jt->numloctbl)<jt->numlocsize)?0:z;}}
 #define fit(x,y)                    jtfit(jt,(x),(y))
 #define fitct(x,y,n)                jtfitct(jt,(x),(y),(n)) 
-#define fix(x)                      jtfix(jt,(x))
+#define fix(x,y)                    jtfix(jt,(x),(y))
 #define fixa(x,y)                   jtfixa(jt,(x),(y))
 #define fixrecursive(x,y)           jtfixrecursive(jt,(x),(y))
-#define floor1(x)                   jtfloor1(jt,(x))
+#define floor1(x)                   jtatomic1(jt,(x),ds(CFLOOR))
 #define fmfill(x0,x1,x2,x3,x4,x5,x6,x7) jtfmfill(jt,(x0),(x1),(x2),(x3),(x4),(x5),(x6),(x7))
 #define fminit(x0,x1,x2,x3,x4,x5,x6)   jtfminit(jt,(x0),(x1),(x2),(x3),(x4),(x5),(x6))
 #define fminus(x,y)                 jtfminus(jt,(x),(y))
@@ -430,9 +438,9 @@
 #define gb_unif_rand(x)             jtgb_unif_rand(jt,(x))
 #define gc(x,y)                     jtgc(jt,(x),(y))
 #define gc3(x0,x1,x2,x3)            jtgc3(jt,(x0),(x1),(x2),(x3))
-#define gcd(x,y)                    jtgcd(jt,(x),(y)) 
+#define gcd(x,y)                    jtatomic2(jt,(x),(y),ds(CPLUSDOT)) 
 #define gconj(x,y,z)                jtgconj(jt,(x),(y),(z))   
-#define ge(x,y)                     jtge(jt,(x),(y)) 
+#define ge(x,y)                     jtatomic2(jt,(x),(y),ds(CGE)) 
 #define gerexact(x)                 jtgerexact(jt,(x)) 
 #define gerfrom(x,y)                jtgerfrom(jt,(x),(y))
 #define getsen(x)                   jtgetsen(jt,(x))
@@ -462,7 +470,7 @@
 #define group(x)                    jtgroup(jt,(x))
 #define grs(x0,x1,x2,x3,x4)         jtgrs(jt,(x0),(x1),(x2),(x3),(x4))
 #define grx(x0,x1,x2,x3,x4)         jtgrx(jt,(x0),(x1),(x2),(x3),(x4))
-#define gt(x,y)                     jtgt(jt,(x),(y))     
+#define gt(x,y)                     jtatomic2(jt,(x),(y),ds(CGT))     
 #define halve(x)                    jthalve(jt,(x))
 #define head(x)                     jthead(jt,(x))
 #define hgcoeff(x,y)                jthgcoeff(jt,(x),(y))
@@ -517,7 +525,7 @@
 #define intgamp0(x)                 jtintgamp0(jt,(x))
 #define intgatop(x,y)               jtintgatop(jt,(x),(y))
 #define intgtymes(x,y)              jtintgtymes(jt,(x),(y))
-#define intmod2(x)                  jtintmod2(jt,(x))
+#define intmod2(x,y)                jtintmod2(jt,(x),(y))
 #define intpow(x,y)                 jtintpow(jt,(x),(y))
 #define inv(x)                      jtinv(jt,(x),0)
 #define invrecur(x)                 jtinv(jt,(x),1)  // call inv(), indicating recursive call
@@ -554,6 +562,7 @@
 #define jfread(x)                   jtjfread(jt,(x))
 #define jfwrite(x,y)                jtjfwrite(jt,(x),(y))
 #define jgetenv(x)                  jtjgetenv(jt,(x))
+#define jgetx(x)                    jtjgetx(jt,(x))
 #define jgets(x)                    jtjgets(jt,(x))
 #define jico2(x,y)                  jtjico2(jt,(x),(y))  
 #define jinit3()                    jtjinit3(jt)
@@ -581,10 +590,10 @@
 #define lamin2(x,y)                 jtlamin2(jt,(x),(y)) 
 #define lbox(x)                     jtlbox(jt,(x))
 #define lchar(x)                    jtlchar(jt,(x))
-#define lcm(x,y)                    jtlcm(jt,(x),(y))    
+#define lcm(x,y)                    jtatomic2(jt,(x),(y),ds(CSTARDOT))    
 #define lcolon(x)                   jtlcolon(jt,(x)) 
 #define lcpx(x)                     jtlcpx(jt,(x))
-#define le(x,y)                     jtle(jt,(x),(y))     
+#define le(x,y)                     jtatomic2(jt,(x),(y),ds(CLE))     
 #define less(x,y)                   jtless(jt,(x),(y))   
 #define lev1(x,y)                   jtlev1(jt,(x),(y))
 #define lev2(x,y,z)                 jtlev2(jt,(x),(y),(z))
@@ -609,9 +618,10 @@
 #define locmap1(x)                  jtlocmap1(jt,(x))
 #define locname(x)                  jtlocname(jt,(x))
 #define locnlx(x)                   jtlocnlx(jt,(x))
-#define logar1(x)                   jtlogar1(jt,(x))  
+#define logar1(x)                   jtatomic1(jt,(x),ds(CLOG))  
 #define lp(x)                       jtlp(jt,(x))
-#define lr(x)                       ((I)(FAV(x)->lr))
+#define lrv(x)                      ((UI)((x)->lrr)>>RANKTX)  // lr of V
+#define lr(x)                       lrv(FAV(x))  // lr of A
 #define lr2(x,y,z)                  jtlr2(jt,(x),(y),(z))
 #define lrep(x)                     jtlrep(jt,(x))
 #define lrr(x)                      jtlrr(jt,(x),0L)
@@ -620,10 +630,10 @@
 #define lsparse(x)                  jtlsparse(jt,(x))
 #define lsub(x,y,z)                 jtlsub(jt,(x),(y),(z))
 #define lsymb(x,y)                  jtlsymb(jt,(x),(y))
-#define lt(x,y)                     jtlt(jt,(x),(y))  
+#define lt(x,y)                     jtatomic2(jt,(x),(y),ds(CLT))  
 #define ltie(x)                     jtltie(jt,(x))
 #define ma(x)                       jtma(jt,(x))
-#define mag(x)                      jtmag(jt,(x))     
+#define mag(x)                      jtatomic1(jt,(x),ds(CSTILE))     
 #define makename(x)                 jtmakename(jt,(x))  
 #define map(x)                      jtmap(jt,(x))  
 #define mapx(x,y)                   jtmapx(jt,(x),(y))  
@@ -633,13 +643,11 @@
 #define matchsub(x0,x1,x2,x3,x4,x5,x6,x7)  jtmatchsub(jt,(x0),(x1),(x2),(x3),(x4),(x5),(x6),(x7))
 #define matth1(x)                   jtmatth1(jt,(x))
 #define maxdenom(x,y)               jtmaxdenom(jt,(x),(y))
-#define maximum(x,y)                jtmaximum(jt,(x),(y))
+#define maximum(x,y)                jtatomic2(jt,(x),(y),ds(CMAX))
 // typepriority is 0, 1, 4, 9, 10, 5, 6, 7, 8, 2, 3
 // prioritytype is B01X, LITX, C2TX, C4TX, INTX, BOXX, XNUMX, RATX, SBTX, FLX, CMPXX
 //                 00000 00001 10001 10010 00010 00101 00110  00111 10000 00011 00100
 // reversed        001 0000 0111 0000 0011 1001 1000 1010 0010 1001 0100 0100 0010 0000
-// obsolete #define typeprioritymask 0x328765a9410
-// obsolete #define prioritytypemask 0x1070398a294420
 #define maxtypene(x,y)              jtmaxtype(jt,(x),(y))
 #define maxtype(x,y)                (((x)==(y))?(x):maxtypene(x,y))
 #define maxtypedne(x,y) (jt->typepriority[CTTZ(x)]>jt->typepriority[CTTZ(y)]?(x):(y))
@@ -655,9 +663,9 @@
 #define merge1(x,y)                 jtmerge1(jt,(x),(y))
 #define merge2(x0,x1,x2,x3,x4)         jtmerge2(jt,(x0),(x1),(x2),(x3),(x4))
 #define mf(x)                       jtmf(jt,(x))
-#define minimum(x,y)                jtminimum(jt,(x),(y))
+#define minimum(x,y)                jtatomic2(jt,(x),(y),ds(CMIN))
 #define minors(x)                   jtminors(jt,(x))
-#define minus(x,y)                  jtminus(jt,(x),(y))  
+#define minus(x,y)                  jtatomic2(jt,(x),(y),ds(CMINUS))  
 #define minv(x)                     jtminv(jt,(x))  
 #define mkdir1(x)                   jtmkdir1(jt,(x))
 #define mmharvest(x0,x1,x2,x3,x4,x5,x6) jtmmharvest(jt,(x0),(x1),(x2),(x3),(x4),(x5),(x6))
@@ -689,7 +697,7 @@
 #define namerefop(x,y)              jtnamerefop(jt,(x),(y)) 
 #define namerefacv(x,y)             jtnamerefacv(jt,(x),(y)) 
 #define nch1(x0,x1,x2,x3)           jtnch1(jt,(x0),(x1),(x2),(x3))   
-#define ne(x,y)                     jtne(jt,(x),(y))  
+#define ne(x,y)                     jtatomic2(jt,(x),(y),ds(CNE))  
 #define negate(x)                   jtnegate(jt,(x))
 #define neutral(x)                  jtneutral(jt,(x))
 #define newt(x0,x1,x2,x3)           jtnewt(jt,(x0),(x1),(x2),(x3))
@@ -701,7 +709,7 @@
 #define nlxxx(x)                    jtnlxxx(jt,(x))
 #define nmhash(x,y)                 hic((x),(y))
 #define nodupgrade(x0,x1,x2,x3,x4,x5,x6,x7,x8)      jtnodupgrade(jt,(x0),(x1),(x2),(x3),(x4),(x5),(x6),(x7),(x8))
-#define nor(x,y)                    jtnor(jt,(x),(y))  
+#define nor(x,y)                    jtatomic2(jt,(x),(y),ds(CPLUSCO))  
 #define norm(x)                     jtnorm(jt,(x))  
 #define not(x)                      jtnot(jt,(x))
 #define notonupperstack(x)          jtnotonupperstack(jt,(x))
@@ -772,9 +780,9 @@
 #define pind(x,y)                   jtpind(jt,(x),(y))
 #define pinit()                     jtpinit(jt)
 #define pinv(x)                     jtpinv(jt,(x))
-#define pix(x)                      jtpix(jt,(x))
+#define pix(x)                      jtpix(jt,(x),ds(CCIRCLE))
 #define plt(x)                      jtplt(jt,(x))
-#define plus(x,y)                   jtplus(jt,(x),(y))   
+#define plus(x,y)                   jtatomic2(jt,(x),(y),ds(CPLUS))   
 #define ply1(x,y)                   jtply1(jt,(x),(y))
 #define pmarea2(x,y)                jtpmarea2(jt,(x),(y))
 #define pmfree(x)                   jtpmfree(jt,(x))
@@ -841,7 +849,9 @@
 #endif
 #define ranec(x0,x1,x2,x3,x4,x5)    jtranec(jt,(x0),(x1),(x2),(x3),(x4),(x5))
 #define rank1ex(x0,x1,x2,x3)        jtrank1ex(jt,(x0),(x1),(x2),(x3))
+#define rank1ex0(x0,x1,x2)          jtrank1ex0(jt,(x0),(x1),(x2))
 #define rank2ex(x0,x1,x2,x3,x4,x5,x6,x7)  jtrank2ex(jt,(x0),(x1),(x2),(x3),(x4),(x5),(x6),(x7))
+#define rank2ex0(x0,x1,x2,x3)       jtrank2ex0(jt,(x0),(x1),(x2),(x3))
 #define rankingb(x0,x1,x2,x3,x4,x5) jtrankingb(jt,(x0),(x1),(x2),(x3),(x4),(x5))
 // ras does rifv followed by ra
 #define ras(x)                      ((x) = jtras(jt,x))
@@ -903,7 +913,7 @@
 #define reshape(x,y)                jtreshape(jt,(x),(y))
 #define reshapesp(x0,x1,x2,x3)      jtreshapesp(jt,(x0),(x1),(x2),(x3))
 #define reshapesp0(x0,x1,x2,x3)     jtreshapesp0(jt,(x0),(x1),(x2),(x3))
-#define residue(x,y)                jtresidue(jt,(x),(y))
+#define residue(x,y)                jtresidue(jt,(x),(y),ds(CSTILE))
 #define reverse(x)                  jtreverse(jt,(x)) 
 #define revsp(x)                    jtrevsp(jt,(x)) 
 #define rezero(x,y)                 jtrezero(jt,(x),(y))
@@ -931,7 +941,8 @@
 #define rotate(x,y)                 jtrotate(jt,(x),(y)) 
 #define rotsp(x,y)                  jtrotsp(jt,(x),(y))
 #define roundID(x,y)                jtroundID(jt,(x),(y))
-#define rr(x)                       ((I)(FAV(x)->rr))
+#define rrv(x)                      ((UI)((x)->lrr)&RANKTMSK)  // rr of V
+#define rr(x)                       rrv(FAV(x))  // rr of A
 #define rsh0(x)                     jtrsh0(jt,(x))
 #define rsort(x)                    jtrsort(jt,(x))
 #define sb2(x,y)                    jtsb2(jt,(x),(y))
@@ -974,6 +985,7 @@
 #define seeparse(x)                 jtseeparse(jt,(x))
 #define seg(x,y)                    jtseg(jt,(x),(y))   
 #define selfq(x)                    jtselfq(jt,(x))
+#define hasimploc(x)                jthasimploc(jt,(x))
 #define selm(x)                     jtselm(jt,(x))
 #define selx(x,y,z)                 jtselx(jt,(x),(y),(z))
 #define sely(x0,x1,x2,x3)           jtsely(jt,(x0),(x1),(x2),(x3))
@@ -983,12 +995,13 @@
 #define setfv(x,y)                  jtsetfv(jt,(x),(y))
 #define setleakcode(x)              jtsetleakcode(jt,(x))
 #define sfn(x,y)                    jtsfn(jt,(x),(y))
+#define sfne(x)                     jtsfne(jt,(x))
 #define shape(x)                    jtshape(jt,(x))   
 #define shasum2(x,y)                jtshasum2(jt,(x),(y))
 #define shift1(x)                   jtshift1(jt,(x))
 #define shift10(x,y)                jtshift10(jt,(x),(y))
 #define showerr()                   jtshowerr(jt)
-#define signum(x)                   jtsignum(jt,(x))  
+#define signum(x)                   jtatomic1(jt,(x),ds(CSTAR))  
 #define slash(x)                    jtslash(jt,(x))   
 #define sldot(x)                    jtsldot(jt,(x))
 #define sm_init(x)                  jtsm_init(jt,(x))
@@ -1048,7 +1061,7 @@
 #define spspi(x0,x1,x2,x3)          jtspspi(jt,(x0),(x1),(x2),(x3))
 #define spspx(x0,x1,x2,x3)          jtspspx(jt,(x0),(x1),(x2),(x3))
 #define spsscell(x0,x1,x2,x3,x4)    jtspsscell(jt,(x0),(x1),(x2),(x3),(x4))
-#define sqroot(x)                   jtsqroot(jt,(x))  
+#define sqroot(x)                   jtatomic1(jt,(x),ds(CROOT))  
 #define square(x)                   jtsquare(jt,(x))  
 #define sscan(x,y)                  jtsscan(jt,(x),(y))
 #define ssdo(x,y,z)                 jtssdo(jt,(x),(y),(z))
@@ -1077,6 +1090,7 @@
 #define swapc(x)                    jtswapc(jt,(x)) 
 #define symbinit()                  jtsymbinit(jt)
 #define symbis(x,y,z)               jtsymbis(jt,(x),(y),(z))
+#define symbisdel(x,y,z)            jtsymbisdel(jt,(x),(y),(z))
 #define symbrd(x)                   jtsymbrd(jt,(x))
 #define symbrdlock(x)               jtsymbrdlock(jt,(x))
 #define symbrdlocknovalerr(x)       jtsymbrdlocknovalerr(jt,(x))
@@ -1090,6 +1104,7 @@
 #define syrd1(x,y,z,w)              jtsyrd1(jt,(x),(y),(z),(w))
 #define syrdforlocale(x)            jtsyrdforlocale(jt,(x))
 #define syrd1forlocale(x,y,z,w)     jtsyrd1forlocale(jt,(x),(y),(z),(w))
+#define syrdnobuckets(x)            jtsyrdnobuckets(jt,(x))
 #define table(x)                    jttable(jt,(x))   
 #define tail(x)                     jttail(jt,(x))    
 #define take(x,y)                   jttake(jt,(x),(y))   
@@ -1160,18 +1175,14 @@
 #define tpoly(x)                    jttpoly(jt,(x))
 #define tpop(x)                     jttpop(jt,(x))
 // if tg() fails, tpush leaves nextpushx unchanged
-#if 0
-#define tpush(x)                    {I tt=AT(x); I pushx=jt->tnextpushx; *(I*)((I)jt->tstack+(pushx&(NTSTACK-1)))=(I)(x); pushx+=SZI; if(!(pushx&(NTSTACK-1))){RZ(tg(pushx)); pushx+=SZI;} if(tt&TRAVERSIBLE)RZ(pushx=jttpush(jt,(x),tt,pushx)); jt->tnextpushx=pushx; if(MEMAUDIT&2)audittstack(jt,(x),ACUC(x));}
-#else
 // Handle top level of tpush().  push the current block, and recur if it is traversible and does not have recursive usecount
 // We can have an inplaceable but recursible block, if it was gc'd.  We never push a PERMANENT block, so that we won't try to free it
 // NOTE that PERMANENT blocks are always marked traversible if they are of traversible type, so we will not recur on them internally
-#define tpush(x)                    {if(!ACISPERM(AC(x))){I tt=AT(x); I pushx=jt->tnextpushx; *(I*)((I)jt->tstack+pushx)=(I)(x); pushx+=SZI; if(!(pushx&(NTSTACK-1))){RZ(tg(pushx)); pushx+=SZI;} if((tt^AFLAG(x))&TRAVERSIBLE)RZ(pushx=jttpush(jt,(x),tt,pushx)); jt->tnextpushx=pushx; if(MEMAUDIT&2)audittstack(jt);}}
-// Internal version, used when the local name pushx is known to hold jt->tnextpushx
-#define tpushi(x)                   {if(!ACISPERM(AC(x))){I tt=AT(x); *(I*)((I)jt->tstack+pushx)=(I)(x); pushx+=SZI; if(!(pushx&(NTSTACK-1))){RZ(tg(pushx)); pushx+=SZI;} if((tt^AFLAG(x))&TRAVERSIBLE)RZ(pushx=jttpush(jt,(x),tt,pushx)); }}
-#endif
+#define tpush(x)                    {if(!ACISPERM(AC(x))){I tt=AT(x); A *pushp=jt->tnextpushp; *pushp++=(x); if(!((I)pushp&(NTSTACKBLOCK-1))){RZ(pushp=tg(pushp));} if((tt^AFLAG(x))&TRAVERSIBLE)RZ(pushp=jttpush(jt,(x),tt,pushp)); jt->tnextpushp=pushp; if(MEMAUDIT&2)audittstack(jt);}}
+// Internal version, used when the local name pushp is known to hold jt->tnextpushp
+#define tpushi(x)                   {if(!ACISPERM(AC(x))){I tt=AT(x); *pushp++=(x); if(!((I)pushp&(NTSTACKBLOCK-1))){RZ(pushp=tg(pushp));} if((tt^AFLAG(x))&TRAVERSIBLE)RZ(pushp=jttpush(jt,(x),tt,pushp)); }}
 // tpush1 is like tpush, but it does not recur to lower levels.  Used only for virtual block (which cannot be PERMANENT)
-#define tpush1(x)                   {I pushx=jt->tnextpushx; *(I*)((I)jt->tstack+pushx)=(I)(x); pushx+=SZI; if(!(pushx&(NTSTACK-1))){RZ(tg(pushx)); pushx+=SZI;} jt->tnextpushx=pushx; if(MEMAUDIT&2)audittstack(jt);}
+#define tpush1(x)                   {A *pushp=jt->tnextpushp; *pushp++=(x); if(!((I)pushp&(NTSTACKBLOCK-1))){RZ(pushp=tg(pushp));} jt->tnextpushp=pushp; if(MEMAUDIT&2)audittstack(jt);}
 #define traverse(x,y)               jttraverse(jt,(x),(y))
 #define trc(x)                      jttrc(jt,(x))     
 #define treach(x)                   jttreach(jt,(x))
@@ -1182,7 +1193,7 @@
 #define tryinit(x,y,z)              jttryinit(jt,(x),(y),(z))
 #define ts(x)                       jtts(jt,(x))
 #define tsit2(x,y)                  jttsit2(jt,(x),(y))
-#define tymes(x,y)                  jttymes(jt,(x),(y))
+#define tymes(x,y)                  jtatomic2(jt,(x),(y),ds(CSTAR))
 #define uco1(x)                     jtuco1(jt,(x))
 #define uco2(x,y)                   jtuco2(jt,(x),(y))
 #define unbinr(x0,x1,x2,x3,x4)      jtunbinr(jt,(x0),(x1),(x2),(x3),(x4))
@@ -1224,6 +1235,7 @@
 #define vc1(x,y)                    jtvc1(jt,(x),(y))
 #define vci(x)                      jtvci(jt,(x))
 #define vec(x,y,z)                  jtvec(jt,(x),(y),(z))
+#define vecb01(x,y,z)               jtvecb01(jt,(x),(y),(z))
 #define vfinal(x)                   jtvfinal(jt,(x))
 #define vfn(x)                      jtvfn(jt,(x))
 #define vger2(x,y,z)                jtvger2(jt,(x),(y),(z))
@@ -1275,6 +1287,7 @@
 #define xmodpow(x,y,z)              jtxmodpow(jt,(x),(y),(z))
 #define xoinit()                    jtxoinit(jt)
 #define xop(x)                      jtxop(jt,(x))
+#define xop2(x,y,z)                 jtxop2(jt,(x),(y),(z))
 #define xopcall(x)                  jtxopcall(jt,(x))
 #define xpi(x)                      jtxpi(jt,(x))
 #define xplus(x,y)                  jtxplus(jt,(x),(y))

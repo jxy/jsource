@@ -53,7 +53,7 @@ static I jtispoly(J jt,A w){A e,f,g,h,x,y;B nf,ng,vf,vg;C c,id;I k,m,n,t;V*v;
 
 static F1(jtfpolyc){A b;B*bv;I m,n;
  RZ(b=ne(w,zeroionei[0])); bv=BAV(b);
- m=n=AN(w); DO(n, if(bv[--m])break;); ++m;
+ m=n=AN(w); DQ(n, if(bv[--m])break;); ++m;
  if(m<n)RZ(w=take(sc(m),w)); n=m;
  switch(n){
   case 1: R qq(head(w),zeroionei[0]);
@@ -421,7 +421,7 @@ static F1(jtintg0){A df,dh,f,g,h;B nf,ng,vf,vg;C id;I m,n,p,q;V*fv,*gv,*v;
  R 0;
 }
 
-static DF1(jtddot1){V*v=VAV(self); R df1(w,ddot(fix(v->fgh[0]),v->fgh[1]));}
+static DF1(jtddot1){V*v=VAV(self); R df1(w,ddot(fix(v->fgh[0],zeroionei[0]),v->fgh[1]));}
 
 F2(jtddot){A x,*xv,y,z;AF f;I j,n,p,q,r,*wv;
  RZ(a&&w);
@@ -431,14 +431,14 @@ F2(jtddot){A x,*xv,y,z;AF f;I j,n,p,q,r,*wv;
  if(!nameless(a)||1<r)R CDERIV(CDDOT, jtddot1,0L, 0L, 0L,0L,0L);
  CR rng = condrange(wv,n,IMAX,IMIN,IMAX-1); p=rng.min; q=rng.range;
  if(!r){
-  if(!p){V*v=VAV(a); R v->mr||v->lr||v->rr?qq(a,zeroionei[0]):a;}
-  f=0<=p?jtdiff0:jtintg0; y=a; DO(ABS(p), ASSERT(y=CALL1(f,y,0L),EVDOMAIN);); R y;
+  if(!p){V*v=VAV(a); R v->mr||v->lrr?qq(a,zeroionei[0]):a;}
+  f=0<=p?jtdiff0:jtintg0; y=a; DQ(ABS(p), ASSERT(y=CALL1(f,y,0L),EVDOMAIN);); R y;
  }
  q+=p-1; p=0>p?p:0; q=0<q?q:0;
  GATV0(x,BOX,1+q-p,1); xv=AAV(x); xv[-p]=incorp(a);
- if(0>p){y=a; j=-p; DO(-p, ASSERT(y=intg0(y),EVDOMAIN); xv[--j]=incorp(y););}
- if(0<q){y=a; j=-p; DO( q, ASSERT(y=diff0(y),EVDOMAIN); xv[++j]=incorp(y););}
- j=n; z=xv[wv[--j]-p]; DO(n-1, RZ(z=folk(xv[wv[--j]-p],ds(CCOMMA),z)););
+ if(0>p){y=a; j=-p; DQ(-p, ASSERT(y=intg0(y),EVDOMAIN); xv[--j]=incorp(y););}
+ if(0<q){y=a; j=-p; DQ( q, ASSERT(y=diff0(y),EVDOMAIN); xv[++j]=incorp(y););}
+ j=n; z=xv[wv[--j]-p]; DQ(n-1, RZ(z=folk(xv[wv[--j]-p],ds(CCOMMA),z)););
  R qq(z,zeroionei[0]);
 }
 
@@ -557,11 +557,11 @@ static DF2(jtsslope){A fs,f0,p,y,z,*zv;I m,n,r,t;V*sv=VAV(self);
 
 static DF1(jtderiv1){A e,ff,fs,gs,s,t,z,*zv;I*gv,d,n,*tv;V*v;
  PREF1(jtderiv1);
- v=VAV(self); RZ(fs=fix(v->fgh[0])); gs=v->fgh[1]; n=AN(gs); gv=AV(gs); 
+ v=VAV(self); RZ(fs=fix(v->fgh[0],zeroionei[0])); gs=v->fgh[1]; n=AN(gs); gv=AV(gs); 
  if(!(AT(w)&FL+CMPX))RZ(w=cvt(FL,w));
  RZ(e=scf((D)1e-7));
  GAT0(t,INT,1,0); tv=AV(t);   // no need to INCORP t, since no one cares and it's not virtual
- RZ(s=ca(self)); v=VAV(s); v->fgh[1]=t; v->lr=v->mr;
+ RZ(s=ca(self)); v=VAV(s); v->fgh[1]=t; v->lrr=(v->lrr&RMAX)+(v->mr<<RANKTX);
  GATV(z,BOX,n,AR(gs),AS(gs)); zv=AAV(z);
  DO(n, *tv=d=gv[i]; zv[i]=incorp((ff=dtab(fs,d))?df1(w,ff):sslope(tymes(e,w),w,s)););
  RE(0); R ope(z);

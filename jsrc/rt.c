@@ -37,7 +37,7 @@ static I jtpad(J jt,A a,A w,C*zv){C dash,*u,*v,*wv;I c,d,r,*s;
   if(c==d)MC(zv,wv,AN(w));
   else{
    zv-=d; v=zv+c-1; u=wv-c; dash=jt->bx[10];
-   DO(IC(w), MC(zv+=d,u+=c,c); v+=d; if(dash==*v)memset(1+v,dash,d-c););
+   DQ(IC(w), MC(zv+=d,u+=c,c); v+=d; if(dash==*v)memset(1+v,dash,d-c););
  }}
  R r*d;
 }
@@ -112,7 +112,7 @@ static F1(jttconnect){A*wv,x,y,z;B b,d;C c,*u,*xv,*yv,*zv;I e,i,j,m,n,p,q,zn;
     if(b&&c==jt->bx[6])c=jt->bx[7];
     *yv=c; yv+=q; xv+=p;
   }}
-  u=zv-e; yv=CAV(y)-q; DO(m, MC(u+=e,yv+=q,q);); zv+=q;
+  u=zv-e; yv=CAV(y)-q; DQ(m, MC(u+=e,yv+=q,q);); zv+=q;
   x=y; p=q;
  }
  R z;
@@ -120,15 +120,17 @@ static F1(jttconnect){A*wv,x,y,z;B b,d;C c,*u,*xv,*yv,*zv;I e,i,j,m,n,p,q,zn;
 
 static F1(jttreach){R troot(scc('0'),graft(ope(every(w,0L,jttrr))));}
 
-static F1(jttrr){PROLOG(0058);A fs,gs,hs,s,t,*x,z;B ex,xop;C id;I fl,*hv,m;V*v;
+static F1(jttrr){PROLOG(0058);A hs,s,t,*x,z;B ex,xop;C id;I fl,*hv,m;V*v;
  RZ(w);
  if(AT(w)&NOUN+NAME){RETF(tleaf(lrep(w)));}
- v=FAV(w); id=v->id; fl=v->flag; fs=v->fgh[0]; gs=v->fgh[1]; hs=v->fgh[2]; if(id==CBOX)gs=0;  // ignore gs field in BOX, there to simulate BOXATOP
+ v=FAV(w); id=v->id; fl=v->flag;
+ I fndx=(AT(w)&ADV)&&!v->fgh[0]; A fs=v->fgh[fndx]; A gs=v->fgh[fndx^1];  // In adverbs, if f is empty look to g for the left arg (used by m b.)
+ hs=v->fgh[2]; if(id==CBOX)gs=0;  // ignore gs field in BOX, there to simulate BOXATOP
  if(fl&VXOPCALL){RETF(trr(hs));}
  xop=1&&VXOP&fl; ex=id==CCOLON&&hs&&!xop;
  m=(I )!!fs+(I )(gs||ex)+(I )(id==CFORK||xop&&hs);
  if(!m){RETF(tleaf(spella(w)));}
- if(evoke(w)){RETF(tleaf(sfn(0,fs)));}
+ if(evoke(w)){RZ(w=sfne(w)); RETF((AT(w)&FUNC?jttrr:jttleaf)(jt,w));}
  GATV0(t,BOX,m,1); x=AAV(t);
  if(0<m)RZ(x[0]=rifvs(fl&VGERL?treach(fxeach(fs)):trr(fs)));
  if(1<m)RZ(x[1]=rifvs(fl&VGERR?treach(fxeach(gs)):ex?trr(unparsem(num[0],w)):trr(gs)));

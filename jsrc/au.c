@@ -12,6 +12,7 @@ static I jtfdepger(J jt,A w){A*wv;I d=0,k;
  R d;
 }
 
+#if !USECSTACK
 I jtfdep(J jt,A w){A f,g;I d=0,k;V*v;
  RZ(w);
  v=VAV(w);
@@ -24,6 +25,7 @@ I jtfdep(J jt,A w){A f,g;I d=0,k;V*v;
 }    /* function depth:  1 + max depth of components */
 
 F1(jtfdepadv){RZ(w); ASSERT(VERB&AT(w),EVDOMAIN); R sc(fdep(w));}
+#endif
 
 // jtdf1 and jtdf2 can be called with or without inplace flags since they don't use jt but merely pass it through
 DF1(jtdf1){RZ(self); R CALL1(FAV(self)->valencefns[0],  w,self);}
@@ -57,18 +59,19 @@ A jtfdef(J jt,I flag2,C id,I t,AF f1,AF f2,A fs,A gs,A hs,I flag,I m,I l,I r){A 
  GAT0(z,INT,(VERBSIZE+SZI-1)>>LGSZI,0); v=FAV(z);  // allocate as fixed size, and as INT to avoid clearing the area, which will be all filled in
  AT(z)=t;  // install actual type
  if(fs)INCORP(fs); if(gs)INCORP(gs); if(hs)INCORP(hs);   // indicate fgh are about to be incorporated
- v->localuse.lvp=0;  // clear the private field
+ v->localuse.lclr[0]=v->localuse.lclr[1]=0;  // clear the private field
  v->valencefns[0]    =f1?f1:jtdomainerr1;  /* monad C function */
  v->valencefns[1]    =f2?f2:jtdomainerr2;  /* dyad  C function */
  v->fgh[0]     =fs;                  /* monad            */
  v->fgh[1]     =gs;                  /* dyad             */      
  v->fgh[2]     =hs;                  /* fork right tine or other auxiliary stuff */
  v->flag  =(UI4)flag;
+#if !USECSTACK
  v->fdep  =0;                   /* function depth   */
+#endif
  v->flag2 = (UI4)flag2;         // more flags
  v->mr    =(RANKT)m;                   /* monadic rank     */
- v->lr    =(RANKT)l;                   /* left    rank     */
- v->rr    =(RANKT)r;                   /* right   rank     */
+ v->lrr=(RANK2T)((l<<RANKTX)+r);
  v->id    =(C)id;                  /* spelling         */
  R z;
 }
@@ -83,7 +86,7 @@ B nameless(A w){A f,g,h;C id;V*v;
 B jtprimitive(J jt,A w){A x=w;V*v;
  RZ(w);
  v=VAV(w);
- if(CTILDE==v->id&&NOUN&AT(v->fgh[0]))RZ(x=fix(w));
+ if(CTILDE==v->id&&NOUN&AT(v->fgh[0]))RZ(x=fix(w,zeroionei[0]));
  R!VAV(x)->fgh[0];
 }    /* 1 iff w is a primitive */
 
@@ -104,7 +107,7 @@ I boxat(A x, I m, I l, I r){C c;V*v;
    I res = 0;
    if(v->fgh[1]&&VERB&AT(v->fgh[1])){
     res |= FAV(v->fgh[1])->mr>=m;    // monad ok if rank big enough  for either @ or &
-    res |= (c==CAT)&&FAV(v->fgh[1])->lr>=l&&FAV(v->fgh[1])->rr>=r?2:0;  // dyad for @ only, if rank big enough
+    res |= (c==CAT)&&lr(v->fgh[1])>=(UI)l&&rr(v->fgh[1])>=(UI)r?2:0;  // dyad for @ only, if rank big enough
    }
    R res;
  }

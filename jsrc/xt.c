@@ -55,7 +55,7 @@ F1(jtspit){A z;I k;
 F1(jtparsercalls){ASSERTMTV(w); R sc(jt->parsercalls);}
 
 // 6!:5, window into the running J code
-F1(jtpeekdata){ jt->peekdata = i0(w); R num[0]; }
+F1(jtpeekdata){ I opeek=jt->peekdata; jt->peekdata = i0(w); R sc(opeek); }
 
 /*
 // 6!:6: set y as processor architecture and return previous value.  Now cannot set.  Bit 0=AVX instructions supported
@@ -107,13 +107,13 @@ F1(jtts0){A x,z;C s[9],*u,*v,*zv;D*xv;I n,q;
  if(!n)R x;
  if(!(AT(w)&LIT))RZ(w=cvt(LIT,w));
  GATV(z,LIT,n,AR(w),AS(w)); zv=CAV(z); MC(zv,CAV(w),n);
- q=0; v=zv; DO(n, if('Y'==*v++)++q;); u=2==q?s+2:s;
- sprintf(s,FMTI04,(I)xv[0]);             v=zv; DO(n, if(*v=='Y'){*v=*u++; if(!*u)break;} ++v;);
- sprintf(s,FMTI02,(I)xv[1]);        u=s; v=zv; DO(n, if(*v=='M'){*v=*u++; if(!*u)break;} ++v;);
- sprintf(s,FMTI02,(I)xv[2]);        u=s; v=zv; DO(n, if(*v=='D'){*v=*u++; if(!*u)break;} ++v;);
- sprintf(s,FMTI02,(I)xv[3]);        u=s; v=zv; DO(n, if(*v=='h'){*v=*u++; if(!*u)break;} ++v;);
- sprintf(s,FMTI02,(I)xv[4]);        u=s; v=zv; DO(n, if(*v=='m'){*v=*u++; if(!*u)break;} ++v;);
- sprintf(s,FMTI05,(I)(1000*xv[5])); u=s; v=zv; DO(n, if(*v=='s'){*v=*u++; if(!*u)break;} ++v;);
+ q=0; v=zv; DQ(n, q+='Y'==*v++;); u=2==q?s+2:s;   // if only 2 Y, advance over century
+ sprintf(s,FMTI04,(I)xv[0]);             v=zv; DQ(n, if(*v=='Y'){*v=*u++; if(!*u)break;} ++v;);
+ sprintf(s,FMTI02,(I)xv[1]);        u=s; v=zv; DQ(n, if(*v=='M'){*v=*u++; if(!*u)break;} ++v;);
+ sprintf(s,FMTI02,(I)xv[2]);        u=s; v=zv; DQ(n, if(*v=='D'){*v=*u++; if(!*u)break;} ++v;);
+ sprintf(s,FMTI02,(I)xv[3]);        u=s; v=zv; DQ(n, if(*v=='h'){*v=*u++; if(!*u)break;} ++v;);
+ sprintf(s,FMTI02,(I)xv[4]);        u=s; v=zv; DQ(n, if(*v=='m'){*v=*u++; if(!*u)break;} ++v;);
+ sprintf(s,FMTI05,(I)(1000*xv[5])); u=s; v=zv; DQ(n, if(*v=='s'){*v=*u++; if(!*u)break;} ++v;);
  R z;
 }
 
@@ -164,12 +164,12 @@ __int64 GetMachineCycleCount()
 
 F1(jttss){ASSERTMTV(w); R scf(tod()-jt->tssbase);}
 
-F2(jttsit2){A z;D t;I n,old;
+F2(jttsit2){A z;D t;I n;
  F2RANK(0,1,jttsit2,0);
  RE(n=i0(a));
  FDEPINC(1);  // No ASSERTs/returns till the DEPDEC below
  t=qpc(); 
- old=jt->tnextpushx; DO(n, z=exec1(w); if(!z)break; tpop(old);); 
+ A *old=jt->tnextpushp; DQ(n, z=exec1(w); if(!z)break; tpop(old);); 
  t=qpc()-t;
  FDEPDEC(1);  // Assert OK now
  RZ(z);
@@ -186,12 +186,12 @@ F1(jttsit1){R tsit2(num[1],w);}
 
 F1(jtdl){D m,n,*v;UINT ms,s;
  RZ(w=cvt(FL,w));
- n=0; v=DAV(w); DO(AN(w), m=*v++; ASSERT(0<=m,EVDOMAIN); n+=m;);
+ n=0; v=DAV(w); DQ(AN(w), m=*v++; ASSERT(0<=m,EVDOMAIN); n+=m;);
  s=(UINT)jfloor(n); ms=(UINT)jfloor(0.5+1000*(n-s));
 #if SYS & SYS_MACINTOSH
  {I t=TickCount()+(I)(60*n); while(t>TickCount())JBREAK0;}
 #else
- DO(s, sleepms(1000); JBREAK0;);
+ DQ(s, sleepms(1000); JBREAK0;);
  sleepms(ms);
 #endif
  R w;
@@ -215,7 +215,7 @@ static F1(jtpmfree){A x,y;C*c;I m;PM*v;PM0*u;
  if(w){
   c=CAV(w); u=(PM0*)c; v=(PM*)(c+sizeof(PM0)); 
   m=u->wrapped?u->n:u->i; 
-  DO(m, x=v->name; if(x&&NAME&AT(x)&&AN(x)==*AS(x))fa(x); 
+  DQ(m, x=v->name; if(x&&NAME&AT(x)&&AN(x)==*AS(x))fa(x); 
         y=v->loc;  if(y&&NAME&AT(y)&&AN(y)==*AS(y))fa(y); ++v;);
   fa(w);
  }
@@ -288,7 +288,7 @@ F1(jtpmunpack){A*au,*av,c,t,x,z,*zv;B*b;D*dv;I*iv,k,m,n,p,q,wn,*wv;PM*v,*v0,*vq;
  u=(PM0*)AV(jt->pma); p=u->wrapped?u->n-u->i:0; q=u->i; n=p+q;
  GATV0(x,B01,n,1); b=BAV(x); memset(b,wn?C0:C1,n);
  if(wn){
-  DO(wn, k=wv[i]; if(0>k)k+=n; ASSERT(0<=k&&k<n,EVINDEX); b[k]=1;);
+  DO(wn, k=wv[i]; if(0>k)k+=n; ASSERT((UI)k<(UI)n,EVINDEX); b[k]=1;);
   m=0; 
   DO(n, if(b[i])++m;);
  }else m=n;

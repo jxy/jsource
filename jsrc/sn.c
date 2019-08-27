@@ -16,7 +16,7 @@ B jtvnm(J jt,I n,C*s){C c,d,t;I j,k;
   // (the string can't start with _)
  DO(n, d=c; c=s[i]; t=ctype[(UC)c]; if(!(t==CA||t==C9))R 0; if(c=='_'&&d=='_'&&!j&&i!=n-1){j=i-1;});
  // If the last char is _, any ind loc is invalid; scan to find previous _ (call its index j, error if 0); audit locale name, or OK if empty (base locale)
- if(c=='_'){if(!(!j))R 0; DO(j=n-1, if('_'==s[--j])break;); if(!(j))R 0; k=n-j-2; R(!k||vlocnm(k,s+j+1));}
+ if(c=='_'){if(!(!j))R 0; DQ(j=n-1, if('_'==s[--j])break;); if(!(j))R 0; k=n-j-2; R(!k||vlocnm(k,s+j+1));}
  // Here last char was not _, and j is still pointed after __ if any
  if(j==0)R 1;  // If no ind loc, OK
  // There is an indirect locative.  Scan all of them, verifying first char of each name is alphabetic (all chars were verified alphameric above)
@@ -38,9 +38,9 @@ B vlocnm(I n,C*s){
 // Possible errors: EVILNAME, EVLIMIT (if name too long), or memory error
 A jtnfs(J jt,I n,C*s){A z;C c,f,*t;I m,p;NM*zv;
  // Discard leading and trailing blanks.  Leave t pointing to the last character
- DO(n, if(' '!=*s)break; ++s; --n;); 
+ DQ(n, if(' '!=*s)break; ++s; --n;); 
  t=s+n-1;
- DO(n, if(' '!=*t)break; --t; --n;);
+ DQ(n, if(' '!=*t)break; --t; --n;);
  // If the name is the special x y.. or x. y. ..., return a copy of the preallocated block for that name (we may have to add flags to it)
  c=*s;if((1==n)&&strchr("mnuvxy",c)){
   R ca(c=='y'?ynam:c=='x'?xnam:c=='v'?vnam:c=='u'?unam:c=='n'?nnam:mnam);
@@ -66,8 +66,13 @@ A jtnfs(J jt,I n,C*s){A z;C c,f,*t;I m,p;NM*zv;
  RETF(z);
 }    /* name from string */
 
-A jtsfn(J jt,B b,A w){NM*v; RZ(w); v=NAV(w); R str(b?v->m:AN(w),v->s);}
-     /* string from name: 0=b full name; 1=b non-locale part of name */
+// string from name: returns string for the name
+// if b&SFNSIMPLEONLY, return only the simple name
+A jtsfn(J jt,B b,A w){NM*v; RZ(w); v=NAV(w); R str(b&SFNSIMPLEONLY?v->m:AN(w),v->s);}
+
+// string from name evocation: returns string for name UNLESS the name was an NMDOT type; in that case it returns w f. which will be a verb
+A jtsfne(J jt,A w){RZ(w); A wn=FAV(w)->fgh[0]; /* obsolete NM *v=NAV(wn);*/ if(AT(wn)&NAMEBYVALUE/*obsolete v->flag&NMDOT*/)R fix(w,zeroionei[0]); R sfn(0,wn);}
+
 
 F1(jtnfb){A y;C*s;I n;
  RZ(w);
@@ -84,8 +89,8 @@ static F1(jtstdnm){C*s;I j,n,p,q;
  if(!(w=vs(w)))R 0;  // convert to ASCII
  n=AN(w); s=CAV(w);  // n = #characters, s->string
  if(!(n))R 0;
- j=0;   DO(n, if(' '!=s[j++])break;); p=j-1;
- j=n-1; DO(n, if(' '!=s[j--])break;); q=(n-2)-j;
+ j=0;   DQ(n, if(' '!=s[j++])break;); p=j-1;
+ j=n-1; DQ(n, if(' '!=s[j--])break;); q=(n-2)-j;
  if(!(vnm(n-(p+q),p+s)))R 0;   // Validate name
  R nfs(n-(p+q),p+s);   // Create NAME block for name
 }    /* 0 result means error or invalid name */
@@ -113,20 +118,20 @@ F1(jtnc){A*wv,x,y,z;I i,n,t,*zv;L*v;
 
 
 static SYMWALK(jtnlxxx, A,BOX,20,1, jt->workareas.namelist.nla[*((UC*)NAV(d->name)->s)]&&jt->workareas.namelist.nlt&AT(d->val), 
-    RZ(*zv++=rifvs(sfn(1,d->name))) )
+    RZ(*zv++=rifvs(sfn(SFNSIMPLEONLY,d->name))) )
 
        SYMWALK(jtnlsym, A,BOX,20,1, jt->workareas.namelist.nla[*((UC*)NAV(d->name)->s)],
-    RZ(*zv++=rifvs(sfn(1,d->name))) )
+    RZ(*zv++=rifvs(sfn(SFNSIMPLEONLY,d->name))) )
 
 static I nlmask[] = {NOUN,ADV,CONJ,VERB, MARK,MARK,SYMB,MARK};
 
 static F1(jtnlx){A z=mtv;B b;I m=0,*v,x;
  RZ(w=vi(w)); v=AV(w); 
- DO(AN(w), x=*v++; m|=nlmask[x<0||6<x?7:x];); 
+ DQ(AN(w), x=*v++; m|=nlmask[x<0||6<x?7:x];); 
  jt->workareas.namelist.nlt=m&RHS; b=1&&jt->workareas.namelist.nlt&RHS;
  ASSERT(!(m&MARK),EVDOMAIN);
  if(b           )RZ(z=nlxxx(jt->global));
- if(b&&jt->local)RZ(z=over(nlxxx(jt->local),z));
+ if(b&&(AN(jt->locsyms)>1))RZ(z=over(nlxxx(jt->locsyms),z));
  if(m==SYMB     )RZ(z=over(nlsym(jt->stloc),z));
  R nub(grade2(z,ope(z)));
 }
@@ -138,7 +143,7 @@ F2(jtnl2){UC*u;
  RZ(a&&w);
  ASSERT(LIT&AT(a),EVDOMAIN);
  memset(jt->workareas.namelist.nla,C0,256L); 
- u=UAV(a); DO(AN(a),jt->workareas.namelist.nla[*u++]=1;);
+ u=UAV(a); DQ(AN(a),jt->workareas.namelist.nla[*u++]=1;);
  R nlx(w);
 }    /* 4!:1  name list */
 
@@ -157,7 +162,7 @@ F1(jtscind){A*wv,x,y,z;I n,*zv;L*v;
 static A jtnch1(J jt,B b,A w,I*pm,A ch){A*v,x,y;C*s,*yv;LX *e;I i,k,m,p,wn;L*d;
  RZ(w);
  wn=AN(w); e=LXAV0(w);                                /* locale                */
- x=(A)(*e+jt->sympv)->name; p=AN(x); s=NAV(x)->s;  /* locale name           */
+ x=(A)(*e+jt->sympv)->name; p=AN(x); s=NAV(x)->s;  /* locale name/number           */
  m=*pm; v=AAV(ch)+m;                               /* result to appended to */
  for(i=SYMLINFOSIZE;i<wn;++i,++e)if(*e){
   d=*e+jt->sympv;
@@ -210,11 +215,22 @@ F1(jtex){A*wv,y,z;B*zv;I i,n;L*v;I modifierchg=0;
   zv[i]=1&&y;
   // If the name is defined and is an ACV, invalidate all looked-up ACVs
   // If the value is at large in the stacks and not deferred-freed, increment the use count and deferred-free it
+  // If the name is assigned in a local symbol table, we ASSUME it is at large in the stacks and incr/deferred-free it.  We sidestep the nvr stack for local nouns
   if(y&&(v=syrd(y))){
    if(jt->uflags.us.cx.cx_c.db)RZ(redef(mark,v));
-   if(AFLAG(v->val)&AFNVRUNFREED){AFLAG(v->val)&=~AFNVRUNFREED; ras(v->val);}
+   A locfound=syrdforlocale(y);  // get the locale in which the name is defined
+   if(locfound==jt->locsyms||AFLAG(v->val)&AFNVRUNFREED){  // see if local or NVR
+    if(!(AFLAG(v->val)&AFNVR)){
+     // The symbol is a local symbol not on the NVR stack.  We must put it onto the NVR stack.
+     A *nvrav=jt->nvrav;
+     if((jt->parserstackframe.nvrtop+1U) > jt->nvran)RZ(nvrav=extnvr());  // Extend nvr stack if necessary.  copied from parser
+     nvrav[jt->parserstackframe.nvrtop++] = v->val;   // record the place where the value was protected; it will be freed when this sentence finishes
+     AFLAG(v->val) |= AFNVR;  // mark the value as protected
+    }
+    AFLAG(v->val)&=~AFNVRUNFREED; ras(v->val);  // indicate deferred free, and protect from the upcoming free
+   }
    if(!(v->name->flag&NMDOT)&&v->val&&AT(v->val)&(VERB|ADV|CONJ))modifierchg=1;  // if we delete a modifier, remember that fact
-   probedel(NAV(v->name)->m,NAV(v->name)->s,NAV(v->name)->hash,syrdforlocale(y));  // delete the symbol (incl name and value) in the locale in which it is defined
+   probedel(NAV(v->name)->m,NAV(v->name)->s,NAV(v->name)->hash,locfound);  // delete the symbol (incl name and value) in the locale in which it is defined
   }
  }
  jt->modifiercounter+=modifierchg;

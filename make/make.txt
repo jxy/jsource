@@ -1,4 +1,4 @@
-how to build/test j32/64/j64nonavx for linux/darwin/raspberry/...
+how to build/test j32/64/j64avx/j64avx2 for linux/darwin/raspberry/...
 
 $jplatform (set by jvars.sh) determines compiler/link flags
 
@@ -18,7 +18,7 @@ raspberry implies linux/arm
 . jvars.sh
 $jmake/build_all.sh
 
-# test j64 ($j64nonavx or $j32)
+# test j64 ($j64avx or $j64avx2 or $j32)
 . jvars.sh
 $j64
 
@@ -34,8 +34,4 @@ $jmake/build_jconsole.sh
 $jmake/build_libj.sh
 $jmake/build_tsdll.sh
 
-# build/test j32 j64nonavx binaries the same way (j32 or j64nonavx)
-# test j
-$j
-   load'test/tsu.ijs'
-   RUN ddall
+# build/test other binaries the same way (j32 or j64avx or j64avx2)

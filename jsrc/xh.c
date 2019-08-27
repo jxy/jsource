@@ -25,6 +25,7 @@
 
 #include "j.h"
 #include "x.h"
+#include "cpuinfo.h"
 
 #if (SYS & SYS_ARCHIMEDES)
 #define Wimp_StartTask 0x400DE
@@ -39,6 +40,19 @@ F1(jthostne){ASSERT(0,EVDOMAIN);}
 
 #else
 
+// return string indicating which JEs this hardware would run
+// ""         would run j.dll
+// "avx"      would run j.dll or javx.dll
+// "avx avx2" would run j.dll or javx.dll or javx2.dll
+F1(jtjgetx){
+#if !defined(ANDROID) && (defined(__i386__) || defined(_M_X64) || defined(__x86_64__))
+if(getCpuFeatures()&CPU_X86_FEATURE_AVX2) R cstr("avx avx2");
+if(getCpuFeatures()&CPU_X86_FEATURE_AVX) R cstr("avx");
+#endif
+
+R cstr("");
+}
+
 F1(jthost){A z;
  F1RANK(1,jthost,0);
  RZ(w=vslit(w));
@@ -48,7 +62,7 @@ F1(jthost){A z;
 #else
 {
  A t;I b=0;C*fn,*s;F f;I n;
-#if defined(ANDROID) || defined(TARGET_OS_IPHONE)
+#if defined(ANDROID) || defined(TARGET_IOS)
  const char*ftmp=getenv("TMPDIR");  /* android always define TMPDIR in jeload */
 #endif
  n=AN(w);
@@ -62,14 +76,14 @@ F1(jthost){A z;
   b=!_wsystem(USAV(fz));
  }
 #else
-#if defined(ANDROID) || defined(TARGET_OS_IPHONE)
+#if defined(ANDROID) || defined(TARGET_IOS)
  strcpy(fn,ftmp);   // s now got trailing nul from by ftmp or "/tmp"
 #else
  strcpy(fn,"/tmp");
 #endif
  strcat(fn,"/tmp.XXXXXX");
  {int fd=mkstemp(fn); close(fd);}
-#if defined(ANDROID) || (defined(__MACH__) && !defined(TARGET_OS_IPHONE))
+#if defined(ANDROID) || (defined(__MACH__) && !defined(TARGET_IOS))
 /* no posix_spawn */
  b=!system(s);
 #else
@@ -107,7 +121,7 @@ F1(jthostne){
  F1RANK(1,jthostne,0);
  RZ(w=vslit(w));
 // #if SY_WINCE
-#if SY_WINCE || SY_WIN32
+#if SY_WINCE || SY_WIN32 || defined(TARGET_IOS)
  ASSERT(0,EVNONCE);
 #else
  {

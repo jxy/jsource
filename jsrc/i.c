@@ -35,6 +35,7 @@ static UC typepriority[] = {   // convert type bit to priority
 static UC prioritytype[] = {  // Convert priority to type bit
 B01X, LITX, C2TX, C4TX, INTX, BOXX, XNUMX, RATX, SBTX, FLX, CMPXX};
 
+// create name block for xyuvmn
 static A jtmakename(J jt,C*s){A z;I m;NM*zv;
  m=strlen(s);
  GATV0(z,NAME,m,1); zv=NAV(z);  // Use GATV because GA doesn't support NAME type
@@ -42,7 +43,7 @@ static A jtmakename(J jt,C*s){A z;I m;NM*zv;
  zv->m   =(UC)m; 
  zv->bucket=0;
  zv->bucketx=0;
- zv->flag=NMDOT;
+ zv->flag=NMDOT+NMXY;
  zv->hash=(UI4)nmhash(m,s);
  ACX(z);
  R z;
@@ -64,7 +65,7 @@ JE support for threads has problems
 storage belonging to a task or thread should be be rooted in the J structure
 there are only a few globals that have storage not in J
 
-global storage should be initialized in globint()
+global storage should be initialized in globinit()
 this is thread-safe in windows - called from dllmain
 not currently thread-safe in unix, but could be (at least is all in one spot)
 */
@@ -74,24 +75,19 @@ J gjt=0; // JPF debug - convenience debug single process
 
 // thread-safe/one-time initialization of all global constants
 // Use GA for all these initializations, to save space since they're done only once
-B jtglobinit(J jt){A x,y;D*d;I oldpushx=jt->tnextpushx;
+B jtglobinit(J jt){A x,y;D*d;A *oldpushx=jt->tnextpushp;
  liln=1&&C_LE;
  MC(jt->typesizes,typesizes,sizeof(jt->typesizes));  // required for ma.  Repeated for each thread in jtinit3
  MC(jt->typepriority,typepriority,sizeof(jt->typepriority));  // may not be needed
  MC(jt->prioritytype,prioritytype,sizeof(jt->prioritytype));  // may not be needed
  jt->adbreakr=jt->adbreak=&breakdata; /* required for ma to work */
  meminit();  /* required for ma to work */
-// obsolete  s=bitdisp; 
-// obsolete  DO(256, c=(UC)i;      DO(BB, *s++=c&(UC)128?'1':'0'; *s++=' '; c<<=1;);           );
-// obsolete  DO(16,  c=(UC)i; k=0; DO(BB, if(c&(UC)1)++k;                   c>>=1;); bitc[i]=k;);
-// obsolete  DO(15, j=1+i; DO(16, bitc[16*j+i]=bitc[j]+bitc[i];););
  MC(&inf, XINF,SZD); 
  MC(&jnan,XNAN,SZD);
  infm=-inf;
- memset(testb,C0,256);
- testb[CIF]=testb[CELSEIF]=testb[CSELECT]=testb[CWHILE]=testb[CWHILST]=testb[CFOR]=testb[CCASE]=testb[CFCASE]=1;
  DO(-NUMMIN, GA(x,INT,1,0,0); ACX(x); * AV(x)=i+NUMMIN;   num[i+NUMMIN]   =x;);
  DO(NUMMAX-1, GA(x,INT,1,0,0); ACX(x); * AV(x)=i+2;       num[i+2]   =x;);
+ DO(sizeof(numvr)/sizeof(numvr[0]), GA(x,FL,1,0,0); ACX(x); *DAV(x)=(D)i;    numvr[i]   =x;);
  GA(x,B01, 1,0,0     ); ACX(x); *BAV(x)=0;                num[0]=x;
  GA(x,B01, 1,0,0     ); ACX(x); *BAV(x)=1;                num[1]=x;
  memset(chr,C0,256*SZI);
@@ -130,13 +126,12 @@ B jtglobinit(J jt){A x,y;D*d;I oldpushx=jt->tnextpushx;
  pf=qpf();
  pinit();
 
-#if C_AVX && (defined(_M_X64) || defined(__x86_64__))
  cpuInit();
+#if C_AVX && !defined(ANDROID)
  hwfma=(getCpuFeatures()&CPU_X86_FEATURE_FMA)?1:0;
- // fprintf(stderr,"hwfma %d\n",hwfma);
 #endif
  // take all the permanent blocks off the tpop stack so that we don't decrement their usecount.  All blocks allocated here must be permanent
- jt->tnextpushx=oldpushx;
+ jt->tnextpushp=oldpushx;
  R 1;
 }
 
@@ -198,11 +193,11 @@ if(((-1) >> 1) != -1)*(I *)4 = 104;
 jt->asgzomblevel = 1;  // allow premature change to zombie names, but not data-dependent errors
 jt->assert = 1;
  RZ(jt->bxa=cstr("+++++++++|-")); jt->bx=CAV(jt->bxa);
- y=1.0; DO(44, y*=0.5;); jt->cctdefault=jt->cct= 1.0-y; jt->fuzz=y;
+ y=1.0; DQ(44, y*=0.5;); jt->cctdefault=jt->cct= 1.0-y; jt->fuzz=y;
  jt->disp[0]=1; jt->disp[1]=5;
  jt->fcalln=NFCALL;
 #if USECSTACK
- jt->cstackinit=(I)&y;  // use a static variable to get the stack address
+ jt->cstackinit=(uintptr_t)&y;  // use a static variable to get the stack address
  jt->cstackmin=jt->cstackinit-(CSTACKSIZE-CSTACKRESERVE);
 #else
  jt->fdepn=NFDEP;
@@ -223,6 +218,11 @@ jt->assert = 1;
 #if C_AVX&&SY_64
  memset(&jt->validitymask[0],-1,4*sizeof(I)); memset(&jt->validitymask[4],0,4*sizeof(I));  // -1, -1, -1, -1, 0, 0, 0, 0   used to prepare for mask load/store
 #endif
+  // Init for u./v.
+ A uimp=ca(unam); NAV(uimp)->flag|=NMIMPLOC;  // create the name for u.
+ jt->implocref[0] = fdef(0,CTILDE,VERB, 0,0, uimp,0L,0L, 0, RMAX,RMAX,RMAX);  //create 'u.'~
+ A vimp=ca(vnam); NAV(vimp)->flag|=NMIMPLOC;
+ jt->implocref[1] = fdef(0,CTILDE,VERB, 0,0, vimp,0L,0L, 0, RMAX,RMAX,RMAX);  //create 'v.'~
 
  R 1;
 }
@@ -264,7 +264,7 @@ extern void * HeapAlloc();
  // We have completed initial allocation.  Everything allocated so far will not be freed by a tpop, because
  // tpop() isn't called during initialization.  So, to keep the memory auditor happy, we reset ttop so that it doesn't
  // look like those symbols have a free outstanding.
- jt->tnextpushx=SZI;  // first store is to entry 1 of the first block
+ jt->tnextpushp=(A*)(((I)jt->tstackcurr+NTSTACKBLOCK)&(-NTSTACKBLOCK))+1;  // first store is to entry 1 of the first block
  R !jt->jerr;
 }
 

@@ -34,12 +34,12 @@ static A jtovs0(J jt,B p,I r,A a,A w){A a1,e,q,x,y,z;B*b;I at,*av,c,d,j,k,f,m,n,
    break;
   case 2:  /* sparse and a equals e */
    RZ(y=ca(y)); 
-   if(!p){v=j+AV(y); DO(m, ++*v; v+=c;);} 
+   if(!p){v=j+AV(y); DQ(m, ++*v; v+=c;);} 
    break;
   case 3:  /* sparse and a not equal to e */
    GATV0(q,INT,c,1); v=AV(q); DO(c, v[i]=ws[av[i]];); v[j]=1; RZ(q=odom(2L,c,v)); n=*AS(q);
-   if(p){RZ(y=over(y,q)); v=AV(y)+j+m*c; d=ws[f]; DO(n, *v=d; v+=c;);}
-   else {RZ(y=over(q,y)); v=AV(y)+j+n*c;          DO(m, ++*v; v+=c;);}
+   if(p){RZ(y=over(y,q)); v=AV(y)+j+m*c; d=ws[f]; DQ(n, *v=d; v+=c;);}
+   else {RZ(y=over(q,y)); v=AV(y)+j+n*c;          DQ(m, ++*v; v+=c;);}
    RZ(q=shape(x)); *AV(q)=n; RZ(q=reshape(q,a)); RZ(x=p?over(x,q):over(q,x));
    if(f){RZ(q=grade1(y)); RZ(y=from(q,y)); RZ(x=from(q,x));}
  }
@@ -47,7 +47,7 @@ static A jtovs0(J jt,B p,I r,A a,A w){A a1,e,q,x,y,z;B*b;I at,*av,c,d,j,k,f,m,n,
  if(r)++*(f+AS(z)); else *(wr+AS(z))=2;
  zp=PAV(z); SPB(zp,a,caro(ifb(zr,b))); SPB(zp,e,e); SPB(zp,i,y); SPB(zp,x,x);  // avoid readonly
  R z;
-}    /* a,"r w (0=p) or w,"r a (1=p) where a is scalar */
+}    /* a,"r w (0=p) or w,"r a (1=p) where a is scalar and w is sparse */
 
 static F2(jtovs){A ae,ax,ay,q,we,wx,wy,x,y,z,za,ze;B*ab,*wb,*zb;I acr,ar,*as,at,c,m,n,r,t,*v,wcr,wr,*ws,wt,*zs;P*ap,*wp,*zp;
  RZ(a&&w);
@@ -78,7 +78,7 @@ static F2(jtovs){A ae,ax,ay,q,we,wx,wy,x,y,z,za,ze;B*ab,*wb,*zb;I acr,ar,*as,at,
  SPB(zp,a,za); SPBV(zp,e,ze,ca(TYPESEQ(t,at)?ae:we));
  if(*zb){
   SPB(zp,x,  over(ax,wx));
-  SPBV(zp,i,y,over(ay,wy)); v=AV(y)+AN(ay); m=*as; DO(*AS(wy), *v+=m; v+=c;);
+  SPBV(zp,i,y,over(ay,wy)); v=AV(y)+AN(ay); m=*as; DQ(*AS(wy), *v+=m; v+=c;);
  }else{C*av,*wv,*xv;I am,ak,i,j,k,mn,p,*u,wk,wm,xk,*yv;
   i=j=p=0; k=bpnoun(t); 
   m=*AS(ay); u=AV(ay); av=CAV(ax); am=aii(ax); ak=k*am;
@@ -126,7 +126,7 @@ static F2(jtovg){A s,z;C*x;I ar,*as,c,k,m,n,r,*sv,t,wr,*ws,zn;
  // Calculate the shape of the result: the shape of the item, max of input shapes
  if(m=MIN(ar,wr)){
   as=ar+AS(a); ws=wr+AS(w); k=r;
-  DO(m, --as; --ws; sv[--k]=MAX(*as,*ws);); 
+  DQ(m, --as; --ws; sv[--k]=MAX(*as,*ws);); 
   DO(r-m, sv[i]=MAX(1,sv[i]););
  }
  RE(c=prod(r-1,1+sv)); m=r>ar?1:IC(a); n=r>wr?1:IC(w); // verify composite item not too big
@@ -192,7 +192,7 @@ F2(jtover){A z;C*zv;I replct,framect,acn,acr,af,ar,*as,k,m,ma,mw,p,q,r,t,wcn,wcr
  ar=AR(a); wr=AR(w);
  acr=jt->ranks>>RANKTX; as=AS(a); p=as[ar-1]; acr=ar<acr?ar:acr; p=acr?p:1; af=ar-acr;  // acr=rank of cell, af=len of frame, as->shape, p=len of last axis of cell
  wcr=(RANKT)jt->ranks; ws=AS(w); q=ws[wr-1]; wcr=wr<wcr?wr:wcr; q=wcr?q:1; wf=wr-wcr;  // wcr=rank of cell, wf=len of frame, ws->shape, p=len of last axis of cell
- // no RESETRANK - not required by ovv or main line gere
+ // no RESETRANK - not required by ovv or main line here
  if(!(af|wf)&&2>(ar|wr))R ovv(a,w);  // If appending vectors/atoms at infinite rank, go handle that
 
  r=MAX(acr,wcr); r=(r==0)?1:r;  // r=cell-rank, or 1 if both atoms.
@@ -214,11 +214,11 @@ F2(jtover){A z;C*zv;I replct,framect,acn,acr,af,ar,*as,k,m,ma,mw,p,q,r,t,wcn,wcr
  RETF(z);
 }    /* overall control, and a,w and a,"r w for cell rank <: 2 */
 
-F2(jtstitch){B sp2;I ar,wr;
+F2(jtstitch){B sp2;I ar,wr; A z;
  RZ(a&&w);
  ar=AR(a); wr=AR(w); sp2=(SPARSE&AT(a)||SPARSE&AT(w))&&2>=ar&&2>=wr;
  ASSERT(!ar||!wr||*AS(a)==*AS(w),EVLENGTH);
- R sp2 ? stitchsp2(a,w) : irs2(a,w,0L,ar?ar-1:0,wr?wr-1:0,jtover);
+ R sp2 ? stitchsp2(a,w) : IRS2(a,w,0L,(ar-1)&RMAX,(wr-1)&RMAX,jtover,z);
 }
 
 F1(jtlamin1){A x;I* RESTRICT s,* RESTRICT v,wcr,wf,wr; 
@@ -233,10 +233,10 @@ F2(jtlamin2){A z;I ar,p,q,wr;
  RZ(a&&w); 
  ar=AR(a); p=jt->ranks>>RANKTX; p=ar<p?ar:p;
  wr=AR(w); q=(RANKT)jt->ranks; q=wr<q?wr:q; RESETRANK;
- if(p)a=irs1(a,0L,p,jtlamin1);
- if(q)w=irs1(w,0L,q,jtlamin1);
- RZ(z=irs2(a,w,0L,p+!!p,q+!!q,jtover));
- if(!p&&!q)z=irs1(z,0L,0L,jtlamin1);
+ if(p)RZ(a=IRS1(a,0L,p,jtlamin1,z));
+ if(q)RZ(w=IRS1(w,0L,q,jtlamin1,z));
+ RZ(IRS2(a,w,0L,p+!!p,q+!!q,jtover,z));
+ if(!(p|q))z=IRS1(z,0L,0L,jtlamin1,a);
  RETF(z);
 }    /* a,:"r w */
 
@@ -290,7 +290,7 @@ A jtapip(J jt, A a, A w, A self){F2PREFIP;A h;C*av,*wv;I ak,k,p,*u,*v,wk,wm,wn;
    // items of w (after its conversion to the precision of a)
    k=bpnoun(AT(a)); ak=k*an; wm=AR(a)==AR(w)?AS(w)[0]:1; wn=wm*aii(a); wk=k*wn;  // We don't need this yet but we start the computation early
    // For each axis to compare, see if a is bigger/equal/smaller than w; OR into p
-   p=0; DO(naxes, p |= *u++-*v++;);
+   p=0; DQ(naxes, p |= *u++-*v++;);
    // Now p<0 if ANY axis of a needs extension - can't inplace then
    if(p>=0) {
     // See if there is room in a to fit w (including trailing pad)
@@ -311,7 +311,6 @@ A jtapip(J jt, A a, A w, A self){F2PREFIP;A h;C*av,*wv;I ak,k,p,*u,*v,wk,wm,wn;
      if(AR(w)&&AR(a)>1+AR(w)){RZ(setfv(a,w)); mvc(wk-wlen,av+wlen,k,jt->fillv);}
      // Copy in the actual data, replicating if w is atomic
      if(AR(w))MC(av,wv,wlen); else mvc(wk,av,k,wv);
-// obsolete      if(AT(a)&LAST0)*(av+wk)=0;   // append the NUL byte if that's called for
      // The data has been copied.  Now adjust the result block to match.  If the operation is virtual extension we have to allocate a new block for the result
      if(!virtreqd){
       // Normal append-in-place.

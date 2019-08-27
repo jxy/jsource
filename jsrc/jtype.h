@@ -52,6 +52,8 @@ typedef long double        LD;
 // This is the main structure for J entities
 typedef US                 RANKT;
 #define RANKTX             16   // # bits in a RANKT
+#define RANKTMSK           (((I)1<<RANKTX)-1)
+#define R2MAX              ((RMAX<<RANKTX)+RMAX)  // max value of a RANK2T
 typedef UI4                RANK2T;  // 2 ranks, (l<<16)|r
 typedef I                  FLAGT;
 typedef UI4                LX;  // index of an L block in jt->sympv
@@ -67,6 +69,11 @@ typedef AD *A;
 // Next flag must match result.h and VF2 flags
 #define JTWILLBEOPENEDX 4   // result of this exec will be opened immediately, so it can contain virtual references to an input to the current verb
 #define JTWILLBEOPENED  (((I)1)<<JTWILLBEOPENEDX)
+#define JTEMPTYX        5  // in va2, this bit indicates the result is empty
+#define JTEMPTY         (((I)1)<<JTEMPTYX)
+#define JTRETRYX        6  // in va2, this bit is set to indicate that the current execution is a retry
+#define JTRETRY         (((I)1)<<JTRETRYX)
+
 // Next flag must match result.h and VF2 flags
 #define JTCOUNTITEMSX   7   // result of this exec will be go into ;, so an item count in m would be helpful
 #define JTCOUNTITEMS    (((I)1)<<JTCOUNTITEMSX)
@@ -79,20 +86,23 @@ struct AD {
  union {
   I k;
   A chain;   // used when block is on free chain
+  A globalst;  // for local symbol tables (SYMB types), AK points to the active global symbol table when the current sentence started parsing
  } kchain;
  FLAGT flag;
  union {
   I m;  // Multi-use field. (1) For NJA/SMM blocks, size of allocation. (2) for blocks coming out of a COUNTITEMS verb, holds the number of items in the
-        // raze of the noun (if the types are identical) (3) for SYMB tables for explicit definitions, the symbol positions for y and x (4) for the block
-        // holding the amend offsets in x u} y, the number of axes of y that are built into the indexes in u
+        // raze of the noun (if the types are identical) (3) for SYMB tables for explicit definitions, the address of the calling symbol table (4) for the block
+        // holding the amend offsets in x u} y, the number of axes of y that are built into the indexes in u (5) for name references, the value of jt->modifiercount when the name was last looked up
   A back; // For VIRTUAL blocks, points to backing block
+
 } mback;
  union {
   I t;  // type
   A proxychain;  // used when block is on free chain
  } tproxy;
  I c;  // usecount
- I n;  // # atoms  NOTE!! result.h faux cellshaope block depends on n, r, and s being in place from here to the end of this struct, with 2 Is from n to s
+//  NOTE!! result.h faux cellshape block depends on n, r, and s being in place from here to the end of this struct, with 2 Is from n to s
+ I n;  // # atoms - always 1 for sparse arrays
 #if C_LE
  RANKT r;  // rank
  US h;   // reserved for allocator.  Not used for AFNJA memory
@@ -128,9 +138,10 @@ typedef I SI;
 /* Fields of type A                                                        */
 
 #define AK(x)           ((x)->kchain.k)        /* offset of ravel wrt x           */
+#define AKGST(x)        ((x)->kchain.globalst)        // global symbol table for this local symbol table
 #define AFLAG(x)        ((x)->flag)     /* flag                            */
 #define AM(x)           ((x)->mback.m)        /* Max # bytes in ravel            */
-#define ABACK(x)        ((x)->mback.back)        /* Max # bytes in ravel            */
+#define ABACK(x)        ((x)->mback.back)        /* In virtual noun, pointer to backing block            */
 #define AT(x)           ((x)->tproxy.t)        /* Type; one of the #define below  */
 #define AC(x)           ((x)->c)        /* Reference count.                */
 #define AN(x)           ((x)->n)        /* # elements in ravel             */
@@ -163,14 +174,13 @@ typedef I SI;
 #define UAV(x)          (     (UC*)(x)+AK(x) )  /* unsigned character      */
 #define UIAV(x)         ((UI*)((C*)(x)+AK(x)))  /* unsigned character      */
 #define UI4AV(x)        ((UI4*)((C*)(x)+AK(x)))  /* unsigned 32-bit int      */
-#define LXAV(x)         ((LX*)((C*)(x)+AK(x)))  /* symbol index      */
 #define C4AV(x)         ((C4*)((C*)(x)+AK(x)))  /* literal4                */
 #define NAV(x)          ((NM*)((C*)(x)+AKXR(1)))  // name, which is always allocated as rank 1, for some reason
 #define IAV(x)          AV(x)                   /* integer                 */
 #define IAV0(x)         ((I*)((C*)(x)+AKXR(0)))  // integer in a stack- or heap-allocated atom (rank 0 - used for internal tables)
 #define IAV1(x)         ((I*)((C*)(x)+AKXR(1)))  // integer in a stack- or heap-allocated list (rank 1)
 #define BAV0(x)         ( (C*)((C*)(x)+AKXR(0)) )  // Boolean when rank is 0 - fixed position (known to avoid segfault)
-#define LXAV0(x)        ( (LX*)((C*)(x)+AKXR(0)) )  // Integer when rank is 0 - fixed position (for SYMB tables)
+#define LXAV0(x)        ( (LX*)((C*)(x)+AKXR(0)) )  // Integer when rank is 0 - fixed position (for SYMB tables).  Note AK() is used in SYMB tables
 #define DAV(x)          ( (D*)((C*)(x)+AK(x)))  /* double                  */
 #define ZAV(x)          ( (Z*)((C*)(x)+AK(x)))  /* complex                 */
 #define XAV(x)          ( (X*)((C*)(x)+AK(x)))  /* extended                */
@@ -294,17 +304,18 @@ typedef I SI;
 #define ASGNX 21
 #define ASGN            ((I)1L<<ASGNX)     /* I  assignment                   */
 #define ASGNSIZE sizeof(I)     // only 1 byte, but all non-DIRECT are fullword multiples
-// ASGN type can have the following informational bits set along with ASGN
+// ** ASGN type can have the following informational bits set along with ASGN
 #define ASGNLOCAL       ((I)1L<<SYMBX)     // set for =. (but not when assigning to locative)    aliases with SYMB
 #define ASGNTONAME      ((I)1L<<CONWX)     // set when assignment is to name    aliases with CONW
 // NOTE: The parser assumes that CONW always means ASGNTONAME, so don't use it in any parseable type (such as NAME, NOUN)
-// NOUN types can have the following informational bits set
+// ** NOUN types can have the following informational bits set
 #define NOUNCVTVALIDCT  ((I)1L<<SYMBX)     // Flag for jtcvt: if set, convert only the #atoms given in the parameter   Aliases with SYMB
-// NAME type can have the following information flags set
+// ** NAME type can have the following information flags set
 #define NAMEBYVALUE     ((I)1L<<SYMBX)     // set if the name is one of x x. m m. etc that is always passed by value, never by name   Aliases with SYMB
 // BOX type can have the following informational flags set
 #define BOXMULTIASSIGN  ((I)1L<<MARKX)     // set for the target of a direct multiple assignment (i. e. 'x y' =.), which is stored as a boxed list whose contents are NAMEs    aliases with MARK
 // Restriction: CONW must be reserved for use as ASGNTONAME because of how parser tests for it
+// Restriction: MARK must be reserved for use as BOXMULTIASSIGN because of how parser tests for it
 
 // Planned coding to save bits in type
 // Uses bits 24-27 eg
@@ -382,11 +393,11 @@ typedef I SI;
 #define ACX(a)          {AC(a)=ACPERMANENT;}
 #define ACISPERM(c)     (((c)+(c))<0)  // is PERMANENT bit set?
 #define ASGNINPLACE(w)  (ACIPISOK(w) || AC(w)==1&&jt->assignsym&&jt->assignsym->val==w&&!(AFLAG(w)&AFRO)&&notonupperstack(w))  // OK to inplace ordinary operation
-// obsolete #define ASGNINPLACENJA(w)  (ASGNINPLACE(w)||(AC(w)==2&&AFLAG(w)&AFNJA))   // OK to inplace, for ops that have special support for NJA blocks
-#define ASGNINPLACENJA(w)  (ACIPISOK(w) || jt->assignsym&&jt->assignsym->val==w&&(AC(w)==1||(AC(w)==2&&AFLAG(w)&AFNJA))&&!(AFLAG(w)&AFRO)&&notonupperstack(w))  // OK to inplace ordinary operation
+// same, but s is an expression that is neg if it's OK to inplace
+#define ASGNINPLACESGN(s,w)  (((s)&AC(w))<0 || ((s)&(AC(w)-2))<0 &&jt->assignsym&&jt->assignsym->val==w&&!(AFLAG(w)&AFRO)&&notonupperstack(w))  // OK to inplace ordinary operation
+#define ASGNINPLACESGNNJA(s,w)  ( ((s)&AC(w))<0 || (((s)&(AC(w)-2))<0||(((s)&(AC(w)-3)&SGNIF(AFLAG(w),AFNJAX))<0))&&jt->assignsym&&jt->assignsym->val==w&&!(AFLAG(w)&AFRO)&&notonupperstack(w))  // OK to inplace ordinary operation
 // define virtreqd and set it to 0 to start   scaf no LIT B01 C2T etc
 // This is used in apip.  We must ALWAYS allow inplacing for NJA types, but for ordinary inplacing we don't bother if the number of atoms of w pushes a over a power-of-2 boundary
-// obsolete #define EXTENDINPLACENJA(w)  (ACIPISOK(a) || (AC(w)==1||(AC(w)==2&&AFLAG(w)&AFNJA))&&((jt->assignsym&&jt->assignsym->val==w&&!(AFLAG(w)&AFRO))||(!jt->assignsym&&(virtreqd=1,!(AFLAG(w)&(AFRO|AFVIRTUAL)))))&&notonupperstack(w))  // OK to inplace ordinary operation
 #define EXTENDINPLACENJA(a,w)  ( ((AC(a)&(((AN(a)+AN(w))^AN(a))-AN(a)))<0) || (AC(a)==1||(AC(a)==2&&AFLAG(a)&AFNJA))&&((jt->assignsym&&jt->assignsym->val==a&&!(AFLAG(a)&AFRO))||(!jt->assignsym&&(virtreqd=1,!(AFLAG(a)&(AFRO|AFVIRTUAL)))))&&notonupperstack(a))  // OK to inplace ordinary operation
 
 /* Values for AFLAG(x) field of type A                                     */
@@ -415,6 +426,12 @@ typedef I SI;
 // Flags in the AR field of local symbol tables
 #define LSYMINUSE 1  // This bit is set in the rank of the original symbol table when it is in use
 #define LNAMEADDED LPERMANENT  // Set in rank when a new name is added to the local symbol table.  We transfer the bit from the L flags to the rank-flag
+#define LLOCALTABLE 16  // Set in rank of all local symbol tables.  This indicates that the first hashchain holds x/y info and should not be freed as a symbol
+
+#define SFNSIMPLEONLY 1   // to sfn: return simple name only, discarding any locative
+
+#define FIXALOCSONLYLOWEST 4  // to fixa: replace only the first occurrence of u/v in each branch
+#define FIXALOCSONLY 8  // to fixa: replace only u/v (IMPLOC)
 
 
 typedef struct {I i;US n,go,source;C type;C canend;} CW;
@@ -431,7 +448,7 @@ typedef struct {I i;US n,go,source;C type;C canend;} CW;
 #define DCPARSE  1      /* sentence for parser                                          */
 #define DCSCRIPT 2      /* script              -- line()                                */
 #define DCCALL   3      /* verb/adv/conj call  -- dbunquote()                           */
-#define DCJUNK   4      /* stack entry is obsolete                                      */
+#define DCJUNK   4      /* stack entry is stale                                      */
 
 typedef struct DS{      /* 1 2 3                                                        */
  struct DS*dclnk;       /* x x x  link to next stack entry                              */
@@ -477,13 +494,16 @@ typedef struct {I e,p;X x;} DX;
 
 typedef struct {A name,val;US flag;S sn;LX next;} L;
 
-/* symbol pool entry                           LINFO entry                 */
-//---------------------------------------------------------------------------
-/* name - name on LHS of assignment         or locale name                 */
-/* val  - value                             or locale search path          */
-// flag - various flags                        locale flags
-/* sn   - script index                                                     */
-/* next - index of successor   in hash list or 0                           */
+/* symbol pool entry                         LINFO entry (named/numbered)      */
+//-------------------------------------------------------------------------
+/* name - name on LHS of assignment          locale name                    */
+/* val  - value                              locale search path              */
+// flag - various flags                      locale flags                 
+/* sn   - script index                              not used                   */
+/* next - index of successor in hash list or 0      mot used                  */
+
+// FOR EXECUTING LOCAL SYMBOL TABLES: AK() points to the active global symbol table, AM() points to the calling local symbol table.
+// In all local symbol tables, the first 'hashchain' has the symbol offsets of x/y
 
 #define LCH             (I)1            /* changed since last exec of 4!:5 */
 #define LHEAD           (I)2            /* head pointer (no predecessor)   */
@@ -505,6 +525,7 @@ typedef struct {
 #define CALLSTACKPOPFROM 4  // value is jt->global that must be modified in the caller of this function also
 #define CALLSTACKCHANGELOCALE 8  // value is jt->global that was changed within execution of this name
 #define CALLSTACKPOPLOCALEFIRST 16  // set in the POPLOCALE that is added when the first POPFROM is seen
+#define CALLSTACKPUSHLOCALSYMS 32  // value is jt->locsyms that must be restored
 #define CALLSTACKDELETE 256  // the given locale must be deleted, and this is the earliest place on the stack that refers to it
 
 // Add an entry to the call stack, and increment the index variable
@@ -530,6 +551,8 @@ typedef struct{UI4 hash;I4 bucket;I bucketx;UC m;C flag,s[1];} NM;
 #define NMLOC           1       /* direct   locale abc_lm_                 */
 #define NMILOC          2       /* indirect locale abc__de__fgh ...        */
 #define NMDOT           4       /* one of the names m. n. u. v. x. y.      */
+#define NMXY            8       // x/y, which must have NAMEBYVALUE set
+#define NMIMPLOC        16      // this NM block is in u./v.
 
 
 typedef struct {I a,e,i,x;} P;
@@ -625,13 +648,17 @@ typedef struct{
 
 
 
-typedef struct {union { D lD; void *lvp; I lI;} localuse;AF valencefns[2];A fgh[3];I4 flag;UI4 fdep; UI4 flag2; RANKT mr,lr,rr; C id; C lc;} V;
-// the localuse field is not freed or counted for space, as the f/g/h fields are.  It is for local optimizations only.  We put if first so that the rest of
+typedef struct {AF valencefns[2];A fgh[3];union { D lD; void *lvp[2]; I lI; I4 lI4[4]; I lclr[2]; AF lfns[2];} localuse;I4 flag;UI4 flag2; RANK2T lrr; RANKT mr; C id; C lc;} V;  // two cachelines exactly
+// the localuse fields is not freed or counted for space, as the f/g/h fields are.  It is for local optimizations only.  We put if first so that the rest of
 // the block, which is used more, is in a single cacheline.  Local uses are:
 // for ATOMIC2 ops, pointer to the adocv block
 // for name references, pointer to last resolution
 // for FIT conj, the CCT data
-// lc is a local-use byte.  For atomic monads, it is the index of the adocv block
+// for RANK conj, lI4[0-2] has the signed ranks
+// for Fold final operator, pointer to the dyadic EP of the handler (xdefn or unquote)
+
+// lc is a local-use byte.  Used in atomic dyads to indicate which singleton function to execute
+// in the derived function from fold, lc has the original id byte of the fold op
 
 #define ID(f)           (f&&FUNC&AT(f)?FAV(f)->id:C0)
 #define VFLAGNONE 0L
@@ -672,7 +699,8 @@ typedef struct {union { D lD; void *lvp; I lI;} localuse;AF valencefns[2];A fgh[
 #define VJTFLGOK2     (((I)1)<<VJTFLGOK2X)
 #define VASGSAFE        ((I)(1L<<27))     // does not alter locale/path
 #define VISATOMIC1      ((I)(1L<<28))     // processes each atom individually (logically rank 0, but handles all ranks)
-#define VISATOMIC2      ((I)(1L<<29))    // dyad is stomic.  localuse will point to the VA entry for the verb
+#define VISATOMIC2      ((I)(1L<<29))    // dyad is atomic.  localuse will point to the VA entry for the verb
+#define VFUSEDOK2  ((I)(1L<<30))    // this block can be executed by passing in another block (containing rank) whose fgh[0] points to the native block for this primitive
 
 // bits in flag2:
 // bit 0 unused
@@ -701,11 +729,11 @@ typedef struct {union { D lD; void *lvp; I lI;} localuse;AF valencefns[2];A fgh[
 #define VF2RANKATOP1     ((I)(((I)1)<<VF2RANKATOP1X)) 
 #define VF2RANKATOP2X     12   // set if this verb starts out with an outer rank loop.  " @ & &. and not special-cased
 #define VF2RANKATOP2     ((I)(((I)1)<<VF2RANKATOP2X))
-#define VF2RANKONLY1X     13   // set if this verb is u"r, not special-cased (i. e. function points to rank processing).  The rank may be subsumed into a higher rank before we see arguments
+#define VF2RANKONLY1X     13   // set if this verb is u"r, not special-cased (i. e. function points to rank processing).  The rank may be subsumed into a higher rank before we see arguments.
 #define VF2RANKONLY1     ((I)(((I)1)<<VF2RANKONLY1X)) 
 #define VF2RANKONLY2X     14
 #define VF2RANKONLY2     ((I)(((I)1)<<VF2RANKONLY2X))
-// Next 4 flags must be spaced so txhey can shift down to WILLOPEN1 and COUNTITEMS1
+// Next 4 flags must be spaced so they can shift down to WILLOPEN1 and COUNTITEMS1
 #define VF2WILLOPEN2WX      15   // This verb will open y as its first act.  Monad case only
 #define VF2WILLOPEN2W       ((I)(((I)1)<<VF2WILLOPEN2WX))
 #define VF2WILLOPEN2AX      16   // This verb will open y as its first act.  Monad case only
@@ -714,7 +742,6 @@ typedef struct {union { D lD; void *lvp; I lI;} localuse;AF valencefns[2];A fgh[
 #define VF2USESITEMCOUNT2W  ((I)(((I)1)<<VF2USESITEMCOUNT2WX))
 #define VF2USESITEMCOUNT2AX 19   // This verb can make use of an item count stored in m.  Monad case only
 #define VF2USESITEMCOUNT2A  ((I)(((I)1)<<VF2USESITEMCOUNT2AX))
-
 
 
 
@@ -733,6 +760,17 @@ typedef struct {
  UI4 t;  // token number for this block
  A a;  // pointer to block
 } PSTK;
+
+// stack frame used by the parser
+ typedef struct{
+  PSTK* parserstkbgn;     // &start of parser stack
+  PSTK* parserstkend1;    // &end+1 of parser stack
+  A    *parserqueue;   // for error purposes: words of the sentence being parsed
+  US   parserqueuelen;  // number of words in queue
+  US   parsercurrtok;   // the token number of the word to flag if there is an error
+  US  nvrtop;           /* top of nvr stack; # valid entries               */
+  US  nvrotop;          // previous top of nvr stack
+ } PFRAME;  // these are stacked en bloc
 
 
 // Info for calling an atomic verb

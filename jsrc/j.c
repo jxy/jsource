@@ -36,9 +36,10 @@ A   xnam=0;               /* x as a name                          */
 A   ynam=0;               /* y as a name                          */
 A   numv[NUMMAX-NUMMIN+1]={0};
 A   zeroionei[2]={0,0};   // integer 0 and 1
+A   numvr[3]={0,0};       // float 0,1,2
 A   imax=0;               // IMAX as atom
 I   v00[2]={0,0};         // vector value to use for rank 0 0
-A   onehalf;      //  0.5
+A   onehalf;      //  0.5 (float)
 D   pf=0;                 /* performance frequency                */
 A   pie=0;                /* o.1                                  */
 Q   zeroQ={0,0};          /* 0r1                                  */
@@ -48,36 +49,26 @@ dcomplex zone={1.0,0.0};  // used gy gemm
 dcomplex zzero={0.0,0.0};
 A   zpath=0;              /* default locale search path           */
 uint64_t g_cpuFeatures;   // blis
-int hwfma=0;              // blis cpu tuning
 A   pst[256]={0};
 A   chr[256]={0};         /* scalar for each character, or 0      */
-B   testb[256]={0};       /* 1 iff test block follows             */
+UC  hwfma=0;              // blis cpu tuning
 C   wtype[256]={0};
-// obsoletes follow
 
-#if 0 // obsolete
-UC  bitc[256]={0};        /* # 1 bits in each possible byte       */
-C   bitdisp[256*16]={0};  /* display for each possible byte       */
-A   mdot=0;               /* m.                                   */
-A   ndot=0;               /* n.                                   */
-A   udot=0;               /* u.                                   */
-A   vdot=0;               /* v.                                   */
-A   xdot=0;               /* x.                                   */
-A   ydot=0;               /* y.                                   */
-#endif
 // globals end
 
 #if SY_64
-#if C_AVX || !(defined(_M_X64) || defined(__x86_64__))
 #define bits "64"
-#else
-#define bits "64nonavx"
-#endif
 #else
 #define bits "32"
 #endif
 
-char jeversion[]= "je9!:14 j"jversion"/j"bits"/"jplatform"/"jtype"/"jlicense"/"jbuilder"/"__DATE__"T"__TIME__;
+#if C_AVX
+#define hw "avx"
+#else
+#define hw ""
+#endif
+
+char jeversion[]= "je9!:14 j"jversion"/j"bits""hw"/"jplatform"/"jtype"/"jlicense"/"jbuilder"/"__DATE__"T"__TIME__;
 
 F1(jtversq){
  char m[1000];char d[21]; char months[] = "Jan01Feb02Mar03Apr04May05Jun06Jul07Aug08Sep09Oct10Nov11Dec12"; C* p; C* q;

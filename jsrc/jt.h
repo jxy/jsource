@@ -32,11 +32,11 @@ typedef struct {
  C*   adbreak;			/* must be first! ad mapped shared file break flag */
  C*   adbreakr;         // read location: same as adbreak, except that when we are ignoring interrupts it points to 0
 // things needed by verb execution
- I    tnextpushx;       // running byte index of next store into tstack.  Mask off upper bits to get offset into current frame
- A*   tstack;           // current frame, holding NTSTACK bytes.  First entry is to next-lower bloc.  This value has been biased back by subtracting the offset of the first element, so that *(tstack+nextpushx) is the actual next element
+ A*   tnextpushp;       // pointer to empty slot in allocated-block stack.  When low bits are 00..00, pointer to previous block of pointers.  Chain in first block is 0
  I    shapesink[2];     // garbage area used as load/store targets of operations we don't want to branch around
- UI4  ranks;            // low half: rank of w high half: rank of a  for IRS
 // things needed by name lookup (unquote)
+ I    modifiercounter;  // incremented whenever anything happens that could alter modifier lookup: assignment/deletion of a modifier, or any change to locales or path
+ UI4  ranks;            // low half: rank of w high half: rank of a  for IRS
  union {
   UI4 ui4;    // all 4 flags at once, access as ui4
   struct {
@@ -58,24 +58,20 @@ typedef struct {
    } uq;   // flags needed only by unquote
   } us;   // access as US
  } uflags;
- A    local;            /* local symbol table                              */
+ A    locsyms;  // local symbol table, or dummy empty symbol table if none
 // ----- end of cache line 0
- A    global;           /* global symbol table                             */
- A    sf;               /* for $:                                          */
- I    modifiercounter;  // incremented whenever anything happens that could alter modifier lookup: assignment/deletion of a modifier, or any change to locales or path
 // things needed by parsing
- A    *parserqueue;   // for error purposes: words of the sentence being parsed
- I4   parserqueuelen;  // number of words in queue
- I4   parsercurrtok;   // the token number of the word to flag if there is an error
+ PFRAME parserstackframe;  // 4 words
+ A    global;           /* global symbol table                           */
+ A    sf;               /* for $:                                          */
  A    zombieval;        // value of assignsym, if it can be reused
  L    *assignsym;       // symbol-table entry for the symbol about to be assigned
- A*   nvrav;            /* AAV(jt->nvra)                                   */
 // ----- end of cache line 1
+ A*   nvrav;            /* AAV(jt->nvra)                                   */
  UI4  nvran;            // number of atoms in nvrav
  I4   slisti;           /* index into slist of current script              */
  A    stloc;            /* locales symbol table                            */
- PSTK* parserstkbgn;     // &start of parser stack
- PSTK* parserstkend1;    // &end+1 of parser stack
+ A    fill;             // fill     stuck here as filler
 // things needed for memory allocation
  I    mfreegenallo;        // Amount allocated through malloc, biased
  void *heap;            // heap handle for large allocations
@@ -87,7 +83,7 @@ typedef struct {
 // --- end of cache line 3. 1 words carries over
 // things needed by executing explicit defs
  A    curname;          // current name, an A block containing an NM
- I    cstackmin;        // red warning for C stack pointer
+ UI   cstackmin;        // red warning for C stack pointer
  I4   callstacknext;           /* named fn calls: current depth                   */
  I4   fcalln;           /* named fn calls: maximum permissible depth       */
  B    asgn;             /* 1 iff last operation on this line is assignment */
@@ -95,7 +91,7 @@ typedef struct {
  UC   jerr;             /* error number (0 means no error)                 */
  C    asgzomblevel;     // 0=do not assign zombie name before final assignment; 1=allow premature assignment of complete result; 2=allow premature assignment even of incomplete result
  B    assert;           /* 1 iff evaluate assert. statements               */
- UC   dbuser;           /* user-entered value for db                       */
+ B    foldrunning;      // 1 if fold is running (allows Z:)
  UC   jerr1;            /* last non-zero jerr                              */
  C    cxspecials;       // 1 if special testing needed in cx loop (pm or debug)
  B    iepdo;            /* 1 iff do iep                                    */
@@ -110,7 +106,7 @@ typedef struct {
  B    tmonad;           /* tacit translator: 1 iff monad                   */
  B    tsubst;           /* tacit translator                                */
  B    xco;              /* 1 iff doing x: conversion                       */
-// 1 byte free
+ UC   dbuser;           /* user-entered value for db                       */
  A    flkd;             /* file lock data: number, index, length           */
  I    flkn;             /* file lock count                                 */
  A    fopa;             /* open files boxed names                          */
@@ -122,7 +118,7 @@ typedef struct {
  I    bytes;            /* bytes currently in use                          */
  I    bytesmax;         /* high-water mark of "bytes"                      */
  I    mulofloloc;       // index of the result at which II multiply overflow occurred
- A    fill;             /* fill                                            */
+ D    fuzz;             /* fuzz (sometimes set to 0)                       */
  C    fillv0[sizeof(Z)];/* default fill value                              */
  C*   fillv;            /* fill value                                      */
  C    typesizes[32];    // the length of an allocated item of each type
@@ -142,7 +138,6 @@ typedef struct {
  I validitymask[8]; // -1, -1, -1, -1, 0, 0, 0, 0   used to prepare for mask load/store
 #endif
 // --- end cache line 7/8
- A foreignhash[8][2];  // must be power-of-2.  Holds pointers to recently-used foreigns
 #if 0 // used only for direct locale numbering
  I*   numlocdelqh;      // head of deleted queue, waiting for realloc
  I    numlocdelqn;      // number of blocks on the deleted queue  could be UI4
@@ -150,17 +145,16 @@ typedef struct {
  I*   numloctbl;         // pointer to data area for locale-number to locale translation
  UI4  numlocsize;       // AN(jt->stnum)
 #endif
+ A    implocref[2];     // references to 'u.'~ and 'v.'~, marked as implicit locatives
  I4   parsercalls;      /* # times parser was called                       */
- A*   tstacknext;       // if not 0, points to the recently-used tstack buffer, whose chain field points to tstack (sort of, because of bias)
+ A*   tstacknext;       // if not 0, points to the recently-used tstack buffer, whose chain field points to tstacknext
+ A*   tstackcurr;       // current allocation, holding NTSTACK bytes+1 block for alignment.  First entry points to next-lower allocation
  D    cct;               /* complementary comparison tolerance                            */
  D    cctdefault;        /* default complementary comparison tolerance                    */
  UIL  ctmask;           /* 1 iff significant wrt ct; for i. and i:         */
  A    idothash0;        // 2-byte hash table for use by i.
  A    idothash1;        // 4-byte hash table for use by i.
  I    symindex;         /* symbol table index (monotonically increasing)   */
- UI4  nvrtop;           /* top of nvr stack; # valid entries               */
- UI4  nvrotop;          // previous top of nvr stack
- A    symb;             /* symbol table for assignment                     */
  DC   sitop;            /* top of SI stack                                 */
  I    stmax;            /* numbered locales maximum number                 */
  A    stnum;            /* numbered locale numbers or hash table                         */
@@ -170,11 +164,16 @@ typedef struct {
  I    pmctr;            /* perf. monitor: ctr>0 means do monitoring        */
  C    baselocale[4];    // will be "base"
  UI4  baselocalehash;   // name hash for base locale
+#if !USECSTACK
  I4   fdepi;            /* fn calls: current depth                         */
  I4   fdepn;            /* fn calls: maximum permissible depth             */
- I    cstackinit;       // C stack pointer at beginning of execution
+#else
+ UI   cstackinit;       // C stack pointer at beginning of execution
+#endif
 
 // unordered symbols follow
+// A    local;            /* local symbol table       scaf                       */
+ A    symb;             /* symbol table for assignment                     */
 #if !C_CRC32C
  I    hin;              /* used in dyad i. & i:                            */
  I*   hiv;              /* used in dyad i. & i:                            */
@@ -222,7 +221,6 @@ typedef struct {
  I    etxn;             /* strlen(etx)                                     */
  I    etxn1;            /* last non-zero etxn                              */
  A    evm;              /* event messages                                  */
- D    fuzz;             /* fuzz (sometimes set to 0)                       */
  I    fxi;              /* f. depth countdown                              */
  A    fxpath;           /* f. path of names                                */
  A*   fxpv;             /* f. AAV(fxpath)                                  */

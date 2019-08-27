@@ -138,7 +138,7 @@ static GF(jtgrx){A x;I ck,t,*xv;I c=ai*n;
  jt->workareas.compare.comp=sortroutines[CTTZ(t)][(UI)jt->workareas.compare.complt>>(BW-1)].comproutine; jt->workareas.compare.compusejt = !!(t&BOX+XNUM+RAT);
  void **(*sortfunc)() = sortroutines[CTTZ(t)][(UI)jt->workareas.compare.complt>>(BW-1)].sortfunc;
  GATV0(x,INT,n,1); xv=AV(x);  /* work area for msmerge() */
- DO(m, msortitems(sortfunc,n,(void**)zv,(void**)xv); jt->workareas.compare.compv+=ck; zv+=n;);
+ DQ(m, msortitems(sortfunc,n,(void**)zv,(void**)xv); jt->workareas.compare.compv+=ck; zv+=n;);
  R !jt->jerr;
 }    /* grade"r w on general w */
 
@@ -166,7 +166,7 @@ I grcol4(I d,I c,UI4*yv,I n,I*xv,I*zv,const I m,US*u,I flags){
   flags &= ~8;
  }else{memset(c+yv,C0,d*sizeof(*yv));}  // full clear if the fast option is not selected
  // increment the bucket for each input value
- v=u; DO(n, ++yv[*v]; v+=m;);
+ v=u; DQ(n, ++yv[*v]; v+=m;);
  // If all the values are sign-extensions (which will happen often) we can short-circuit much of the processing, including the rolling sum
  // Do this only when there is data/index to copy, to save us the trouble of having a case for synthesizing the index
  if(xv&&((ct00=yv[0])+(ctff=yv[65535])==n)){
@@ -227,7 +227,7 @@ I grcol2(I d,I c,US*yv,I n,I*xv,I*zv,const I m,US*u,I flags){
  if(flags&8){
   flags &= ~8;
  }else{memset(c+yv,C0,d*sizeof(*yv));}
- v=u; DO(n, ++yv[*v]; v+=m;);
+ v=u; DQ(n, ++yv[*v]; v+=m;);
  if(xv&&((ct00=yv[0])+(ctff=yv[65535])==n)){
   flags|=8;
   if(ct00&&ctff){S *vs=(S*)u;
@@ -285,9 +285,9 @@ static GF(jtgrdq){
   // replacing the upper bits with the actual bits from the input (after honoring sign/direction bits), and then re-sort the result in place.
   // remove the upper bits from that sorted result
   I nextv=zv[0];  // always has first value with a new key
-  I i;for(i=0;i<n;++i){
+  I i;for(i=0;i<n-1;++i){
    I currv=nextv;
-   if(i==n-1 || (((nextv=zv[i+1])^currv)&~itemmask)){zv[i]=currv&itemmask;  // normal case with no repetition
+   if(((nextv=zv[i+1])^currv)&~itemmask){zv[i]=currv&itemmask;  // normal case with no repetition
    }else{  // reprocess the repeated block
     I j=i;do{
      I v=wv[zv[j]&itemmask]^sortdown63; v^=(UI)(v>>(BW-1))>>1; v=(v==0)?-1:v; zv[j]=((v&itemmask)<<hbit)+(zv[j]&itemmask); // fetch original v, reconstitute; get itemmask in uppper bits 
@@ -297,6 +297,8 @@ static GF(jtgrdq){
     i=j-1;  // pick up after the batch
    }
   }
+  // We handled all the starting items up to the next-last.  The last item may be unprocessed, if it was not part of a batch.  Handle it now.
+  zv[n-1]&=itemmask;
   // advance to next sort
   wv+=n; zv+= n;
  }
@@ -324,7 +326,7 @@ static GF(jtgrd){A x,y;int b;D*v,*wv;I *g,*h,nneg,*xv;US*u;void *yv;I c=ai*n;
   u=(US*)wv+FPLSBWDX;   // point to LSB of input
   // count the number of negative values, call it nneg.  Set b to mean 'both negative and nonnegative are present'
   // If we are doing all negative values, just change the direction and return the sorted values without reversal
-  {v=wv; nneg=0; DO(n, nneg+=(((US*)v)[FPMSBWDX]>>15); ++v;); b=0<nneg&&nneg<n;}
+  {v=wv; nneg=0; DQ(n, nneg+=(((US*)v)[FPMSBWDX]>>15); ++v;); b=0<nneg&&nneg<n;}
   // set the ping-pong buffer pointers so we will end up with the output in zv.  If b is set, we have 5 passes (one final sign-correction pass); if not, 4
   // h is the even-numbered output buffer.  if b is off, we start writing to x and finish in z; if b is set, we start writing to z, finish the 4th pass
   // in x, then the postpass ends in z
@@ -344,14 +346,14 @@ static GF(jtgrd){A x,y;int b;D*v,*wv;I *g,*h,nneg,*xv;US*u;void *yv;I c=ai*n;
    if(colflags&2){  // values were sorted up, & so now contain +0,  +, -0,  -
     I npos0; u=xv+(n-nneg); for(npos0=-(n-nneg);npos0<0&&wv[u[npos0]]==0;++npos0); npos0+=(n-nneg);  // Count +0
     u=xv+n; for(nneg0=-nneg;nneg0<0&&wv[u[nneg0]]==0;++nneg0); nneg0+=nneg;  // Count -0
-    u=zv+nneg-nneg0; I ppos=0,pneg=0; DO(npos0+nneg0, *u++=(pneg>=nneg0||(ppos<npos0&&xv[ppos]<xv[n-nneg+pneg]))?xv[ppos++]:xv[n-nneg+pneg++];)  // merge
+    u=zv+nneg-nneg0; I ppos=0,pneg=0; DQ(npos0+nneg0, *u++=(pneg>=nneg0||(ppos<npos0&&xv[ppos]<xv[n-nneg+pneg]))?xv[ppos++]:xv[n-nneg+pneg++];)  // merge
     // Copy the positives
     ICPY(u,xv+npos0,n-nneg-npos0); //  /: copy the nonnegatives to the end of result area
     u=zv;     v=xv+n;
    }else{  // values were sorted down, & so now contain  - , -0,  +, +0
     I npos0; u=xv+nneg-1; for(npos0=n-nneg;npos0>0&&wv[u[npos0]]==0;--npos0); npos0=(n-nneg)-npos0;  // Count +0
     u=xv-1; for(nneg0=nneg;nneg0>0&&wv[u[nneg0]]==0;--nneg0); nneg0=nneg-nneg0;  // Count -0
-    u=zv+n-nneg-npos0; I ppos=0,pneg=0; DO(npos0+nneg0, *u++=(pneg>=nneg0||(ppos<npos0&&xv[n-npos0+ppos]<xv[nneg-nneg0+pneg]))?xv[n-npos0+ppos++]:xv[nneg-nneg0+pneg++];)  // merge
+    u=zv+n-nneg-npos0; I ppos=0,pneg=0; DQ(npos0+nneg0, *u++=(pneg>=nneg0||(ppos<npos0&&xv[n-npos0+ppos]<xv[nneg-nneg0+pneg]))?xv[n-npos0+ppos++]:xv[nneg-nneg0+pneg++];)  // merge
     // Copy the positives
     ICPY(zv,xv+nneg,n-nneg-npos0); //  /: copy the positives to the beginning of result area
     u=zv+n-nneg+nneg0;     v=xv+nneg-nneg0;
@@ -366,7 +368,7 @@ static GF(jtgrd){A x,y;int b;D*v,*wv;I *g,*h,nneg,*xv;US*u;void *yv;I c=ai*n;
    DO(nneg-nneg0, --v; if(d!=wv[*v]){vv=1+v; m=i-j; DO(m, *u++=*vv++;); j=i; d=wv[*v];});
    // We have to push out the last set by hand because *v is outside the input area.  That wouldn't pose a problem
    // except when there is rank; then *v may be the same value as d and a change would be missed
-   DO(nneg-nneg0-j, *u++=*v++;);  // v starts pointing to first neg
+   DQ(nneg-nneg0-j, *u++=*v++;);  // v starts pointing to first neg
   }
   wv+=c; zv+=n;
  }
@@ -410,6 +412,64 @@ static GF(jtgru1){A x,y;C4*wv;I i,*xv;US*u;void *yv;I c=ai*n;
  }
  R 1;
 }    /* grade"r w on c4t w where c==n */
+
+#if BW==64
+// grade INTs by hiding the item number in the value and sorting.  Requires ai==1.
+// We interpret the input as integer form so that we can hide the item number in an infinity without turning it into a NaN
+static GF(jtgriq){
+ GBEGIN(-1);  // subsorts will always be ascending
+ I gradedown=(~olt)>>(BW-1);  // ~0 if sorting down, else 0
+ // See how many bits we must reserve for the item number, and make a mask for the item number
+ unsigned long hbit; CTLZI(n-1,hbit); ++hbit; I itemmask=((I)1<<hbit)-1;  // mask where the item number will go
+ I itemmsb=(I)1<<(BW-1-hbit); I itemsigmsk=2*-itemmsb;  // get bit at place we will shift into sign bit, and a mask for all higher bits
+ // Loop over each grade
+ I *wv=IAV(w);  // we interpret the floats in w as if they were integers.
+ while(--m>=0){
+  // Sort one list.  zv points to the output area, wv points to the input
+  // Create the values to be sorted, in the result area
+  // if sorting down,complement input
+  // shift value to clear space for item number; abort if that would lose significance
+  // install item number
+  I siglost=0;  // init to no signifiance lost
+  DO(n, I v=wv[i]^gradedown; if(siglost|=itemsigmsk&((v&-itemmsb)+itemmsb))break; zv[i]=(v<<hbit)+i;)
+  // If there was no loss of significance, just sort the values and return the indexes
+  if(!siglost){
+   sortiq1(zv,n);  // sort em (in place)
+   DO(n, zv[i]&=itemmask;)   // the indexes are right
+  }else{
+   // We encountered significance when we tried to shift the values to make room for the indexes.  We will have to sort
+   // and then go back to re-sort equal partitions.  At least there is a lot of significance and probably not many collisions
+   // First, install the item number in the LSBs
+   DO(n, I v=wv[i]^gradedown; zv[i]=(v&~itemmask)+i;)
+   // sort the result area in place
+   sortiq1(zv,n);
+   // pass through the result area, removing the upper bits.  If consecutive values have the same upper bits, go through them,
+   // replacing the upper bits with the actual bits from the input (after honoring sign/direction bits), and then re-sort the result in place.
+   // remove the upper bits from that sorted result
+   I nextv=zv[0];  // always has first value with a new key
+   I i;for(i=0;i<n-1;++i){
+    I currv=nextv;
+    if(((nextv=zv[i+1])^currv)&~itemmask){zv[i]=currv&itemmask;  // normal case with no repetition
+    }else{  // reprocess the repeated block
+     I j=i;do{
+      I v=wv[zv[j]&itemmask]^gradedown; zv[j]=((v&itemmask)<<hbit)+(zv[j]&itemmask); // fetch original v, reconstitute; get itemmask in upper bits 
+     }while(!(++j==n || (((nextv=zv[j])^currv)&~itemmask)));
+     sortiq1(zv+i,j-i);  // sort the collision area in place.  j points to first item beyond the collision area, and nextv is its value
+     while(i<j){zv[i]&=itemmask; ++i;}  // the item numbers are guaranteed right after this sort
+     i=j-1;  // pick up after the batch
+    }
+   }
+   // We handled all the starting items up to the next-last.  The last item may be unprocessed, if it was not part of a batch.  Handle it now.
+   zv[n-1]&=itemmask;
+  }
+  // advance to next sort
+  wv+=n; zv+= n;
+ }
+ GEND  // restore from GBEGIN
+ R 1;
+}
+
+#endif
 
 
 static GF(jtgri){A x,y;B up;I e,i,*v,*wv,*xv;UI4 *yv,*yvb;I c=ai*n;
@@ -462,14 +522,39 @@ static GF(jtgri){A x,y;B up;I e,i,*v,*wv,*xv;UI4 *yv,*yvb;I c=ai*n;
 
 
  // figure out what algorithm to use
- // smallrange always beats radix, but loses to merge if the range is too high.  We assess the max acceptable range as
+ // for atoms, smallrange wins if the range is less than (2n lgn) unless that exceeds L2; then 4n.  quicksort wins otherwise, except for length 5500-500000 when there are <= two bytes of significance: then radix wins
+ // for lists, smallrange always beats radix, but loses to merge if the range is too high.  We assess the max acceptable range as
  // (80>>keylength)*(n), smaller if the range would exceed cache size
  CR rng;
+#if 0 // turn this on for performance measurements selecting algorithm on length
+ if((n&3)==0)R gri1(m,ai,n,w,zv);  // radix
+ if((n&3)==1)R grx(m,ai,n,w,zv);  // merge
+ if((n&3)==2)R jtgriq(jt,m,ai,n,w,zv);  // quicksort
+ // otherwise smallrange
+ rng = condrange(wv,AN(w),IMAX,IMIN,IMAX);
+#else
+#if SY_64  // no quickgrade unless INTs are 64 bits
+ if(ai==1){  // for atoms, usually use smallrange or quicksort
+  if(n<10)R jtgriq(jt,m,ai,n,w,zv);  // for short lists just use qsort
+  UI4 lgn3; CTLZI(n,lgn3); lgn3 = (UI4)((lgn3*8) - 8 + (n>>(lgn3-3)));  // approx lg(n)<<3
+  rng = condrange(wv,AN(w),IMAX,IMIN,MIN((L2CACHESIZE>>LGSZI),(n*lgn3)>>(3-1)));  // let range go up to 2n lgn, but never more than L2 size
+  if(!rng.range){
+   if((UI)(n-5500)>(UI)(500000-5500))R jtgriq(jt,m,ai,n,w,zv);  // quicksort except for 5500-500000
+   // in the middle range, we still use quicksort if the atoms have more than 2 bytes of significance.  We just spot-check rather than running condrange,
+   // because the main appl is sorting timestamps, which are ALL big
+   DO(10, if(0xffffffff00000000 & (0x0000000080000000+wv[i<<9]))R jtgriq(jt,m,ai,n,w,zv);)  // quicksort if more than 2 bytes of significance, sampling the input
+   R gri1(m,ai,n,w,zv);  // moderate-range middle lengths use radix sort
+  }
+  // fall through to small-range
+ }else  // ! we already have range, don't calculate it again
+#endif
+ // watch out! an else clause is active
  if(ai<=6){rng = condrange(wv,AN(w),IMAX,IMIN,(MIN(((ai*n<(L2CACHESIZE>>LGSZI))?16:4),80>>ai))*n);  // test may overflow; OK   TUNE
  }else rng.range=0;  // if smallrange impossible
  // tweak this line to select path for timing
  // If there is only 1 item, radix beats merge for n>1300 or so (all positive) or more (mixed signed small numbers)
  if(!rng.range)R c==n&&n>2000?gri1(m,ai,n,w,zv):grx(m,ai,n,w,zv);  // revert to other methods if not small-range   TUNE
+#endif
  // doing small-range grade.  Allocate a hashtable area.  We will access it as UI4
  GATV0(y,C4T,rng.range,1); yvb=C4AV(y); yv=yvb-rng.min; up=(UI)jt->workareas.compare.complt>>(BW-1);
  // if there are multiple ints per item, we have to do multiple passes.  Allocate a workarea
@@ -554,9 +639,9 @@ static GF(jtgru){A x,y;B up;I e,i,*xv;UI4 *yv,*yvb;C4 *v,*wv;I c=ai*n;
  {I*g,*h,   j=p-1,k,s=0;UC*v;                          \
   if(b){g=xv; h=zv; b=0;}else{g=zv; h=xv; b=1;}        \
   memset(yv,C0,ps);                                    \
-  v=vv; DO(n, ++yv[iicalc0]; v+=ai;);                   \
+  v=vv; DQ(n, ++yv[iicalc0]; v+=ai;);                   \
   if(up)DO(p, k=yv[i]; yv[i  ]=s; s+=k;)               \
-  else  DO(p, k=yv[j]; yv[j--]=s; s+=k;);              \
+  else  DQ(p, k=yv[j]; yv[j--]=s; s+=k;);              \
   v=vv; DO(n, h[yv[iicalc1]++]=ind;           vinc;);  \
  }
 
@@ -564,9 +649,9 @@ static GF(jtgru){A x,y;B up;I e,i,*xv;UI4 *yv,*yvb;C4 *v,*wv;I c=ai*n;
  {I*g,*h,ii,j=p-1,k,s=0;UC*v;                          \
   if(b){g=xv; h=zv; b=0;}else{g=zv; h=xv; b=1;}        \
   memset(yv,C0,ps);                                    \
-  v=vv; DO(n, IND4(iicalc0); ++yv[ii]; v+=ai;);         \
+  v=vv; DQ(n, IND4(iicalc0); ++yv[ii]; v+=ai;);         \
   if(up)DO(p, k=yv[i]; yv[i  ]=s; s+=k;)               \
-  else  DO(p, k=yv[j]; yv[j--]=s; s+=k;);              \
+  else  DQ(p, k=yv[j]; yv[j--]=s; s+=k;);              \
   v=vv; DO(n, IND4(iicalc1); h[yv[ii]++]=ind; vinc;);  \
  }
 
@@ -645,7 +730,7 @@ F1(jtgr1){PROLOG(0075);A z;I c,f,ai,m,n,r,*s,t,wn,wr,zn;
  // allocate the entire result area, one int per item in each input cell
  GATV(z,INT,zn,1+f,s); if(!r)AS(z)[f]=1;
  // if there are no atoms, or we are sorting things with 0-1 item, return an index vector of the appropriate shape 
- if(!wn||1>=n)R reshape(shape(z),IX(n));
+ if(((wn-1)|(n-2))<0)R reshape(shape(z),IX(n));
  // do the grade, using a special-case routine if possible
  RZ((t&B01&&0==(ai&3)?jtgrb:grroutine[CTTZ(t)])(jt,m,ai,n,w,AV(z)))
  EPILOG(z);
@@ -673,40 +758,42 @@ F2(jtdgrade2){F2PREFIP;A z;GBEGIN( 1); RZ(a&&w); z=SPARSE&AT(w)?grd2sp(a,w):jtgr
    if(OSGT(1,2))if(OSGT(0,2))P3(2,0,1) else XC(1,2);         \
  }
 
+#define NRANDS 36  // must be even
 // Partitioning function for order statistics
 // j is the order desired, w is the data .  t is a temp buffer we allocate to hold the shrinking partition
-// TODO: should do the % ops before the partitioning loop; should rewrite partitioning to avoid misprediction
 #define OSLOOP(T,ATOMF)  \
 {T p0,p1,q,*tv,*u,ui,uj,uk,*v,*wv;                                                     \
   tv=wv=(T*)AV(w);                                                                     \
   while(1){                                                                            \
    if(4>=n){u=tv; SORT4; R ATOMF(tv[j]);}        /* stop loop on small partition */       \
-   p0=tv[qv[i]%n]; ++i; if(i==qn)i=0;                                                  \
-   p1=tv[qv[i]%n]; ++i; if(i==qn)i=0; if(p0>p1){q=p0; p0=p1; p1=q;}       /* create pivots p0, p1 selected from input, with p0 <= p1  */             \
-   if(p0==p1){m0=m1=0; v=tv; DO(n, if(p0>*v)++m0;                     ++v;);}          \
-   else      {m0=m1=0; v=tv; DO(n, if(p0>*v)++m0; else if(p1>*v)++m1; ++v;);}  /* count m0: # < p0; and m1: # p0<=x<p1  */         \
-   c=m0+m1; m=j<m0?m0:j<c?m1:n-c;    /* calc size of partition holding the result */        \
-   if(t)u=v=tv; else{GA(t,wt,m,1,0); u=tv=(T*)AV(t); v=wv;}                            \
-   if     (j<m0){       DO(n, if(*v<p0        )*u++=*v; ++v;); n=m;}                   \
-   else if(j<c ){j-=m0; DO(n, if(p0<=*v&&*v<p1)*u++=*v; ++v;); n=m;}                   \
-   else if(c   ){j-=c;  DO(n, if(p1<=*v       )*u++=*v; ++v;); n=m;}                   \
-   else{DO(n, if(p1<*v)*u++=*v; ++v;); m=u-tv; c=n-m; if(j<c)R ATOMF(p1); j-=c; n=m;}  \
- }}
+   p0=tv[(I)(qv[i]*n)]; --i;                                                  \
+   p1=tv[(I)(qv[i]*n)]; --i; i=(i<0)?NRANDS-1:i; if(p0>p1){q=p0; p0=p1; p1=q;}       /* create pivots p0, p1 selected from input, with p0 <= p1  */             \
+   {m0=m1=0; v=tv; DQ(n, m0+=*v<p0; m1+=*v<p1; ++v;);}  /* count m0: # < p0; and m1: # < p1  */         \
+   {I l=0,h=m0; l=j>=m0?m0:l; h=j>=m0?m1:h; l=j>=m1?m1:l; h=j>=m1?n:h; m=h-l;}   /* calc size of partition holding the result */\
+   if(t)u=v=tv; else{GA(t,wt,m+1,1,0); u=tv=(T*)AV(t); v=wv;}  /* allow for 1 overstore */                            \
+   if     (j<m0){       DQ(n, *u=*v; u+=*v<p0; ++v;);}                   \
+   else if(j<m1 ){DQ(n, *u=*v; u+=(p0<=*v)&(*v<p1); ++v;); j-=m0;}                   \
+   else if(m1   ){DQ(n, *u=*v; u+=p1<=*v; ++v;); j-=m1;}                   \
+   else{DQ(n, *u=*v; u+=*v>p1; ++v;); m=u-tv; n-=m; if(j<n)R ATOMF(p1); j-=n;} /* pivots both low; use > to split */ \
+   n=m; \
+  }  \
+ }
 
-F2(jtordstat){A q,t=0;I c,i=0,j,m,m0,m1,n,qn=53,*qv,wt;
+F2(jtordstat){A q,t=0;I j,m,m0,m1,n,wt;D *qv;
+ I i=NRANDS-1;  // i points to the next random number to draw
  RZ(a&&w);
- n=AN(w); wt=AT(w);
- if(!(!AR(a)&&AT(a)&B01+INT&&4<n&&1==AR(w)&&wt&FL+INT))R from(a,grade2(w,w));
- RE(j=i0(a)); if((UI)j>=(UI)n){j+=n; ASSERT((UI)j<(UI)n,EVINDEX);}
- // deal 53 random large integers to provide pivots.  We reuse them if needed
- RZ(q=df2(sc(qn),sc(IMAX),atop(ds(CQUERY),ds(CDOLLAR)))); qv=AV(q);
+ n=AN(w); wt=AT(w); RE(j=i0(a));
+ if(((AR(a)-1)&(4-n)&((1^AR(w))-1)&(-(wt&FL+INT)))>=0)R from(a,grade2(w,w));  // if not int/float, or short, or list a, do full grade
+ if((UI)j>=(UI)n){j+=n; ASSERT((UI)j<(UI)n,EVINDEX);}
+ // deal a bunch of random floats to provide pivots.  We reuse them if needed
+ RZ(q=df2(sc(NRANDS),num[0],atop(ds(CQUERY),ds(CDOLLAR)))); qv=DAV(q);
  if(wt&FL)OSLOOP(D,scf) else OSLOOP(I,sc);
 }    /* a{/:~w */
 
 F2(jtordstati){A t;I n,wt;
  RZ(a&&w);
  n=AN(w); wt=AT(w);
- if(!(!AR(a)&&AT(a)&B01+INT&&4<n&&1==AR(w)&&wt&FL+INT))R from(a,grade1(w));
+ if(((AR(a)-1)&(4-n)&((1^AR(w))-1)&(-(wt&FL+INT)))>=0)R from(a,grade1(w));
  RZ(t=ordstat(a,w));   // Get the value of the ath order statistic, then look up its index
  I j=0;  // =0 needed to stifle warning
  if(wt&FL){D p=*DAV(t),*v=DAV(w); DO(n, if(p==*v++){j=i; break;});}

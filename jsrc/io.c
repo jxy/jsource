@@ -34,7 +34,13 @@ void jtwri(J jt,I type,C*p,I m,C*s){C buf[1024],*t=jt->outseq,*v=buf;I c,d,e,n;
   MC(v,s,d); v+=d; if(m>n){MC(v,"...",3L); v+=3;}
   MC(v,t,e); v+=e; 
   *v=0;
+#ifdef ANDROID
+  A z=tocesu8(str(strlen(buf),buf));
+  *(CAV(z)+AN(z))=0;
+  jsto(jt,type,CAV(z));
+#else
   jsto(jt,type,buf);
+#endif
 }}
 
 static void jtwrf(J jt,I n,C*v,F f){C*u,*x;I j=0,m;
@@ -146,7 +152,7 @@ F1(jtjoff){I x;
 
 #define capturesize 80000
 
-I jdo(J jt, C* lp){I e,old;A x;
+I jdo(J jt, C* lp){I e;A x;
  jt->jerr=0; jt->etxn=0; /* clear old errors */
  // The named-execution stack contains information on resetting the current locale.  If the first named execution deletes the locale it is running in,
  // that deletion is deferred until the locale is no longer running, which is never detected because there is no earlier named execution to clean up.
@@ -154,22 +160,20 @@ I jdo(J jt, C* lp){I e,old;A x;
  // but we don't bother.  Another possibility would be to reset the callstack only if it was 0, so that a recursive immex will have its deletes handled by
  // the resumption of the name that was interrupted.
  I4 savcallstack = jt->callstacknext;
+#if USECSTACK
+ if(jt->sm==SMJAVA)jt->cstackmin=0;
+#endif
  if(jt->capture){
   if(jt->capturemax>capturesize){FREE(jt->capture); jt->capture=0; jt->capturemax=0;} // dealloc large capture buffer
   else jt->capture[0]=0; // clear capture buffer
  }
- old=jt->tnextpushx;
+ A *old=jt->tnextpushp;
  *jt->adbreak=0;
  x=inpl(0,(I)strlen(lp),lp);
  while(jt->iepdo&&jt->iep){jt->iepdo=0; immex(jt->iep); if(savcallstack==0)CALLSTACKRESET jt->jerr=0; tpop(old);}
  if(!jt->jerr)immex(x);
  e=jt->jerr;
  if(savcallstack==0)CALLSTACKRESET jt->jerr=0;
-// obsolete  if(e&&DBERRCAP==jt->uflags.us.cx.cx_c.db&&jt->dbtrap){
-// obsolete   jt->uflags.us.cx.cx_c.db=0;
-// obsolete   immex(jt->dbtrap);
-// obsolete   if(savcallstack==0)CALLSTACKRESET jt->jerr=0;  // whenever we call immex from console level we reset the callstack in case the user tried something that can't be completed, like deleting the running locale
-// obsolete  }
  while(jt->iepdo&&jt->iep){jt->iepdo=0; immex(jt->iep); if(savcallstack==0)CALLSTACKRESET jt->jerr=0; tpop(old);}
  showerr();
  spfree();
@@ -188,7 +192,6 @@ DF1(jtwd){A z=0;C*p=0;D*pd;I e,*pi,t;V*sv;
   ASSERT(2>AR(w),EVRANK);
   sv=VAV(self);
   t=i0(sv->fgh[1]);  // the n arg from the original 11!:n
-// obsolete   if(t>=2000 && t<3000 && AN(w) && !(LIT+C2T+C4T+INT&AT(w))) {
   if((UI)(t-2000)<(UI)(3000-2000) && AN(w) && !(LIT+C2T+C4T+INT&AT(w))) {  // 2000<=t<3000
     switch(UNSAFE(AT(w))) {
     case B01:
@@ -198,7 +201,7 @@ DF1(jtwd){A z=0;C*p=0;D*pd;I e,*pi,t;V*sv;
       pd=DAV(w);
       {A wsav=w; GATV0(w,INT,AN(wsav),AR(wsav)); }
       pi=AV(w);
-      DO(AN(w),*pi++=(I)(jfloor(0.5+*pd++)););
+      DQ(AN(w),*pi++=(I)(jfloor(0.5+*pd++)););
       break;
     default:
       ASSERT(0,EVDOMAIN);
@@ -229,10 +232,10 @@ static char breaknone=0;
 
 B jtsesminit(J jt){jt->adbreakr=jt->adbreak=&breakdata; R 1;}
 
-int _stdcall JDo(J jt, C* lp){int r;I old;
+int _stdcall JDo(J jt, C* lp){int r;
  r=(int)jdo(jt,lp);
  while(jt->nfe){
-  old=jt->tnextpushx; r=(int)jdo(jt,nfeinput(jt,"input_jfe_'   '")); tpop(old);
+  A *old=jt->tnextpushp; r=(int)jdo(jt,nfeinput(jt,"input_jfe_'   '")); tpop(old);
  }
  R r;
 } 
@@ -250,11 +253,11 @@ A _stdcall JGetA(J jt, I n, C* name){A x;
 }
 
 /* socket protocol CMDSET */
-I _stdcall JSetA(J jt,I n,C* name,I dlen,C* d){I old;
+I _stdcall JSetA(J jt,I n,C* name,I dlen,C* d){
  jt->jerr=0;
  if(!vnm(n,name)) R EVILNAME;
- old=jt->tnextpushx;
- symbis(nfs(n,name),jtunbin(jt,str(dlen,d)),jt->global);
+ A *old=jt->tnextpushp;
+ symbisdel(nfs(n,name),jtunbin(jt,str(dlen,d)),jt->global);
  tpop(old);
  R jt->jerr;
 }
@@ -305,7 +308,7 @@ void jsto(J jt,I type,C*s){C e;I ex;
  }else{
   // Normal output.  Call the output routine
   if(jt->smoutput){((outputtype)(jt->smoutput))(jt,(int)type,s);R;} // JFE output
-#if SY_WIN32 && !SY_WINCE
+#if SY_WIN32 && !SY_WINCE && defined(OLECOM)
   if(jt->oleop && (type & MTYOFM)){oleoutput(jt,strlen(s),s);R;} // ole output
 #endif
   // lazy - should check alloc size is reasonable
@@ -369,11 +372,11 @@ J JInit(void){
 */
 
 // clean up at the end of a J instance
-int JFree(J jt){I old;
+int JFree(J jt){
   if(!jt) R 0;
   breakclose(jt);
   jt->jerr=0; jt->etxn=0; /* clear old errors */
-  if(jt->xep&&AN(jt->xep)){old=jt->tnextpushx; immex(jt->xep); fa(jt->xep); jt->xep=0; jt->jerr=0; jt->etxn=0; tpop(old); }
+  if(jt->xep&&AN(jt->xep)){A *old=jt->tnextpushp; immex(jt->xep); fa(jt->xep); jt->xep=0; jt->jerr=0; jt->etxn=0; tpop(old); }
   dllquit(jt);  // clean up call dll
   free(jt->heap);  // free the initial allocation
   R 0;

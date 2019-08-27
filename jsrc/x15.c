@@ -664,11 +664,11 @@ static void convertdown(I*pi,I n,C t){
 
 static void convertup(I*pi,I n,C t){I j=n;
  if(n)switch(t){
-  case 'b': {BYTE*pt=(BYTE*)pi;               DO(n, --j; pi[j]=(I)pt[j];);} break;
-  case 's': {short*pt=(short*)pi;             DO(n, --j; pi[j]=(I)pt[j];);} break;
-  case 'i': {int  *pt=(int  *)pi;             DO(n, --j; pi[j]=(I)pt[j];);} break;
-  case 'f': {float*pt=(float*)pi;D*pd=(D*)pi; DO(n, --j; pd[j]=(D)pt[j];);} break;
-  case 'z': {float_complex*pt=(float_complex*)pi;D*pd=(D*)pi; DO(n, --j; pd[1+2*j]=(D)cimagf(pt[j]); pd[2*j]=(D)crealf(pt[j]););} break;
+  case 'b': {BYTE*pt=(BYTE*)pi;               DQ(n, --j; pi[j]=(I)pt[j];);} break;
+  case 's': {short*pt=(short*)pi;             DQ(n, --j; pi[j]=(I)pt[j];);} break;
+  case 'i': {int  *pt=(int  *)pi;             DQ(n, --j; pi[j]=(I)pt[j];);} break;
+  case 'f': {float*pt=(float*)pi;D*pd=(D*)pi; DQ(n, --j; pd[j]=(D)pt[j];);} break;
+  case 'z': {float_complex*pt=(float_complex*)pi;D*pd=(D*)pi; DQ(n, --j; pd[1+2*j]=(D)cimagf(pt[j]); pd[2*j]=(D)crealf(pt[j]););} break;
 }}   /* convert s or int to I and f to d and z to j */
 
 
@@ -727,7 +727,7 @@ static CCT*jtcdinsert(J jt,A a,CCT*cc){A x;C*s;CCT*pv,*z;I an,hn,*hv,j,k;
  z=pv+jt->cdna; MC(z,cc,sizeof(CCT)); k=jt->cdna++;
  if(AN(jt->cdhash)<=2*jt->cdna){k=0; RZ(x=cdgahash(2*jt->cdna)); fa(jt->cdhash); jt->cdhash=x;}
  hv=AV(jt->cdhash); hn=AN(jt->cdhash);
- DO(jt->cdna-k, j=hic(pv[k].an,s+pv[k].ai)%hn; while(0<=hv[j])if((j=(j+1))==hn)j=0; hv[j]=k; ++k;);
+ DQ(jt->cdna-k, j=hic(pv[k].an,s+pv[k].ai)%hn; while(0<=hv[j])if((j=(j+1))==hn)j=0; hv[j]=k; ++k;);
  R z;
 }
 
@@ -769,7 +769,7 @@ static CCT*jtcdload(J jt,CCT*cc,C*lib,C*proc){B ha=0;FARPROC f;HMODULE h;
   cc->h=h; ha=1;
  }
 #if SY_WIN32 && !SY_WINCE
- f=GetProcAddress(h,'#'==*proc?(LPCSTR)(I)atoi(proc+1):proc);
+ f=GetProcAddress(h,'#'==*proc?(LPCSTR)(I)atoi(proc+1):(LPCSTR)proc);
 #endif
 #if SY_WINCE
  f=GetProcAddress(h,tounibuf(proc));
@@ -943,6 +943,7 @@ static B jtcdexec1(J jt,CCT*cc,C*zv0,C*wu,I wk,I wt,I wd){A*wv=(A*)wu,x,y,*zv;B 
   if((fcnt>16||dcnt>16)&&dv-data==4)dv=data+MAX(fcnt,dcnt)-12;  /* v0 to v15 fully filled before x0 to x3 */
 #endif
   per=DEPARM+i*256; star=cc->star[i]; c=cc->tletter[i]; t=cdjtype(c);  // c is type in the call, t is the J type for that.  star in the *& qualifier
+   // should convert or store c as a bit for comp ease here
   if(wt&BOX){
    x=wv[i]; xt=AT(x); xn=AN(x); xr=AR(x);
    CDASSERT(!xr||star,per);         /* non-pointers must be scalars */
@@ -1098,7 +1099,7 @@ F2(jtcd){A z;C*tv,*wv,*zv;CCT*cc;I k,m,n,p,q,t,wr,*ws,wt;
  F2PREFIP;
  RZ(a&&w);
  if(!jt->cdarg)RZ(cdinit());
- if(1<AR(a))R rank2ex(a,w,0L,1L,1L,1L,1L,jtcd);
+ if(1<AR(a))R rank2ex(a,w,0L,1L,MIN(AR(w),1),1L,MIN(AR(w),1),jtcd);
  wt=AT(w); wr=AR(w); ws=AS(w); m=wr?prod(wr-1,ws):1;
  ASSERT(wt&DENSE,EVDOMAIN);
  ASSERT(LIT&AT(a),EVDOMAIN);
@@ -1108,13 +1109,13 @@ F2(jtcd){A z;C*tv,*wv,*zv;CCT*cc;I k,m,n,p,q,t,wr,*ws,wt;
  if(cc->zbx){GATV(z,BOX,m*(1+n),MAX(1,wr),ws); AS(z)[AR(z)-1]=1+n;}
  else{CDASSERT('*'!=cc->zl,DEDEC); GA(z,cc->zt,m,MAX(0,wr-1),ws);}
  if(m&&n&&!(wt&BOX)){
-  t=0; tv=cc->tletter; DO(n, k=cdjtype(*tv++); t=MAX(t,k););
+  t=0; tv=cc->tletter; DQ(n, k=cdjtype(*tv++); t=MAX(t,k););
   CDASSERT(HOMO(t,wt),DEPARM);
   if(!(wt&B01+INT+FL+LIT+C2T+C4T))RZ(w=cvt(wt=t,w));
  }
  wv=CAV(w); zv=CAV(z); k=bpnoun(wt);
  if(1==m)RZ(jtcdexec1(jtinplace,cc,zv,wv,k,wt,0))
- else{p=n*k; q=cc->zbx?sizeof(A)*(1+n):bp(AT(z)); DO(m, RZ(jtcdexec1(jtinplace,cc,zv,wv,k,wt,0)); wv+=p; zv+=q;);}
+ else{p=n*k; q=cc->zbx?sizeof(A)*(1+n):bp(AT(z)); DQ(m, RZ(jtcdexec1(jtinplace,cc,zv,wv,k,wt,0)); wv+=p; zv+=q;);}
  R z;
 }    /* 15!:0 */
 
@@ -1129,7 +1130,7 @@ F2(jtcd){A z;C*tv,*wv,*zv;CCT*cc;I k,m,n,p,q,t,wr,*ws,wt;
 void dllquit(J jt){CCT*av;I j,*v;
  if(!jt->cdarg)R;
  v=AV(jt->cdhashl); av=(CCT*)AV(jt->cdarg);
- DO(AN(jt->cdhashl), j=*v++; if(0<=j)FREELIB(av[j].h););
+ DQ(AN(jt->cdhashl), j=*v++; if(0<=j)FREELIB(av[j].h););
  fa(jt->cdarg);   jt->cdarg  =0; jt->cdna=0;
  fa(jt->cdstr);   jt->cdstr  =0; jt->cdns=0;
  fa(jt->cdhash);  jt->cdhash =0;
@@ -1186,7 +1187,7 @@ F1(jtmemr){C*u;I m,n,t,*v;US*us;C4*c4;
  n=AN(w); v=AV(w);
  ASSERT(3==n||4==n,EVLENGTH);
  m=v[2]; t=3==n?LIT:v[3]; u=(C*)(v[0]+v[1]);  // m=length in items; t=type to create; u=address to read from
- ASSERT(t&LIT+C2T+C4T+INT+FL+CMPX+SBT,EVDOMAIN);
+ ASSERT(t&B01+LIT+C2T+C4T+INT+FL+CMPX+SBT,EVDOMAIN);
  if(-1==m){
   ASSERT(t&LIT+C2T+C4T,EVDOMAIN);
   if(t&LIT) m=strlen(u);
@@ -1203,7 +1204,7 @@ F1(jtmemr){C*u;I m,n,t,*v;US*us;C4*c4;
 // This function is obsolete and should not be used
 // ASSERT(!IsBadReadPtr(u,m*k),EVDOMAIN);
 #endif
- R vec(t,m,u);
+ R vecb01(t,m,u);
 }    /* 15!:1  memory read */
 
 F2(jtmemw){C*u;I m,n,t,*v;
@@ -1213,9 +1214,10 @@ F2(jtmemw){C*u;I m,n,t,*v;
  n=AN(w); v=AV(w);
  ASSERT(3==n||4==n,EVLENGTH);
  m=v[2]; t=3==n?LIT:v[3]; u=(C*)(v[0]+v[1]);
- ASSERT(t&LIT+C2T+C4T+INT+FL+CMPX+SBT,EVDOMAIN);
+ ASSERT(t&B01+LIT+C2T+C4T+INT+FL+CMPX+SBT,EVDOMAIN);
  ASSERT(m==AN(a)||t&LIT+C2T+C4T&&1==AR(a)&&(m-1)==AN(a),EVLENGTH);
  if(B01&AT(a)&&t&INT) RZ(a=cvt(INT,a));
+ if(INT&AT(a)&&t&B01) RZ(a=cvt(B01,a));
  ASSERT(TYPESEQ(t,AT(a)),EVDOMAIN);
 #if SY_WIN32
 // This function is obsolete and should not be used
@@ -1386,7 +1388,6 @@ F1(jtcdproc1){CCT*cc;
  ASSERT(AN(w),EVLENGTH);
  if(!jt->cdarg)RE(cdinit());
  C* enda=&CAV(w)[AN(w)]; C endc=*enda; *enda=0; cc=cdparse(w,1); *enda=endc; RE(cc); // should do outside rank2 loop?
-// obsolete  RE(cc=cdparse(w,1));
  R sc((I)cc->fp);
 }    /* 15!:21 return proc address */
 
@@ -1394,7 +1395,7 @@ F1(jtcdproc1){CCT*cc;
 #pragma warning(disable: 4276)
 #endif
 
-#if SY_WIN32
+#if SY_WIN32 && defined(OLECOM)
 #define VARIANT void
 int _stdcall JBreak(J jt);
 int _stdcall JIsBusy(J jt);
@@ -1425,7 +1426,7 @@ JSMX,
 JSetA,
 JSetM,
 Jga,
-#if SY_WIN32
+#if SY_WIN32 && defined(OLECOM)
 JBreak,
 JClear,
 JDoR,
@@ -1455,7 +1456,7 @@ static C* jfntnm[]={
 "JSetA",
 "JSetM",
 "Jga",
-#if SY_WIN32
+#if SY_WIN32 && defined(OLECOM)
 "JBreak",
 "JClear",
 "JDoR",
@@ -1483,7 +1484,7 @@ F2(jtcdproc2){C*proc;FARPROC f;HMODULE h;
   f=(k==-1)?(FARPROC)0:(FARPROC)jfntaddr[k];
  }else{
 #if SY_WIN32 && !SY_WINCE
-  f=GetProcAddress(h,'#'==*proc?(LPCSTR)(I)atoi(proc+1):proc);
+  f=GetProcAddress(h,'#'==*proc?(LPCSTR)(I)atoi(proc+1):(LPCSTR)proc);
 #endif
 #if SY_WINCE
   f=GetProcAddress(h,tounibuf(proc));

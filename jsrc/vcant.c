@@ -62,7 +62,7 @@ static F2(jtcanta){A m,s,t,z;C*wv,*zv;I*av,j,*mv,r,*sv,*tv,wf,wr,*ws,zn,zr,ms[4]
  // ipso facto the largest number in a must be less than the (length of a)-1, and this loop aborts immediately.
  // r will hold number of unelided trailing axes of result
  I noelideend=0; I cellsizeb=bpnoun(AT(w)); r=zr; I scanws=1; j=wr;  // cellsizeb is number of bytes in a cell of the transpose, after deleting trailing axes
- DO(wr, --j; tv[j]=scanws; if(noelideend|=(j^av[j])){scanws*=ws[j];}else{cellsizeb*=ws[j]; --r;});  // tv = */\. ws
+ DQ(wr, --j; tv[j]=scanws; if(noelideend|=(j^av[j])){scanws*=ws[j];}else{cellsizeb*=ws[j]; --r;});  // tv = */\. ws
  if(!r)R RETARG(w);  // if all the axes are elided, just return the input unchanged
  for(j=0,zn=1;j<zr;++j){  // for each axis of the result...  (must include deleted axes to get the shape of result axis, and total # items)
   UI axislenres=~0; I axislenin=0;  // axislenin will hold length of axis (in the input), axislenres is length of axis in result
@@ -105,13 +105,13 @@ F2(jtcant2){A*av,p,t,y;I j,k,m,n,*pv,q,r,*v;
  RZ(a&&w);
  r=(RANKT)jt->ranks; r=AR(w)<r?AR(w):r; 
  q=jt->ranks>>RANKTX; q=AR(a)<q?AR(a):q; RESETRANK;
- if(1<q||q<AR(a))R rank2ex(a,w,0L,1,RMAX,q,r,jtcant2);
+ if(1<q||q<AR(a))R rank2ex(a,w,0L,MIN(q,1),r,q,r,jtcant2);  // rank loop on a
  if(BOX&AT(a)){
   RZ(y=pfill(r,t=raze(a))); v=AV(y);
   GATV0(p,INT,AN(y),1); pv=AV(p);
   m=AN(a); n=AN(t); av=AAV(a); 
-  j=0; DO(r-n,pv[*v++]=j++;); DO(m, k=AN(av[i]); DO(k,pv[*v++]=j;); if(k)++j;);
- }else p=pinv(pfill(r,a));
- A z= r<AR(w) ? irs2(p,w,0L,1L,r,jtcanta) : canta(p,w);  // Handle rank for a - w is in canta.  p is now INT type
- RZ(z);  RETF(z);
+  j=0; DO(r-n,pv[*v++]=j++;); DO(m, k=AN(av[i]); DQ(k,pv[*v++]=j;); j+=(k!=0););
+ }else RZ(p=pinv(pfill(r,a)));
+ A z; IRS2(p,w,0L,1L,r,jtcanta,z);  // Set rank for w is in canta.  p is now INT type.  No need to check agreement since a has rank 1
+ RETF(z);
 }    /* a|:"r w main control */ 

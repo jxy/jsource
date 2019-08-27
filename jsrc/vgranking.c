@@ -103,7 +103,7 @@ F1(jtranking){A y,z;C*wv;I icn,i,k,m,n,t,wcr,wf,wn,wr,*ws,wt,*zv;CR rng;TTYPE *y
  }else rng.range=0;
  if(!rng.range){I *yv;
   // small-range not possible.  Do the grade and install each value into its location
-  RZ(y=irs1(w,0L,wcr,jtgrade1)); yv=AV(y); 
+  RZ(IRS1(w,0L,wcr,jtgrade1,y)); yv=AV(y); 
   GATV(z,INT,m*n,1+wf,ws); if(!wcr)AS(z)[wf]=1; zv=AV(z); 
   DO(m, DO(n, zv[*yv++]=i;); zv+=n;);
   RETF(z);
@@ -123,9 +123,9 @@ F1(jtranking){A y,z;C*wv;I icn,i,k,m,n,t,wcr,wf,wn,wr,*ws,wt,*zv;CR rng;TTYPE *y
 #if C_LE
    case sizeof(S):
     if(wt&IS1BYTE){I c,d,s,t;US*v;TTYPE *u;
-     v=(US*)wv; DO(n, ++yu[*v++];);
-     s=0;       DO(256, c=0; d=i; DO(256, u=yv+(c+d); c+=256; if(*u){t=*u; *u=(TTYPE)s; s+=t;}););
-     v=(US*)wv; DO(n, *zv++=yu[*v++]++;);
+     v=(US*)wv; DQ(n, ++yu[*v++];);
+     s=0;       DO(256, c=0; d=i; DQ(256, u=yv+(c+d); c+=256; if(*u){t=*u; *u=(TTYPE)s; s+=t;}););
+     v=(US*)wv; DQ(n, *zv++=yu[*v++]++;);
     }else RANKINGLOOP(US);
 #else
    case sizeof(S):   RANKINGLOOP(US);

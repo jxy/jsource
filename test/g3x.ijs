@@ -92,6 +92,8 @@ f=: 1 : 0  NB. miscellaneous arrays
  assert. test x=: j./_500+?2 50$1000
  assert. test x=: _ __
  1 [ y
+:
+''
 )
 
 binrep f 1
@@ -106,6 +108,8 @@ f=: 1 : 0  NB. arrays with varying ranks
  assert. test x=: ?3 5 7 11$1000
  assert. test x=: ?3 5 7 11 13$1000
  1 [ y
+:
+''
 )
 
 binrep f 1
@@ -127,6 +131,8 @@ f=: 1 : 0  NB. empty arrays
  assert. test x=: (?10$!.2[3 4 5)$3.4
  assert. test x=: (i.30)$3j4
  1 [ y
+:
+''
 )
 
 binrep f 1
@@ -153,6 +159,8 @@ f=: 1 : 0  NB. extended integer and rational
  assert. test x=: %/?2 11 7 5 3$20x
  assert. test x=: %/?2 11 7 5 3 2$20x
  1 [ y
+:
+''
 )
 
 binrep f 1
@@ -209,6 +217,8 @@ f=: 1 : 0  NB. boxed arrays
  assert. test x=: 5!:1 <'g' 
  assert. test x=: 5!:2 <'g'
  1 [ y
+:
+''
 )
 
 binrep f 1
@@ -531,6 +541,15 @@ NB. (-:!.0 rx@xr) 0.07 ; (j./i.2 3 4) ; ,. <"0@s: ;:'Cogito, ergo sum.'
 (-:!.0 rx@xr) +/ .*~^:(10) 2 2$0 1 1 1x
 (-:!.0 rx@xr) (+%)/\44$1x
 (-:!.0 rx@xr) 5!:1 <'xrh'
+
+NB. 0 : string or box
+NB. Verify they don't check syntax
+'ab:' -: 0 : 'ab:'
+''' ' -: 0 : ''' '
+'do.' -: 0 : 'do.'
+('ab:';''' ') -: 0 : ('ab:';''' ')
+('y';''' ') -: 0 : ('y';''' ')
+(<'do.') -: 0 : (<'do.')
 
 
 4!:55 ;:'adot1 adot2 sdot0 bhdr_pre601 binrep binrep_pre601 br f g H hbr hexrep hrx Indirect'

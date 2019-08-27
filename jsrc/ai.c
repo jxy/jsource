@@ -55,7 +55,7 @@ static F2(jtdiag){I d,m,p,r,t,*v;
  RZ(a&&w);
  r=AR(w); t=AT(w);
  v=AS(w);   m=0;      DO(r, m=MIN(m,v[i]););
- v=AS(w)+r; p=1; d=0; DO(r, d+=p; p*=*--v;);
+ v=AS(w)+r; p=1; d=0; DQ(r, d+=p; p*=*--v;);
  if(TYPESNE(t,AT(a)))RZ(a=cvt(t,a));
  if(AR(a)){
   ASSERT(m==AN(a),EVLENGTH);
@@ -221,7 +221,7 @@ static F1(jtinvamp){A f,ff,g,h,*q,x,y;B nf,ng;C c,d,*yv;I n;V*u,*v;
    break;
   case CBDOT:
    RE(n=i0(x));
-   switch(i0(FAV(h)->fgh[0])){
+   switch(i0(FAV(h)->fgh[1])){
     case 22: case 25:          R w;
     case 19: case 28:          if(ng)R w; break;
     case 21: case 26:          if(nf)R w; break;
@@ -229,7 +229,7 @@ static F1(jtinvamp){A f,ff,g,h,*q,x,y;B nf,ng;C c,d,*yv;I n;V*u,*v;
    }
    break;
   case CPOLY:
-   if(nf&&1==AR(x)&&2==AN(x)&&NUMERIC&AT(x)&&!equ(zeroionei[0],tail(x))){
+   if(nf&&1==AR(x)&&2==AN(x)&&NUMERIC&AT(x)&&!equ(zeroionei[0],tail(x))){  // linear polynomial only
     RZ(y=recip(tail(x)));
     R amp(over(tymes(y,negate(head(x))),y),h);
  }}
@@ -327,14 +327,14 @@ A jtinv(J jt, A w, I recur){A f,ff,g;B b,nf,ng,vf,vg;C id,*s;I p,q;V*v;
  // But only fix once, at the top recursion level, (1) to avoid an infinite loop if
  // there is a circular reference that leaves names in the fixed form of w; (2) to avoid
  // repeated fixing of lower branches, which will only be tried again when higher levels are fixed
- if(!recur&&!nameless(w))R invrecur(fix(w));
+ if(!recur&&!nameless(w))R invrecur(fix(w,zeroionei[0]));
  ASSERT(0,EVDOMAIN);
 }
 
 static F1(jtneutral){A x,y;B b;V*v;
  RZ(w);
  v=FAV(w);
- ASSERT(!v->lr&&!v->rr,EVDOMAIN);
+ ASSERT(!v->lrr,EVDOMAIN);
  RZ(y=v2(0L,1L));
  RZ(x=scf(infm)); b=equ(y,CALL2(v->valencefns[1],x,y,w)); RESETERR; if(b)R x;
  x=ainf;          b=equ(y,CALL2(v->valencefns[1],x,y,w)); RESETERR; if(b)R x;
@@ -348,7 +348,7 @@ static F1(jtneutral){A x,y;B b;V*v;
 }    /* neutral of arbitrary rank-0 function */
 
 F1(jtiden){A f,g,x=0;V*u,*v;
- RZ(w=fix(w)); ASSERT(VERB&AT(w),EVDOMAIN);
+ RZ(w=fix(w,zeroionei[0])); ASSERT(VERB&AT(w),EVDOMAIN);
  v=FAV(w); f=v->fgh[0]; g=v->fgh[1];
  switch(v->id){
   default:      RZ(x=neutral(w)); break;
@@ -374,7 +374,7 @@ F1(jtiden){A f,g,x=0;V*u,*v;
    }
    break;
   case CBDOT:
-   switch(i0(f)){
+   switch(i0(g)){
     case 25:    x=num[-1]; break;
     case  2: case  4: case  5: case  6: case  7:
     case 18: case 20: case 21: case 22: case 23:
@@ -388,7 +388,7 @@ F1(jtiden){A f,g,x=0;V*u,*v;
 }
 
 F1(jtidensb){A f,g,x=0,w0=w;V*v;
- RZ(w=fix(w)); ASSERT(VERB&AT(w),EVDOMAIN);
+ RZ(w=fix(w,zeroionei[0])); ASSERT(VERB&AT(w),EVDOMAIN);
  v=FAV(w); f=v->fgh[0]; g=v->fgh[1];
  switch(v->id){
   default:      R iden(w0);

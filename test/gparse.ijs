@@ -45,6 +45,8 @@ NB. Test display of error spacing
 '|value error: undefname|   i__undefname    =:5' -: efx 'i__undefname =: 5'
 '|domain error: efx|   n__efx    =:5' -: efx 'n__efx =: 5'
 '|syntax error: efx|   )123' -: efx ')123'
+'|value error: efx|   (undef undef)    (1+undef+".)''5 + 6''' -: efx '(undef undef) (1 + undef + ".) ''5 + 6'''
+'|value error: efx|   (undef undef)    (1+undef+".)''+ 6''' -: efx '(undef undef) (1 + undef + ".) ''+ 6'''
 
 NB. Verify that undefname is OK, but undefined x. creates an error, in an explicit def
 t =: 3 : 0
@@ -89,6 +91,16 @@ NB. Verify noun assignments to all parts of speech are honored
 5 = +/('aa'=:@:)*: i. 3
 _6 = ('aa'=: -) 6
 1 2 3 -: 'aa' =: 1 2 3
+
+NB. check the special names must be assigned if used in explicit defs
+'value error' -: 3 : '* x' etx 4
+'value error' -: 3 : '* u' etx 4
+'value error' -: 3 : '* v' etx 4
+'value error' -: 3 : '* m' etx 4
+'value error' -: 3 : '* n' etx 4
+'value error' -: 3 : 'y&(4!:55 <''y'')' etx 4
+'noun result was required' -: 3 : 'zz&(4!:55 <''y'')' etx 4
+NB. t =. * x  NB. OK from console - can't really check without breaking tests when run inside explicit def
 
 4!:55 ;:'a aa bc multi swd t '
 

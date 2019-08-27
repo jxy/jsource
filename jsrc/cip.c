@@ -12,12 +12,12 @@
 // a,w are arguments
 // zt is type of result
 // *pm is # 1-cells of a
-// *pn is # atoms in an item of w
+// *pn is # atoms in an item of w (but if w is a list, it is treated as a pxn column, and n=1)
 // *pp is number of inner-product muladds
 //   (in each, an atom of a multiplies an item of w)
 static A jtipprep(J jt,A a,A w,I zt,I*pm,I*pn,I*pp){A z=mark;I*as,ar,ar1,m,mn,n,p,*ws,wr,wr1;
  ar=AR(a); as=AS(a); ar1=ar?ar-1:0; RE(*pm=m=prod(ar1,as));  // m=# 1-cells of a.  It could overflow, if there are no atoms
- wr=AR(w); ws=AS(w); wr1=wr?wr-1:0; RE(*pn=n=prod(wr1,1+ws)); RE(mn=mult(m,n));  // n=#atoms in 1-cell of w; mn = #atoms in result
+ wr=AR(w); ws=AS(w); wr1=wr?wr-1:0; RE(*pn=n=prod(wr1,1+ws)); RE(mn=mult(m,n));  // n=#atoms in item of w; mn = #atoms in result
  *pp=p=ar?*(as+ar1):wr?*ws:1;  // if a is an array, the length of a 1-cell; otherwise, the number of items of w
  ASSERT(!(ar&&wr)||p==*ws,EVLENGTH);
  GA(z,zt,mn,ar1+wr1,0);   // allocate result area
@@ -33,15 +33,15 @@ static A jtipprep(J jt,A a,A w,I zt,I*pm,I*pn,I*pp){A z=mark;I*as,ar,ar1,m,mn,n,
 #define PDTBY(Tz,Tw,INC)          \
  {Tw*v,*wv;Tz c,*x,zero,*zv;      \
   v=wv=(Tw*)AV(w); zv=(Tz*)AV(z); memset(&zero,C0,sizeof(Tz));     \
-  if(1==n)DO(m, v=wv; c=zero;           DO(p,       if(*u++)INC(c,*v);             ++v;);             *zv++=c;)   \
-  else    DO(m, v=wv; memset(zv,C0,zk); DO(p, x=zv; if(*u++)DO(n, INC(*x,*v); ++x; ++v;) else v+=n;); zv+=n;  );  \
+  if(1==n)DQ(m, v=wv; c=zero;           DQ(p,       if(*u++)INC(c,*v);             ++v;);             *zv++=c;)   \
+  else    DQ(m, v=wv; memset(zv,C0,zk); DQ(p, x=zv; if(*u++)DQ(n, INC(*x,*v); ++x; ++v;) else v+=n;); zv+=n;  );  \
  }
 
 #define PDTXB(Tz,Ta,INC,INIT)     \
  {Ta*u;Tz c,*x,zero,*zv;          \
   u=   (Ta*)AV(a); zv=(Tz*)AV(z); memset(&zero,C0,sizeof(Tz));     \
-  if(1==n)DO(m, v=wv; c=zero;           DO(p,                   if(*v++)INC(c,*u); ++u;  ); *zv++=c;)   \
-  else    DO(m, v=wv; memset(zv,C0,zk); DO(p, x=zv; INIT; DO(n, if(*v++)INC(*x,c); ++x;);); zv+=n;  );  \
+  if(1==n)DQ(m, v=wv; c=zero;           DQ(p,                   if(*v++)INC(c,*u); ++u;  ); *zv++=c;)   \
+  else    DQ(m, v=wv; memset(zv,C0,zk); DQ(p, x=zv; INIT; DQ(n, if(*v++)INC(*x,c); ++x;);); zv+=n;  );  \
  }
 
 static F2(jtpdtby){A z;B b,*u,*v,*wv;C er=0;I at,m,n,p,t,wt,zk;
@@ -62,9 +62,9 @@ static F2(jtpdtby){A z;B b,*u,*v,*wv;C er=0;I at,m,n,p,t,wt,zk;
 }    /* x +/ .* y where x or y (but not both) is Boolean */
 
 #define BBLOCK(nn)  \
-     d=ti; DO(nw, *d++=0;);                                           \
-     DO(nn, if(*u++){vi=(UI*)v; d=ti; DO(nw, *d+++=*vi++;);} v+=n;);  \
-     x=zv; c=tc; DO(n, *x+++=*c++;);
+     d=ti; DQ(nw, *d++=0;);                                           \
+     DQ(nn, if(*u++){vi=(UI*)v; d=ti; DQ(nw, *d+++=*vi++;);} v+=n;);  \
+     x=zv; c=tc; DQ(n, *x+++=*c++;);
 
 #if 0&&C_NA    // scaf  asm function no longer used, and no longer defined in C
 /*
@@ -193,8 +193,6 @@ static void cachedmmult (J jt,D* av,D* wv,D* zv,I m,I n,I p,I cmpx){D c[(CACHEHE
      // We have to use masked load at the edges of the array, to make sure we don't fetch from undefined memory.  Fill anything not loaded with 0
      if(a3rem>3){z00 = _mm256_loadu_pd(z3base);if(a2rem>1)z01 = _mm256_loadu_pd(z3base+n); else z01=z21;   // In the main area, do normal (unaligned) loads
      }else{z01 = z00 = z20;
-// obsolete            z00 = _mm256_maskload_pd(z3base,_mm256_set_epi64x(valmask[a3rem],valmask[a3rem+1],valmask[a3rem+2],valmask[a3rem+3]));
-// obsolete            I vx= (a2rem>1)?a3rem:0; z01 = _mm256_maskload_pd(z3base+n,_mm256_set_epi64x(valmask[vx],valmask[vx+1],valmask[vx+2],valmask[vx+3]));
            z00 = _mm256_maskload_pd(z3base,_mm256_loadu_si256((__m256i*)(jt->validitymask+4-a3rem)));
            I vx= (a2rem>1)?a3rem:0; z01 = _mm256_maskload_pd(z3base+n,_mm256_loadu_si256((__m256i*)(jt->validitymask+4-vx)));
      }
@@ -273,8 +271,6 @@ static void cachedmmult (J jt,D* av,D* wv,D* zv,I m,I n,I p,I cmpx){D c[(CACHEHE
 
      // Store accumulator into z.  Don't store outside the array
      if(a3rem>3){_mm256_storeu_pd(z3base,z00);if(a2rem>1)_mm256_storeu_pd(z3base+n,z01);
-// obsolete      }else{_mm256_maskstore_pd(z3base,_mm256_set_epi64x(valmask[a3rem],valmask[a3rem+1],valmask[a3rem+2],valmask[a3rem+3]),z00);
-// obsolete            if(a2rem>1)_mm256_maskstore_pd(z3base+n,_mm256_set_epi64x(valmask[a3rem],valmask[a3rem+1],valmask[a3rem+2],valmask[a3rem+3]),z01);
      }else{_mm256_maskstore_pd(z3base,_mm256_loadu_si256((__m256i*)(jt->validitymask+4-a3rem)),z00);
            if(a2rem>1)_mm256_maskstore_pd(z3base+n,_mm256_loadu_si256((__m256i*)(jt->validitymask+4-a3rem)),z01);
      }
@@ -376,12 +372,12 @@ F2(jtpdt){PROLOG(0038);A z;I ar,at,i,m,n,p,p1,t,wr,wt;
    nw=(n+SZI-1)>>LGSZI;
    GATV0(tt,INT,nw,1); ti=(UI*)AV(tt); tc=(UC*)ti;
    u=BAV(a); v=wv=BAV(w); zv=AV(z);
-   for(i=0;i<m;++i,v=wv,zv+=n){x=zv; DO(n, *x++=0;); I pp=p; while((pp-=255)>=0){BBLOCK(255);} BBLOCK(pp+255);}
+   for(i=0;i<m;++i,v=wv,zv+=n){x=zv; DQ(n, *x++=0;); I pp=p; while((pp-=255)>=0){BBLOCK(255);} BBLOCK(pp+255);}
   }else{B*u,*v,*wv;I*x,*zv;
    u=BAV(a); v=wv=BAV(w); zv=AV(z);
    for(i=0;i<m;++i,v=wv,zv+=n){
-           x=zv; if(*u++)DO(n, *x++ =*v++;) else{v+=n; DO(n, *x++=0;);}
-    DO(p1, x=zv; if(*u++)DO(n, *x+++=*v++;) else v+=n;);
+           x=zv; if(*u++)DQ(n, *x++ =*v++;) else{v+=n; DQ(n, *x++=0;);}
+    DQ(p1, x=zv; if(*u++)DQ(n, *x+++=*v++;) else v+=n;);
    }
   }
   break;
@@ -391,7 +387,7 @@ F2(jtpdt){PROLOG(0038);A z;I ar,at,i,m,n,p,p1,t,wr,wt;
  /*
    for(i=0;i<m;++i,v=wv,zv+=n){
      x=zv; c=*u++; er=asmtymes1v(n,x,c,v);    if(er)break; v+=n;
-     DO(p1, x=zv; c=*u++; er=asminnerprodx(n,x,c,v); if(er)break; v+=n;);
+     DQ(p1, x=zv; c=*u++; er=asminnerprodx(n,x,c,v); if(er)break; v+=n;);
 
  */
 #if C_NA   // non-assembler version
@@ -399,34 +395,32 @@ F2(jtpdt){PROLOG(0038);A z;I ar,at,i,m,n,p,p1,t,wr,wt;
    // one argument (usually w) has only one item, a list that is reused.  So, we check for that case; if found we go through faster code that just
    // performs vector inner products, accumulating in registers.  And we have multiple versions of that: one when the totals can't get close to
    // overflow, and other belt-and-suspenders variants for arbitrary inputs
-   if(n==1){DPMULDDECLS I tot;I* RESTRICT zv, * RESTRICT av;  // obsolete D * RESTRICT zvd;
+   if(n==1){DPMULDDECLS I tot;I* RESTRICT zv, * RESTRICT av;
     // vector products
     // The fast loop will be used if each multiplicand, and each product, fits in 32 bits
     I er=0;  // will be set if overflow detected
-    I* RESTRICT wv=AV(w); tot=0; DO(p, I wvv=*wv; if((I4)wvv!=wvv){er=1; break;} wvv=wvv<0?-wvv:wvv; tot+=wvv; wv++;)
+    I* RESTRICT wv=AV(w); tot=0; DQ(p, I wvv=*wv; if((I4)wvv!=wvv){er=1; break;} wvv=wvv<0?-wvv:wvv; tot+=wvv; wv++;)
     if(!er){
      // w fits in 32 bits.  Try to accumulate the products.  If we can be sure that the total will not exceed 32 bits unless
      // an a-value does, do the fastest loop
      zv=AV(z); av=AV(a);
      if((UI)(p*tot)<(UI)0x100000000){ // integer overflow
       // The total in w is so small that a mere m values each less than 2^31 cannot overflow
-      DQ(m, I tot=0; wv=AV(w); DO(p, I mpcnd=*av++; I prod=mpcnd**wv++; if(mpcnd!=(I4)mpcnd)goto oflo1; tot+=prod;) *zv++=tot;)
+      DQ(m, I tot=0; wv=AV(w); DQ(p, I mpcnd=*av++; I prod=mpcnd**wv++; if(mpcnd!=(I4)mpcnd)goto oflo1; tot+=prod;) *zv++=tot;)
      }else{
       // w has some big numbers, so we have to check each individual product
-      DQ(m, I tot=0; wv=AV(w); DO(p, I mpcnd=*av++; I prod=mpcnd**wv++; if(mpcnd!=(I4)mpcnd||prod!=(I4)prod)goto oflo1; tot+=prod;) *zv++=tot;)
+      DQ(m, I tot=0; wv=AV(w); DQ(p, I mpcnd=*av++; I prod=mpcnd**wv++; if(mpcnd!=(I4)mpcnd||prod!=(I4)prod)goto oflo1; tot+=prod;) *zv++=tot;)
      }
      AT(z)=INT; break;
     }
 oflo1:
     // Something overflowed 32 bits.  See if it fits in 64.
     zv=AV(z); av=AV(a);
-    DO(m, I lp; I tot=0; wv=AV(w); DO(p, DPMULD(*av++,*wv++, lp, goto oflo2;) I oc=(~tot)^lp; tot+=lp; lp^=tot; if(XANDY(oc,lp)<0)goto oflo2;) *zv++=tot;)
+    DQ(m, I lp; I tot=0; wv=AV(w); DQ(p, DPMULD(*av++,*wv++, lp, goto oflo2;) I oc=(~tot)^lp; tot+=lp; lp^=tot; if(XANDY(oc,lp)<0)goto oflo2;) *zv++=tot;)
     AT(z)=INT; break;
 oflo2:
     // Result does not fit in INT.  Do the computation as float, with float result
     if(m)z=jtsumattymesprods(jt,INT,w,a,p,1,1,1,m,0,z);  // use +/@:*"1 .  Exchange w and a because a is the repeated arg in jtsumattymesprods.  If error, clear z (should not happen here)
-// obsolete     zvd=DAV(z); av=AV(a);
-// obsolete     DO(m, D tot=0; wv=AV(w); DO(p, tot+=(D)*av++*(D)*wv++;) *zvd++=tot;)
    }else{
      // full matrix products
      I probsize = m*n*(IL)p;  // This is proportional to the number of multiply-adds.  We use it to select the implementation
@@ -446,15 +440,15 @@ oflo2:
 #else  // !C_NA
     for(i=0;i<m;++i,v=wv,zv+=n){
      x=zv; c=*u++; TYMES1V(n,x,c,v); if(er)break; v+=n;
-     DO(p1, x=zv; c=*u++; er=asminnerprodx(n,x,c,v); if(er)break; v+=n;);
+     DQ(p1, x=zv; c=*u++; er=asminnerprodx(n,x,c,v); if(er)break; v+=n;);
      if(er)break;
     }
     if(er){A z1;D c,* RESTRICT x,* RESTRICT zv;I* RESTRICT u,* RESTRICT v,* RESTRICT wv;
      GATV(z1,FL,AN(z),AR(z),AS(z)); z=z1;
      u=AV(a); v=wv=AV(w); zv=DAV(z);
      for(i=0;i<m;++i,v=wv,zv+=n){
-             x=zv; c=(D)*u++; DO(n, *x++ =c**v++;);
-      DO(p1, x=zv; c=(D)*u++; DO(n, *x+++=c**v++;););
+             x=zv; c=(D)*u++; DQ(n, *x++ =c**v++;);
+      DQ(p1, x=zv; c=(D)*u++; DQ(n, *x+++=c**v++;););
    }}}
 #endif
 #else
@@ -463,7 +457,7 @@ oflo2:
    NAN0;
    if(n==1){D* RESTRICT zv; I* RESTRICT av, * RESTRICT wv;
     zv=DAV(z); av=AV(a);
-    DO(m, D tot=0; wv=AV(w); DO(p, tot+=((D)*av++)*((D)*wv++);) *zv++=tot;)
+    DQ(m, D tot=0; wv=AV(w); DQ(p, tot+=((D)*av++)*((D)*wv++);) *zv++=tot;)
     smallprob=0;  // Don't compute it again
    }else if(!(smallprob = m*n*(IL)p<1000LL)){  // if small problem, avoid the startup overhead of the matrix version  TUNE
       memset(DAV(z),C0,m*n*sizeof(D));
@@ -472,10 +466,10 @@ oflo2:
    // If there was a floating-point error, retry it the old way in case it was _ * 0
    if(smallprob||NANTEST){D c,*x,*zv;I*u,*v,*wv;
     u=AV(a); v=wv=AV(w); zv=DAV(z);
-    if(1==n)DO(m, v=wv; c=0.0; DO(p, c+=*u++*(D)*v++;); *zv++=c;)
+    if(1==n)DQ(m, v=wv; c=0.0; DQ(p, c+=*u++*(D)*v++;); *zv++=c;)
     else for(i=0;i<m;++i,v=wv,zv+=n){
-            x=zv; c=(D)*u++; DO(n, *x++ =c**v++;);
-     DO(p1, x=zv; c=(D)*u++; DO(n, *x+++=c**v++;););
+            x=zv; c=(D)*u++; DQ(n, *x++ =c**v++;);
+     DQ(p1, x=zv; c=(D)*u++; DQ(n, *x+++=c**v++;););
     }
    }
   // convert float result back to int if it will fit
@@ -489,17 +483,10 @@ oflo2:
    // As for INT, handle the cases where n=1 separately, because they are used internally & don't require as much setup as matrix multiply
    NAN0;
    if(n==1){
-#if 0
-    D* RESTRICT zv, * RESTRICT av, * RESTRICT wv;
-    zv=DAV(z); av=DAV(a);
-    // Floating add has latency of 4.  We can't address operands and do the arithmetic in less than 2 cycles, so 2 totals are enough
-    DO(m, D tot0=0; D tot1=0; wv=DAV(w); if(p&1)tot1=*av++**wv++; DQ(p>>1, tot0+=*av++**wv++; tot1+=*av++**wv++;) *zv++=tot0+tot1;)
-#else
     if(m)z=jtsumattymesprods(jt,FL,w,a,p,1,1,1,m,0,z);  // use +/@:*"1 .  Exchange w and a because a is the repeated arg in jtsumattymesprods.  If error, clear z
-#endif
     smallprob=0;  // Don't compute it again
    }else {
-     I probsize = m*n*(IL)p;  // This is proportional to the number of multiply-adds.  We use it to select the implementation
+     I probsize = (m-1)*n*(IL)p;  // This is proportional to the number of multiply-adds.  We use it to select the implementation.  If m==1 we are doing dot-products; no gain from fancy code then
      if(!(smallprob = probsize<1000LL)){  // if small problem, avoid the startup overhead of the matrix version  TUNE
        if(probsize < 5000000)cachedmmult(jt,DAV(a),DAV(w),DAV(z),m,n,p,0);  // Do our one-core matrix multiply - real   TUNE this is 160x160 times 160x160
        else{
@@ -513,10 +500,10 @@ oflo2:
    if(smallprob||NANTEST){D c,s,t,*u,*v,*wv,*x,*zv;
     u=DAV(a); v=wv=DAV(w); zv=DAV(z);
     NAN0;
-    if(1==n){DO(m, v=wv; c=0.0; DO(p, s=*u++; t=*v++; c+=TYMES(s,t);); *zv++=c;);}
+    if(1==n){DQ(m, v=wv; c=0.0; DQ(p, s=*u++; t=*v++; c+=TYMES(s,t);); *zv++=c;);}
     else for(i=0;i<m;++i,v=wv,zv+=n){
-            x=zv; if(c=*u++){if(INF(c))DO(n, *x++ =TYMES(*v,c); ++v;)else DO(n, *x++ =c**v++;);}else{v+=n; DO(n, *x++=0.0;);}
-     DO(p1, x=zv; if(c=*u++){if(INF(c))DO(n, *x+++=TYMES(*v,c); ++v;)else DO(n, *x+++=c**v++;);}else v+=n;);
+            x=zv; if(c=*u++){if(INF(c))DQ(n, *x++ =TYMES(*v,c); ++v;)else DQ(n, *x++ =c**v++;);}else{v+=n; DQ(n, *x++=0.0;);}
+     DQ(p1, x=zv; if(c=*u++){if(INF(c))DQ(n, *x+++=TYMES(*v,c); ++v;)else DQ(n, *x+++=c**v++;);}else v+=n;);
     }
     NAN1;
    }
@@ -535,10 +522,10 @@ oflo2:
     // There was a floating-point error.  In case it was 0*_ retry old-style
     u=ZAV(a); v=wv=ZAV(w); zv=ZAV(z);
     NAN0;
-    if(1==n)DO(m, v=wv; c=zeroZ; DO(p, c.re+=ZRE(*u,*v); c.im+=ZIM(*u,*v); ++u; ++v;); *zv++=c;)
+    if(1==n)DQ(m, v=wv; c=zeroZ; DQ(p, c.re+=ZRE(*u,*v); c.im+=ZIM(*u,*v); ++u; ++v;); *zv++=c;)
     else for(i=0;i<m;++i,v=wv,zv+=n){
-            x=zv; c=*u++; DO(n, x->re =ZRE(c,*v); x->im =ZIM(c,*v); ++x; ++v;);
-     DO(p1, x=zv; c=*u++; DO(n, x->re+=ZRE(c,*v); x->im+=ZIM(c,*v); ++x; ++v;););
+            x=zv; c=*u++; DQ(n, x->re =ZRE(c,*v); x->im =ZIM(c,*v); ++x; ++v;);
+     DQ(p1, x=zv; c=*u++; DQ(n, x->re+=ZRE(c,*v); x->im+=ZIM(c,*v); ++x; ++v;););
     }
     NAN1;
    }
@@ -553,8 +540,8 @@ oflo2:
   MC(zv,*av?v1:v0,n); if(ac)++av;                    \
   for(j=1;j<p;++j){                                      \
    uu=(I*)zv; vv=(I*)(*av?v1+j*wc:v0+j*wc); if(ac)++av;  \
-   DO(q, *uu++F=*vv++;);                                 \
-   if(r){u=(B*)uu; v=(B*)vv; DO(r, *u++F=*v++;);}        \
+   DQ(q, *uu++F=*vv++;);                                 \
+   if(r){u=(B*)uu; v=(B*)vv; DQ(r, *u++F=*v++;);}        \
   }                                                      \
   zv+=n;                                                 \
  }
@@ -646,7 +633,7 @@ static DF1(jtdet){DECLFG;A h=sv->fgh[2];I c,r,*s;
  R !c ? df1(mtv,slash(gs)) : 1==c ? CALL1(f1,ravel(w),fs) : h && c==*s ? gaussdet(w) : detxm(w,self); 
 }
 
-DF1(jtdetxm){R dotprod(irs1(w,0L,1L,jthead),det(minors(w),self),self);}
+DF1(jtdetxm){A z; R dotprod(IRS1(w,0L,1L,jthead,z),det(minors(w),self),self);}
      /* determinant via expansion by minors. w is matrix with >1 columns */
 
 F2(jtdot){A f,h=0;AF f2=jtdotprod;C c,d;

@@ -67,7 +67,7 @@ static F2(jttk){PROLOG(0093);A y,z;B b=0;C*yv,*zv;I c,d,dy,dz,e,i,k,m,n,p,q,r,*s
    dy=itemsize*q; yv=CAV(y);
    dz=itemsize*m; zv=CAV(z);
    m-=q; I yzdiff=dy-dz; yv+=((p&m)>>(BW-1))&yzdiff; zv-=((p&-m)>>(BW-1))&yzdiff;
-   DO(c, MC(yv,zv,e); yv+=dy; zv+=dz;);
+   DQ(c, MC(yv,zv,e); yv+=dy; zv+=dz;);
    z=y;
   }
  }
@@ -81,7 +81,7 @@ F2(jttake){A s;I acr,af,ar,n,*v,wcr,wf,wr;
  if(!(SPARSE&wt))RZ(w=setfv(w,w)); 
  ar=AR(a); acr=jt->ranks>>RANKTX; acr=ar<acr?ar:acr; af=ar-acr;  // ?r=rank, ?cr=cell rank, ?f=length of frame
  wr=AR(w); wcr=(RANKT)jt->ranks; wcr=wr<wcr?wr:wcr; wf=wr-wcr; RESETRANK; 
- if(af||1<acr)R rank2ex(a,w,0L,1L,RMAX,acr,wcr,jttake);  // if multiple x values, loop over them
+ if(af||1<acr)R rank2ex(a,w,0L,MIN(acr,1),wcr,acr,wcr,jttake);  // if multiple x values, loop over them
  // canonicalize x
  n=AN(a);    // n = #axes in a
  ASSERT(!wcr||n<=wcr,EVLENGTH);  // if y is not atomic, a must not have extra axes
@@ -134,7 +134,7 @@ F2(jtdrop){A s;I acr,af,ar,d,m,n,*u,*v,wcr,wf,wr;
  wr=AR(w); wcr=(RANKT)jt->ranks; wcr=wr<wcr?wr:wcr; wf=wr-wcr; RESETRANK; I wt=AT(w);
  // special case: if a is atomic 0, and cells of w are not atomic
  if(wcr&&!ar&&(IAV(a)[0]==0))R RETARG(w);   // 0 }. y, return y
- if(af||1<acr)R rank2ex(a,w,0L,1L,RMAX,acr,wcr,jtdrop);  // if multiple x values, loop over them
+ if(af||1<acr)R rank2ex(a,w,0L,MIN(acr,1),wcr,acr,wcr,jtdrop);  // if multiple x values, loop over them
  n=AN(a); u=AV(a);     // n=#axes to drop, u->1st axis
  // virtual case: scalar a
 // correct if(!(ar|wf|(SPARSE&wt)|!wcr|(AFLAG(w)&(AFNJA)))){  // if there is only 1 take axis, w has no frame and is not atomic
@@ -177,14 +177,13 @@ F1(jthead){I wcr,wf,wr;
  F1PREFIP;
  RZ(w);
  wr=AR(w); wcr=(RANKT)jt->ranks; wcr=wr<wcr?wr:wcr; wf=wr-wcr;  // no RESETRANK so that we can pass rank into other code
- if(!wcr||AS(w)[wf]){  // if cell is atom, or cell has items
+ if(!wcr||AS(w)[wf]){  // if cell is atom, or cell has items - which means it's safe to calculate the size of a cell
   if(((-wf)|((AT(w)&(DIRECT|RECURSIBLE))-1)|(wr-2))>=0){  // frame=0, and DIRECT|RECURSIBLE, and rank>1.  No gain in virtualizing an atom, and it messes up inplacing and allocation-size counting in the tests
-   // just one cell.  Create a virtual block for it, at offset 0
+   // just one cell (no frame).  Create a virtual block for it, at offset 0
    I wn=AN(w); wcr--; wcr=(wcr<0)?wr:wcr;  // wn=#atoms of w, wcr=rank of cell being created
    A z; RZ(z=virtualip(w,0,wcr));  // allocate the cell.  Now fill in shape & #atoms
     // if w is empty we have to worry about overflow when calculating #atoms
-   I zn=1; I *ws=AS(w)+1, *zs=AS(z); DO(wcr, zs[i]=ws[i]; if(wn){zn*=ws[i];}else{zn=mult(zn,ws[i]);RE(0);})   // copy shape of CELL of w into z
-   AN(z)=zn;
+   I zn; MCISH(AS(z),AS(w)+1,wcr) PROD(zn,wcr,AS(w)+1) AN(z)=zn;  // copy shape of CELL of w into z
    RETF(z);
   }else{
    // rank not 0, or non-virtualable type, or cell is an atom.  Use from.  Note that jt->ranks is still set, so this may produce multiple cells

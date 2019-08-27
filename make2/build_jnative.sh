@@ -22,7 +22,9 @@ jplatform="${jplatform:=darwin}"
 else
 jplatform="${jplatform:=linux}"
 fi
-if [ "`uname -m`" = "x86_64" ] || [ "`uname -m`" = "aarch64" ]; then
+if [ "`uname -m`" = "x86_64" ]; then
+j64x="${j64x:=j64avx}"
+elif [ "`uname -m`" = "aarch64" ]; then
 j64x="${j64x:=j64}"
 else
 j64x="${j64x:=j32}"
@@ -52,7 +54,7 @@ compiler=$(readlink -f $(command -v $CC) 2> /dev/null || echo $CC)
 echo "CC=$CC"
 echo "compiler=$compiler"
 
-if [ -z "${compiler##*gcc*}" ]; then
+if [ -z "${compiler##*gcc*}" ] || [ -z "${CC##*gcc*}" ]; then
 # gcc
 common="-fPIC -O1 -fwrapv -fno-strict-aliasing -Wextra -Wno-maybe-uninitialized -Wno-unused-parameter -Wno-sign-compare -Wno-clobbered -Wno-empty-body -Wno-unused-value -Wno-pointer-sign -Wno-parentheses"
 OVER_GCC_VER6=$(echo `$CC -dumpversion | cut -f1 -d.` \>= 6 | bc)
@@ -83,12 +85,12 @@ TARGET=libjnative.so
 CFLAGS="$common -m32 -I$JAVA_HOME/include -I$JAVA_HOME/include/linux "
 LDFLAGS=" -shared -Wl,-soname,libjnative.so  -m32 "
 ;;
-linux_j64nonavx)
+linux_j64)
 TARGET=libjnative.so
 CFLAGS="$common -I$JAVA_HOME/include -I$JAVA_HOME/include/linux "
 LDFLAGS=" -shared -Wl,-soname,libjnative.so "
 ;;
-linux_j64)
+linux_j64avx)
 TARGET=libjnative.so
 CFLAGS="$common -I$JAVA_HOME/include -I$JAVA_HOME/include/linux "
 LDFLAGS=" -shared -Wl,-soname,libjnative.so "
@@ -109,6 +111,11 @@ CFLAGS="$darwin -m32 $macmin -I$JAVA_HOME/include -I$JAVA_HOME/include/darwin "
 LDFLAGS=" -m32 $macmin -dynamiclib "
 ;;
 darwin_j64)
+TARGET=libjnative.dylib
+CFLAGS="$darwin $macmin -I$JAVA_HOME/include -I$JAVA_HOME/include/darwin "
+LDFLAGS=" $macmin -dynamiclib "
+;;
+darwin_j64avx)
 TARGET=libjnative.dylib
 CFLAGS="$darwin $macmin -I$JAVA_HOME/include -I$JAVA_HOME/include/darwin "
 LDFLAGS=" $macmin -dynamiclib "

@@ -21,8 +21,6 @@ COMPILE="$common "
 LINK=" -shared -Wl,-soname,libtsdll.so -o libtsdll.so -lm "
 esac
 
-echo "COMPILE=$COMPILE"
-
 OBJS="tsdll.o "
 export OBJS COMPILE LINK TARGET
 $jmake/domake.sh

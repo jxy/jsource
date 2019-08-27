@@ -34,7 +34,7 @@ LDOPENMP=" -fopenmp `$CC -print-file-name=libgomp.a` "   # windows -fopenmp for 
 LDOPENMP32=" -fopenmp `$CC -print-file-name=libgomp.a` "
 fi
 
-if [ -z "${compiler##*gcc*}" ]; then
+if [ -z "${compiler##*gcc*}" ] || [ -z "${CC##*gcc*}" ]; then
 # gcc
 common="$OPENMP -fPIC -O1 -fwrapv -fno-strict-aliasing -Wextra -Wno-maybe-uninitialized -Wno-unused-parameter -Wno-sign-compare -Wno-clobbered -Wno-empty-body -Wno-unused-value -Wno-pointer-sign -Wno-parentheses"
 OVER_GCC_VER6=$(echo `$CC -dumpversion | cut -f1 -d.` \>= 6 | bc)
@@ -69,12 +69,14 @@ COMPILE="$common -m32 -msse2 -mfpmath=sse -DC_NOMULTINTRINSIC "
 # slower, use 387 fpu and truncate extra precision
 # COMPILE="$common -m32 -ffloat-store "
 LINK=" -shared -Wl,-soname,libj.so -m32 -lm -ldl $LDOPENMP32 -o libj.so "
+OBJS_AESNI=" aes-ni.o "
 ;;
 
 linux_j64nonavx) # linux intel 64bit nonavx
 TARGET=libj.so
 COMPILE="$common $OPENMP "
 LINK=" -shared -Wl,-soname,libj.so -lm -ldl $LDOPENMP -o libj.so "
+OBJS_AESNI=" aes-ni.o "
 ;;
 
 linux_j64) # linux intel 64bit avx
@@ -82,6 +84,7 @@ TARGET=libj.so
 COMPILE="$common -mavx -DC_AVX=1 $OPENMP "
 LINK=" -shared -Wl,-soname,libj.so -lm -ldl $LDOPENMP -o libj.so "
 OBJS_FMA=" blis/gemm_int-fma.o "
+OBJS_AESNI=" aes-ni.o "
 ;;
 
 raspberry_j32) # linux raspbian arm
@@ -100,12 +103,14 @@ darwin_j32) # darwin x86
 TARGET=libj.dylib
 COMPILE="$darwin -m32 -mmacosx-version-min=10.5"
 LINK=" -dynamiclib -lm -ldl $LDOPENMP -m32 -mmacosx-version-min=10.5 -o libj.dylib"
+OBJS_AESNI=" aes-ni.o "
 ;;
 
 darwin_j64nonavx) # darwin x86 nonavx
 TARGET=libj.dylib
 COMPILE="$darwin -mmacosx-version-min=10.5"
 LINK=" -dynamiclib -lm -ldl $LDOPENMP -mmacosx-version-min=10.5 -o libj.dylib"
+OBJS_AESNI=" aes-ni.o "
 ;;
 
 darwin_j64) # darwin intel 64bit avx
@@ -113,6 +118,7 @@ TARGET=libj.dylib
 COMPILE="$darwin -mavx -mmacosx-version-min=10.5 -DC_AVX=1"
 LINK=" -dynamiclib -lm -ldl $LDOPENMP -mmacosx-version-min=10.5 -o libj.dylib"
 OBJS_FMA=" blis/gemm_int-fma.o "
+OBJS_AESNI=" aes-ni.o "
 ;;
 
 windows_j32) # windows x86
@@ -122,6 +128,7 @@ LIBJRES=" jdllres.o "
 TARGET=j.dll
 COMPILE="$common -msse2 -mfpmath=sse -Wno-write-strings -D_FILE_OFFSET_BITS=64 -D_JDLL "
 LINK=" -shared -Wl,--enable-stdcall-fixup -lm -lole32 -loleaut32 -luuid -static-libgcc -static-libstdc++ $LDOPENMP32 -o j.dll "
+OBJS_AESNI=" aes-ni.o "
 ;;
 
 windows_j64nonavx) # windows intel 64bit nonavx
@@ -131,6 +138,7 @@ LIBJRES=" jdllres.o "
 TARGET=j.dll
 COMPILE="$common -Wno-write-strings -D_FILE_OFFSET_BITS=64 -D_JDLL "
 LINK=" -shared -lm -lole32 -loleaut32 -luuid -static-libgcc -static-libstdc++ $LDOPENMP -o j.dll "
+OBJS_AESNI=" aes-ni.o "
 ;;
 
 windows_j64) # windows intel 64bit avx
@@ -141,6 +149,7 @@ TARGET=j.dll
 COMPILE="$common -Wno-write-strings -D_FILE_OFFSET_BITS=64 -D_JDLL -mavx -DC_AVX=1 "
 LINK=" -shared -lm -lole32 -loleaut32 -luuid -static-libgcc -static-libstdc++ $LDOPENMP -o j.dll "
 OBJS_FMA=" blis/gemm_int-fma.o "
+OBJS_AESNI=" aes-ni.o "
 ;;
 
 *)
@@ -151,6 +160,8 @@ esac
 OBJS="\
  a.o \
  ab.o \
+ aes-c.o \
+ aes-sse2.o \
  af.o \
  ai.o \
  am.o \
@@ -209,6 +220,8 @@ OBJS="\
  rt.o \
  s.o \
  sc.o \
+ sha1-arm.o \
+ sha256-arm.o \
  sl.o \
  sn.o \
  t.o \
@@ -268,6 +281,7 @@ OBJS="\
  x.o \
  x15.o \
  xa.o \
+ xaes.o \
  xb.o \
  xc.o \
  xcrc.o \
@@ -283,7 +297,7 @@ OBJS="\
  xt.o \
  xu.o "
 
-export OBJS OBJS_FMA COMPILE LINK TARGET
+export OBJS OBJS_FMA OBJS_AESNI COMPILE LINK TARGET
 export DLLOBJS LIBJDEF LIBJRES
 $jmake/domakewin.sh $1
 

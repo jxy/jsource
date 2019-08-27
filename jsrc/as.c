@@ -11,22 +11,22 @@
 
 
 #define SUFFIXPFX(f,Tz,Tx,pfx,vecfn)  \
- AHDRS(f,Tz,Tx){I i;Tz v;if(m*d*n==0)SEGFAULT; /* scaf */                                        \
+ AHDRS(f,Tz,Tx){I i;Tz v;                                     \
   x+=m*d*n; z+=m*d*n;                                              \
-  if(d==1)DO(m, *--z=v=    *--x; DO(n-1, --x; --z; *z=v=pfx(*x,v);))  \
+  if(d==1)DQ(m, *--z=v=    *--x; DQ(n-1, --x; --z; *z=v=pfx(*x,v);))  \
   else{for(i=0;i<m;++i){                                              \
    DQ(d, *--z=    *--x;);                                        \
-   DQ(n-1, Tz *y=z; z-=d; x-=d; vecfn(jt,d,z,x,y,1););                     \
+   DQ(n-1, Tz *y=z; z-=d; x-=d; vecfn(1,d,x,y,z,jt););                     \
  }}}
 
 #define SUFFIXNAN(f,Tz,Tx,pfx,vecfn)  \
- AHDRS(f,Tz,Tx){I i;Tz v;if(m*d*n==0)SEGFAULT; /* scaf */                                        \
+ AHDRS(f,Tz,Tx){I i;Tz v;                                      \
   NAN0;                                                               \
   x+=m*d*n; z+=m*d*n;                                              \
-  if(d==1)DO(m, *--z=v=    *--x; DO(n-1, --x; --z; *z=v=pfx(*x,v);))  \
+  if(d==1)DQ(m, *--z=v=    *--x; DQ(n-1, --x; --z; *z=v=pfx(*x,v);))  \
   else{for(i=0;i<m;++i){                                              \
    DQ(d, *--z=    *--x;);                                        \
-   DQ(n-1, Tz *y=z; z-=d; x-=d; vecfn(jt,d,z,x,y,1););                     \
+   DQ(n-1, Tz *y=z; z-=d; x-=d; vecfn(1,d,x,y,z,jt););                     \
   }}                                                                   \
   NAN1V;                                                              \
  }
@@ -34,52 +34,52 @@
 #define SUFFICPFX(f,Tz,Tx,pfx)  \
  AHDRS(f,Tz,Tx){I i;Tz v,*y;                                        \
   x+=m*d*n; z+=m*d*n;                                              \
-  if(d==1)DO(m, *--z=v=(Tz)*--x; DO(n-1, --x; --z; *z=v=pfx(*x,v);))  \
+  if(d==1)DQ(m, *--z=v=(Tz)*--x; DQ(n-1, --x; --z; *z=v=pfx(*x,v);))  \
   else{for(i=0;i<m;++i){                                              \
-   y=z; DO(d, *--z=(Tz)*--x;);                                        \
-   DO(n-1, DO(d, --x; --y; --z; *z=pfx(*x,*y);));                     \
+   y=z; DQ(d, *--z=(Tz)*--x;);                                        \
+   DQ(n-1, DQ(d, --x; --y; --z; *z=pfx(*x,*y);));                     \
  }}}
 
 #define SUFFIXOVF(f,Tz,Tx,fs1,fvv)  \
  AHDRS(f,I,I){C er=0;I i,*xx,*y,*zz;                      \
   xx=x+=m*d*n; zz=z+=m*d*n;                              \
   if(d==1){                                                 \
-   if(1==n)DO(m, *--z=*--x;)                                \
-   else    DO(m, z=zz-=d*n; x=xx-=d*n; fs1(n,z,x); RER;)        \
+   if(1==n)DQ(m, *--z=*--x;)                                \
+   else    DQ(m, z=zz-=d*n; x=xx-=d*n; fs1(n,z,x); RER;)        \
   }else{for(i=0;i<m;++i){                                   \
-   DO(d, *--zz=*--xx;);                                     \
-   DO(n-1, x=xx-=d; y=zz; z=zz-=d; fvv(d,z,x,y); RER;);     \
+   DQ(d, *--zz=*--xx;);                                     \
+   DQ(n-1, x=xx-=d; y=zz; z=zz-=d; fvv(d,z,x,y); RER;);     \
  }}}
 
 #if SY_ALIGN
 #define SUFFIXBFXLOOP(T,pfx)  \
  {T* RESTRICT xx=(T*)x,* RESTRICT yy,* RESTRICT zz=(T*)z;   \
   q=d/sizeof(T);              \
-  DO(m, yy=zz; DO(q, *--zz=*--xx;); DO(n-1, DO(q, --xx; --yy; --zz; *zz=pfx(*xx,*yy);)));  \
+  DQ(m, yy=zz; DQ(q, *--zz=*--xx;); DQ(n-1, DQ(q, --xx; --yy; --zz; *zz=pfx(*xx,*yy);)));  \
  }
   
 #define SUFFIXBFX(f,pfx,ipfx,spfx,bpfx,vexp)  \
  AHDRP(f,B,B){B v,* RESTRICT y;I q;                                        \
   x+=m*d*n; z+=m*d*n;                                           \
-  if(1==d){DO(m, *--z=v=*--x; DO(n-1, --x; --z; *z=v=vexp;)); R;}  \
+  if(1==d){DQ(m, *--z=v=*--x; DQ(n-1, --x; --z; *z=v=vexp;)); R;}  \
   if(0==(d&(sizeof(UI  )-1))){SUFFIXBFXLOOP(UI,   pfx); R;}              \
   if(0==(d&(sizeof(UI4)-1))){SUFFIXBFXLOOP(UINT,ipfx); R;}              \
   if(0==(d&(sizeof(US  )-1))){SUFFIXBFXLOOP(US,  spfx); R;}              \
-  DO(m, y=z; DO(d, *--z=*--x;); DO(n-1, DO(d, --x; --y; --z; *z=bpfx(*x,*y);)));  \
+  DQ(m, y=z; DQ(d, *--z=*--x;); DQ(n-1, DQ(d, --x; --y; --z; *z=bpfx(*x,*y);)));  \
  }
 #else
 #define SUFFIXBFX(f,pfx,ipfx,spfx,bpfx,vexp)  \
  AHDRS(f,B,B){B v;I i,q,r,t,*xi,*yi,*zi;                         \
   x+=m*d*n; z+=m*d*n;                                           \
-  if(1==d){DO(m, *--z=v=*--x; DO(n-1, --x; --z; *z=v=vexp;)); R;}  \
+  if(1==d){DQ(m, *--z=v=*--x; DQ(n-1, --x; --z; *z=v=vexp;)); R;}  \
   q=d>>LGSZI; r=d&(SZI-1); xi=(I*)x; zi=(I*)z;                            \
   if(0==r)for(i=0;i<m;++i){                                        \
-   yi=zi; DO(q, *--zi=*--xi;);                                     \
-   DO(n-1, DO(q, --xi; --yi; --zi; *zi=pfx(*xi,*yi);));            \
+   yi=zi; DQ(q, *--zi=*--xi;);                                     \
+   DQ(n-1, DQ(q, --xi; --yi; --zi; *zi=pfx(*xi,*yi);));            \
   }else for(i=0;i<m;++i){                                          \
-   yi=zi; DO(q, *--zi=*--xi;);                                     \
-   x=(B*)xi; z=(B*)zi; DO(r, *--z=*--x;); xi=(I*)x; zi=(I*)z;      \
-   DO(n-1, DO(q, --xi; --yi; --zi; *zi=pfx(*xi,*yi););             \
+   yi=zi; DQ(q, *--zi=*--xi;);                                     \
+   x=(B*)xi; z=(B*)zi; DQ(r, *--z=*--x;); xi=(I*)x; zi=(I*)z;      \
+   DQ(n-1, DQ(q, --xi; --yi; --zi; *zi=pfx(*xi,*yi););             \
     xi=(I*)((B*)xi-r);                                             \
     yi=(I*)((B*)yi-r);                                             \
     zi=(I*)((B*)zi-r); t=pfx(*xi,*yi); MC(zi,&t,r););              \
@@ -106,7 +106,6 @@ SUFFICPFX(minussfxO, D, I, MINUS )
 SUFFICPFX(tymessfxO, D, I, TYMES )
 
 SUFFIXPFX( plussfxB, I, B, PLUS, plusBI  )
-#if 1
 AHDRS(plussfxD,D,D){I i;
  NAN0;
  x+=m*d*n; z+=m*d*n;
@@ -118,14 +117,11 @@ AHDRS(plussfxD,D,D){I i;
  }else{
   for(i=0;i<m;++i){
    DQ(d, *--z=    *--x;);                                        \
-   DQ(n-1, D *y=z; z-=d; x-=d; plusDD(jt,d,z,x,y,1););                     \
+   DQ(n-1, D *y=z; z-=d; x-=d; plusDD(1,d,x,y,z,jt););                     \
   }
  }
  NAN1V;
 }
-#else  // obsolete 
-SUFFIXNAN( plussfxD, D, D, PLUS  )
-#endif
 SUFFIXNAN( plussfxZ, Z, Z, zplus, plusZZ )
 SUFFIXPFX( plussfxX, X, X, xplus, plusXX )
 SUFFIXPFX( plussfxQ, Q, Q, qplus, plusQQ )
@@ -214,7 +210,8 @@ static DF1(jtssg){F1PREFIP;PROLOG(0020);A a,z;I i,k,n,r,wr;
  state &= ~((FAV(fs)->flag2&VF2ATOPOPEN2W)>>(VF2ATOPOPEN2WX-ZZFLAGBOXATOPX));  // We don't handle &.> here; ignore it
 
  // We cannot honor WILLBEOPENED, because the same box that goes into the result must also be released into the next application of f.
- state |= (-state) & (I)jtinplace & JTCOUNTITEMS; // remember if this verb is followed by ; - only if we BOXATOP, to avoid invalid flag setting at assembly
+ // Without WILLBEOPENED, there is no need to set COUNTITEMS
+// not checked state |= (-state) & (I)jtinplace & JTCOUNTITEMS; // remember if this verb is followed by ; - only if we BOXATOP, to avoid invalid flag setting at assembly
 #define ZZWILLBEOPENEDNEVER 1
 
  // Allocate virtual block for the running x argument.  UNINCORPABLE, non-inplaceable
@@ -269,14 +266,14 @@ A jtscansp(J jt,A w,A self,AF sf){A e,ee,x,z;B*b;I f,m,j,r,t,wr;P*wp,*zp;
  wp=PAV(w); e=SPA(wp,e); RZ(ee=over(e,e));
  if(!equ(ee,CALL1(sf,ee,self))){
   RZ(x=denseit(w));
-  R irs1(x,self,r,sf);
+  R IRS1(x,self,r,sf,z);
  }else{
   RZ(b=bfi(wr,SPA(wp,a),1));
   if(r&&b[f]){b[f]=0; RZ(w=reaxis(ifb(wr,b),w));}
-  j=f; m=0; DO(wr-f, m+=!b[j++];);
+  j=f; m=0; DQ(wr-f, m+=!b[j++];);
  }
  wp=PAV(w); e=SPA(wp,e); x=SPA(wp,x);
- RZ(x=irs1(x,self,m,sf));
+ RZ(x=IRS1(x,self,m,sf,z));
  t=maxtype(AT(e),AT(x)); RZ(e=cvt(t,e)); if(TYPESNE(t,AT(x)))RZ(x=cvt(t,x));
  GASPARSE(z,STYPE(t),1,wr+!m,AS(w)); if(!m)*(wr+AS(z))=1;
  zp=PAV(z); 
@@ -294,15 +291,15 @@ static DF1(jtsscan){A y,z;I d,f,m,n,r,t,wn,wr,*ws,wt;
  wn=AN(w); wr=AR(w); r=(RANKT)jt->ranks; r=wr<r?wr:r; f=wr-r; ws=AS(w); RESETRANK;
  PROD(m,f,ws); PROD1(d,r-1,f+ws+1); n=r?ws[f]:1;  // will not be used if WN==0, so PROD ok.  n is # items along the selected rank
  y=FAV(self)->fgh[0]; // y is f/
- if(2>n||!wn){if(vaid(FAV(y)->fgh[0])){R r?RETARG(w):reshape(over(shape(w),num[1]),w);}else R irs1(w,self,r,jtsuffix);}  // if empty arg, or just 1 cell in selected axis, convert to f/\ which handles the short arg 
+ if(((n-2)|(wn-1))<0){if(vaid(FAV(y)->fgh[0])){R r?RETARG(w):reshape(over(shape(w),num[1]),w);}else R IRS1(w,self,r,jtsuffix,z);}  // if empty arg, or just 1 cell in selected axis, convert to f/\ which handles the short arg 
 
    // note that the above line always takes the r==0 case
  VA2 adocv = vasfx(FAV(y)->fgh[0],wt);  // analyze f
- if(!adocv.f)R irs1ip(w,self,r,jtssg);   // if not supported atomically, go do general suffix
+ if(!adocv.f)R IRSIP1(w,self,r,jtssg,z);   // if not supported atomically, go do general suffix
  if((t=atype(adocv.cv))&&TYPESNE(t,wt))RZ(w=cvt(t,w));
- if((I)jtinplace&(adocv.cv>>VIPOKWX)&JTINPLACEW && ASGNINPLACE(w))z=w; else GA(z,rtype(adocv.cv),wn,wr,ws);
- adocv.f(jt,m,d,n,AV(z),AV(w));
- if(jt->jerr)R jt->jerr>=EWOV?irs1(w,self,r,jtsscan):0; else R adocv.cv&VRI+VRD?cvz(adocv.cv,z):z;
+ if(ASGNINPLACESGN(SGNIF((I)jtinplace,JTINPLACEWX)&SGNIF(adocv.cv,VIPOKWX),w))z=w; else GA(z,rtype(adocv.cv),wn,wr,ws);
+ ((AHDRSFN*)adocv.f)(d,n,m,AV(w),AV(z),jt);
+ if(jt->jerr)R jt->jerr>=EWOV?IRS1(w,self,r,jtsscan,z):0; else R adocv.cv&VRI+VRD?cvz(adocv.cv,z):z;
 }    /* f/\."r w main control */
 
 
@@ -320,7 +317,7 @@ static DF2(jtgoutfix){A h,*hv,x,z,*zv;I m,n;
  n=IC(x);
  h=VAV(self)->fgh[2]; hv=AAV(h); m=AN(h);
  GATV0(z,BOX,n,1); zv=AAV(z); I imod=0;
- DO(n, imod=(imod==m)?0:imod; RZ(zv[i]=df1(repeat(from(sc(i),x),w),hv[i%m])); ++imod;);
+ DO(n, imod=(imod==m)?0:imod; RZ(zv[i]=df1(repeat(from(sc(i),x),w),hv[imod])); ++imod;);
  R ope(z);
 }
 
@@ -330,14 +327,14 @@ static DF2(jtofxinv){A f,fs,z;C c;I t;V*v;
  F2RANK(0,RMAX,jtofxinv,self);
  fs=FAV(self)->fgh[0]; f=FAV(fs)->fgh[0]; v=FAV(f); c=v->id; t=AT(w);  // self = f/\. fs = f/  f = f  v = verb info for f
  if(!(c==CPLUS||c==CBDOT&&t&INT||(c==CEQ||c==CNE)&&t&B01))R outfix(a,w,self);
- z=irs2(df1(w,fs),df2(a,w,bslash(fs)),VFLAGNONE, RMAX,-1L,c==CPLUS?(AF)jtminus:v->valencefns[1]);
+ z=irs2(df1(w,fs),df2(a,w,bslash(fs)),c==CPLUS?ds(CMINUS):f, RMAX,-1L,jtatomic2);
  if(jt->jerr==EVNAN){RESETERR; R outfix(a,w,self);}else R z;
 }    /* a f/\. w where f has an "inverse" */
 
 static DF2(jtofxassoc){A f,i,j,p,s,x,z;C id,*zv;I c,d,k,kc,m,r,t;V*v;VA2 adocv;
  F2RANK(0,RMAX,jtofxassoc,self);
  m=IC(w); RE(k=i0(a)); c=ABS(k);  // m = # items in w; k is value of a; c is # items per suffix
- f=FAV(self)->fgh[0]; x=FAV(f)->fgh[0]; v=FAV(x); id=CBDOT==v->id?(C)*AV(v->fgh[0]):v->id;  // self = f/\. f = f/  x = f  v = verb info for f
+ f=FAV(self)->fgh[0]; x=FAV(f)->fgh[0]; v=FAV(x); id=CBDOT==v->id?(C)*AV(v->fgh[1]):v->id;  // self = f/\. f = f/  x = f  v = verb info for f
  if(k==IMIN||m<=c||id==CSTARDOT&&!(B01&AT(w)))R outfix(a,w,self);  // if there is not >1 outfix, do general code which handles empties
  if(-1<=k){d=m-c;     RZ(i=IX(d)); RZ(j=apv(d,c,1L));}
  else     {d=(m-1)/c; RZ(i=apv(d,c-1,c )); RZ(j=apv(d,c,c ));}
@@ -357,8 +354,7 @@ static DF2(jtofxassoc){A f,i,j,p,s,x,z;C id,*zv;I c,d,k,kc,m,r,t;V*v;VA2 adocv;
   ASSERTSYS(adocv.f,"ofxassoc");  // scaf
   GA(z,t,c*(1+d),r,AS(p)); AS(z)[0]=1+d; zv=CAV(z);  // allocate result assuming no overflow
   MC(zv,     AV(s),          kc);                     // first cell is {.s, i. e. all but the first infix
-// obsolete   if(1<d)adocv.f(jt,1,c*(d-1),1L,zv+kc,AV(p),kc+CAV(s));  /* (}:p) f (}.s), with result stored into the result area */  // don't call with 0 length!
-  if(1<d)adocv.f(jt,c*(d-1),zv+kc,AV(p),kc+CAV(s),(I)1);  /* (}:p) f (}.s), with result stored into the result area */  // don't call with 0 length!
+  if(1<d)((AHDR2FN*)adocv.f)((I)1,c*(d-1),AV(p),kc+CAV(s),zv+kc,jt);  /* (}:p) f (}.s), with result stored into the result area */  // don't call with 0 length!
   MC(zv+kc*d,CAV(p)+kc*(d-1),kc);                     // last cell is {:p, i. e. all but the last infix
   // If there was overflow on the ado, we have to redo the operation as a float.
   // We also have to redo if the types of p and s were different (for example, if one overflowed to float and the other didn't)
@@ -376,7 +372,7 @@ F1(jtbsdot){A f;AF f1=jtsuffix,f2=jtoutfix;I flag=FAV(ds(CBSDOT))->flag;C id;V*v
   case CPOUND: f1=jtiota1rev; break;
   case CSLASH:
    f1=jtsscan; flag|=VJTFLGOK1;
-   f=v->fgh[0]; id=ID(f); if(id==CBDOT){f=VAV(f)->fgh[0]; if(INT&AT(f)&&!AR(f))id=(C)*AV(f);}
+   f=v->fgh[0]; id=ID(f); if(id==CBDOT){f=VAV(f)->fgh[1]; if(INT&AT(f)&&!AR(f))id=(C)*AV(f);}
    switch(id){
     case CPLUS:   case CEQ:     case CNE:     case CBW0110:  case CBW1001:               
      f2=jtofxinv;   break;

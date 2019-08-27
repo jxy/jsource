@@ -57,7 +57,7 @@ static F2(jtrotsp){PROLOG(0071);A q,x,y,z;B bx,by;I acr,af,ar,*av,d,k,m,n,p,*qv,
  bx=0; DO(wr-n, if(qv[n+i]){bx=1; break;});
  RZ(x=!bx?ca(SPA(wp,x)):irs2(vec(INT,wr-n,n+qv),SPA(wp,x),0L,1L,-1L,jtrotate));
  if(by){
-  DO(n, if(k=qv[i]){d=s[av[i]]-k; v=i+AV(y); DO(m, *v<k?(*v+=d):(*v-=k); v+=n;);});
+  DO(n, if(k=qv[i]){d=s[av[i]]-k; v=i+AV(y); DQ(m, *v<k?(*v+=d):(*v-=k); v+=n;);});
   RZ(q=grade1(y)); RZ(y=from(q,y)); RZ(x=from(q,x));
  }
  SPB(zp,a,ca(SPA(wp,a))); 
@@ -73,12 +73,14 @@ static F2(jtrotsp){PROLOG(0071);A q,x,y,z;B bx,by;I acr,af,ar,*av,d,k,m,n,p,*qv,
 // m=#cells d=#atoms per item  n=#items per cell
 static void jtrot(J jt,I m,I d,I n,I atomsize,I p,I*av,C*u,C*v){I dk,e,k,j,r,x,y;
  e=n*d*atomsize; dk=d*atomsize; // e=#bytes per cell  dk=bytes per item
- switch((2*(I )!jt->fill)+(I )(1<p)){
-  case 0: r=p?*av:0;     ROF(r); DO(m, if(r<0){mvc(k,v,atomsize,jt->fillv); MC(k+v,u,j);}else{MC(v,j+u,k); mvc(j,k+v,atomsize,jt->fillv);}        u+=e; v+=e;); break;
-  case 1: DO(m, r=av[i]; ROF(r);       if(r<0){mvc(k,v,atomsize,jt->fillv); MC(k+v,u,j);}else{MC(v,j+u,k); mvc(j,k+v,atomsize,jt->fillv);}            u+=e; v+=e;); break;
-  case 2: r=p?*av:0;     ROT(r); DO(m, MC(v,j+u,k); MC(k+v,u,j); u+=e; v+=e;); break;
-  case 3: DO(m, r=av[i]; ROT(r);       MC(v,j+u,k); MC(k+v,u,j); u+=e; v+=e;);
-}}
+ if(jt->fill){
+  if(p<=1){r=p?*av:0;     ROF(r); DQ(m, if(r<0){mvc(k,v,atomsize,jt->fillv); MC(k+v,u,j);}else{MC(v,j+u,k); mvc(j,k+v,atomsize,jt->fillv);}        u+=e; v+=e;);}
+  else{DO(m, r=av[i]; ROF(r);       if(r<0){mvc(k,v,atomsize,jt->fillv); MC(k+v,u,j);}else{MC(v,j+u,k); mvc(j,k+v,atomsize,jt->fillv);}            u+=e; v+=e;);}
+ }else{
+  if(p<=1){r=p?*av:0;     ROT(r); DQ(m, MC(v,j+u,k); MC(k+v,u,j); u+=e; v+=e;);}
+  else{DO(m, r=av[i]; ROT(r);       MC(v,j+u,k); MC(k+v,u,j); u+=e; v+=e;);}
+ }
+}
 
 /* m   # cells
    c   # atoms in each cell
@@ -109,7 +111,7 @@ F2(jtrotate){A y,z;B b;C*u,*v;I acr,af,ar,*av,d,k,m,n,p,*s,wcr,wf,wn,wr;
  if(1<p){
   GA(y,AT(w),wn,wr,s); u=CAV(y); 
   b=0; s+=wf;
-  DO(p-1, m*=n; n=*++s; PROD(d,wr-wf-i-2,s+1); rot(m,d,n,k,1L,av+i+1,b?u:v,b?v:u); b=!b;);  // s has moved past the frame
+  DO(p-1, m*=n; n=*++s; PROD(d,wr-wf-i-2,s+1); rot(m,d,n,k,1L,av+i+1,b?u:v,b?v:u); b^=1;);  // s has moved past the frame
   z=b?y:z;
  } 
  RETF(z);
@@ -126,7 +128,7 @@ static F1(jtrevsp){A a,q,x,y,z;I c,f,k,m,n,r,*v,wr;P*wp,*zp;
  RZ(q=paxis(wr,a)); v=AV(q); DO(wr, if(f==v[i]){k=i; break;});
  if(!r)       RZ(x=ca(x))
  else if(k>=n)RZ(x=irs2(apv(m,m-1,-1L),x,0L,1L,wr-k,jtfrom))
- else         {v=k+AV(y); c=m-1; DO(IC(y), *v=c-*v; v+=n;); q=grade1(y); RZ(y=from(q,y)); RZ(x=from(q,x));}
+ else         {v=k+AV(y); c=m-1; DQ(IC(y), *v=c-*v; v+=n;); q=grade1(y); RZ(y=from(q,y)); RZ(x=from(q,x));}
  SPB(zp,a,ca(a)); 
  SPB(zp,e,ca(SPA(wp,e))); 
  SPB(zp,i,y); 
@@ -143,18 +145,18 @@ F1(jtreverse){A z;C*wv,*zv;I f,k,m,n,nk,r,*v,*ws,wt,wr;
  wt=AT(w); ws=AS(w); wv=CAV(w);
  n=ws[f]; 
  m=1; DO(f, m*=ws[i];);
- k=bpnoun(wt); v=1+f+ws; DO(r-1, k*=*v++;); nk=n*k;
+ k=bpnoun(wt); v=1+f+ws; DQ(r-1, k*=*v++;); nk=n*k;
  GA(z,wt,AN(w),wr,ws); zv=CAV(z);
  switch(k){
-  default:        {C*s=wv-k,*t; DO(m, t=s+=nk; DO(n, MC(zv,t,k); zv+=k; t-=k;););} break;
-  case sizeof(C): {C*s=    wv,*t,*u=    zv; DO(m, t=s+=n; DO(n, *u++=*--t;););} break;
-  case sizeof(S): {S*s=(S*)wv,*t,*u=(S*)zv; DO(m, t=s+=n; DO(n, *u++=*--t;););} break;
+  default:        {C*s=wv-k,*t; DQ(m, t=s+=nk; DQ(n, MC(zv,t,k); zv+=k; t-=k;););} break;
+  case sizeof(C): {C*s=    wv,*t,*u=    zv; DQ(m, t=s+=n; DQ(n, *u++=*--t;););} break;
+  case sizeof(S): {S*s=(S*)wv,*t,*u=(S*)zv; DQ(m, t=s+=n; DQ(n, *u++=*--t;););} break;
 #if SY_64
-  case sizeof(int):{int*s=(int*)wv,*t,*u=(int*)zv; DO(m, t=s+=n; DO(n, *u++=*--t;););} break;
+  case sizeof(int):{int*s=(int*)wv,*t,*u=(int*)zv; DQ(m, t=s+=n; DQ(n, *u++=*--t;););} break;
 #endif
-  case sizeof(I): {I*s=(I*)wv,*t,*u=(I*)zv; DO(m, t=s+=n; DO(n, *u++=*--t;););} break;
+  case sizeof(I): {I*s=(I*)wv,*t,*u=(I*)zv; DQ(m, t=s+=n; DQ(n, *u++=*--t;););} break;
 #if !SY_64 && SY_WIN32
-  case sizeof(D): {D*s=(D*)wv,*t,*u=(D*)zv; DO(m, t=s+=n; DO(n, *u++=*--t;););} break;
+  case sizeof(D): {D*s=(D*)wv,*t,*u=(D*)zv; DQ(m, t=s+=n; DQ(n, *u++=*--t;););} break;
 #endif
  }
  RETF(z);
@@ -185,18 +187,18 @@ static A jtreshapesp(J jt,A a,A w,I wf,I wcr){A a1,e,t,x,y,z;B az,*b,wz;I an,*av
  if(!an)R reshapesp0(a,w,wf,wcr);
  wp=PAV(w); a1=SPA(wp,a); c=AN(a1); RZ(b=bfi(wr,a1,1));  // b=bitmask, length wr, with 1s for each value in a1
  RZ(e=ca(SPA(wp,e))); x=SPA(wp,x); y=SPA(wp,i);
- u=av+an; v=ws+wr; m=0; DO(MIN(an,wcr-1), if(*--u!=*--v){m=1; break;});
- if(m||an<wcr) R reshapesp(a,irs1(w,0L,wcr,jtravel),wf,1L);
+ u=av+an; v=ws+wr; m=0; DQ(MIN(an,wcr-1), if(*--u!=*--v){m=1; break;});
+ if(m||an<wcr) R reshapesp(a,IRS1(w,0L,wcr,jtravel,z),wf,1L);
  ASSERT(!jt->fill,EVDOMAIN);
  GASPARSE(z,AT(w),1,wf+an,ws); MCISH(wf+AS(z),av,an);
  zp=PAV(z); SPB(zp,e,e);  
  GATV0(t,INT,c+d*b[wf],1); v=AV(t); 
- DO(wf, if(b[i])*v++=i;); if(b[wf])DO(d, *v++=wf+i;); j=wf; DO(wcr, if(b[j])*v++=d+j; ++j;);
+ DO(wf, if(b[i])*v++=i;); if(b[wf])DO(d, *v++=wf+i;); j=wf; DQ(wcr, if(b[j])*v++=d+j; ++j;);
  SPB(zp,a,t);
  if(b[wf]){I n,q,r,*v0;   /* sparse */
-  if(wf!=*AV(a1))R rank2ex(a,w,0L,1L,wcr,1L,wcr,jtreshape);
+  if(wf!=*AV(a1))R rank2ex(a,w,0L,MIN(AR(a),1),wcr,MIN(AR(a),1),wcr,jtreshape);
   RE(m=prod(1+d,av)); n=IC(y); if(ws[wf]){q=n*(m/ws[wf]); r=m%ws[wf];} else {q=0; r=0;}
-  v=AV(y); DO(n, if(r<=*v)break; ++q; v+=c;);
+  v=AV(y); DQ(n, if(r<=*v)break; ++q; v+=c;);
   GATV0(t,INT,q,1); u=AV(t); v=v0=AV(y);
   m=j=0; DO(q, u[i]=m+*v; v+=c; ++j; if(j==n){j=0; v=v0; m+=ws[wf];});
   SPB(zp,i,stitch(abase2(vec(INT,1+d,av),t),reitem(sc(q),dropr(1L,y))));
@@ -214,7 +216,7 @@ F2(jtreshape){A z;B filling;C*wv,*zv;I acr,ar,c,k,m,n,p,q,r,*s,t,* RESTRICT u,wc
  RZ(a&&w);
  ar=AR(a); acr=jt->ranks>>RANKTX; acr=ar<acr?ar:acr;
  wr=AR(w); wcr=(RANKT)jt->ranks; wcr=wr<wcr?wr:wcr; wf=wr-wcr; ws=AS(w); RESETRANK;
- if((I )(1<acr)|(I )(acr<ar))R rank2ex(a,w,0L,1,RMAX,acr,wcr,jtreshape);
+ if((I )(1<acr)|(I )(acr<ar))R rank2ex(a,w,0L,MIN(acr,1),wcr,acr,wcr,jtreshape);
  // now a is an atom or a list.  w can have any rank
  RZ(a=vip(a)); r=AN(a); u=AV(a);   // r=length of a   u->values of a
  if(SPARSE&AT(w)){RETF(reshapesp(a,w,wf,wcr));}
@@ -225,13 +227,13 @@ F2(jtreshape){A z;B filling;C*wv,*zv;I acr,ar,c,k,m,n,p,q,r,*s,t,* RESTRICT u,wc
   if(c==1) {  // if there is only 1 cell of w...
    // If no fill required, we can probably use a virtual result, or maybe even an inplace one.  Check for inplace first.  Mustn't inplace an indirect that shortens the data,
    // because then who would free the blocks?  (Actually it would be OK if nonrecursive, but we are trying to exterminate those)
-   if((I)jtinplace&JTINPLACEW && (m==n||t&DIRECT) && r<=wcr && ASGNINPLACE(w)){  //  inplace allowed, just one cell, result rank (an) <= current rank (so rank fits), usecount is right
+   if(ASGNINPLACESGN(SGNIF((I)jtinplace,JTINPLACEWX)&(r-(wcr+1))&((n-(m+1))|-(t&DIRECT)),w)){  //  inplace allowed, just one cell, result rank (an) <= current rank (so rank fits), usecount is right
     // operation is loosely inplaceable.  Copy in the rank, shape, and atom count.
     AR(w)=(RANKT)(r+wf); AN(w)=m; ws+=wf; MCISH(ws,u,r) RETF(w);   // Start the copy after the (unchanged) frame
    }
    // Not inplaceable.  Create a (noninplace) virtual copy, but not if NJA memory
 // correct   if(!(AFLAG(w)&(AFNJA))){RZ(z=virtual(w,0,r+wf)); AN(z)=m; I *zs=AS(z); DO(wf, *zs++=ws[i];); DO(r, zs[i]=u[i];) RETF(z);}
-   if(((-(AFLAG(w)&(AFNJA)))|((t&(DIRECT|RECURSIBLE))-1))>=0){RZ(z=virtual(w,0,r+wf)); AN(z)=m; I * RESTRICT zs=AS(z); MCISH(zs,ws,wf) MCISH(zs+wf,u,r) RETF(z);}
+   if((SGNIF(AFLAG(w),AFNJAX)|((t&(DIRECT|RECURSIBLE))-1))>=0){RZ(z=virtual(w,0,r+wf)); AN(z)=m; I * RESTRICT zs=AS(z); MCISH(zs,ws,wf) MCISH(zs+wf,u,r) RETF(z);}
    // for NJA/SMM, fall through to nonvirtual code
   }
  }else if(filling=jt->fill!=0){RZ(w=setfv(w,w)); t=AT(w);}   // if fill required, set fill value.  Remember if we need to fill
@@ -240,17 +242,17 @@ F2(jtreshape){A z;B filling;C*wv,*zv;I acr,ar,c,k,m,n,p,q,r,*s,t,* RESTRICT u,wc
  GA(z,t,zn,r+wf,0); s=AS(z); MCISH(s,ws,wf); MCISH(s+wf,u,r);
  if(!zn)R z;
  zv=CAV(z); wv=CAV(w); 
- if(filling)DO(c, mvc(q,zv,q,wv); mvc(p-q,q+zv,k,jt->fillv); zv+=p; wv+=q;)
- else DO(c, mvc(p,zv,q,wv); zv+=p; wv+=q;);
+ if(filling)DQ(c, mvc(q,zv,q,wv); mvc(p-q,q+zv,k,jt->fillv); zv+=p; wv+=q;)
+ else DQ(c, mvc(p,zv,q,wv); zv+=p; wv+=q;);
  RETF(z);
 }    /* a ($,)"r w */
 
-F2(jtreitem){A y;I acr,an,ar,r,*v,wcr,wr;
+F2(jtreitem){A y,z;I acr,an,ar,r,*v,wcr,wr;
  F2PREFIP;
  RZ(a&&w);
  ar=AR(a); acr=jt->ranks>>RANKTX; acr=ar<acr?ar:acr;
  wr=AR(w); wcr=(RANKT)jt->ranks; wcr=wr<wcr?wr:wcr; r=wcr-1; RESETRANK;
- if((I )(1<acr)|(I )(acr<ar))R rank2ex(a,w,0L,1,RMAX,acr,wcr,jtreitem);  // We handle only single operations here, where a has rank<2
+ if((I )(1<acr)|(I )(acr<ar))R rank2ex(a,w,0L,MIN(acr,1),wcr,acr,wcr,jtreitem);  // We handle only single operations here, where a has rank<2
  // acr<=ar; ar<=acr; therefore ar==acr here
  fauxblockINT(yfaux,4,1);
  if(1>=wcr)y=a;  // y is atom or list: $ is the same as ($,)
@@ -259,51 +261,24 @@ F2(jtreitem){A y;I acr,an,ar,r,*v,wcr,wr;
   fauxINT(y,yfaux,an+r,1) v=AV(y);
   MCISH(v,AV(a),an); MCISH(v+an,AS(w)+wr-r,r);
  }
- R wr==wcr?jtreshape(jtinplace,y,w):irs2(y,w,0L,acr,wcr,jtreshape);
+ R wr==wcr?jtreshape(jtinplace,y,w):IRS2(y,w,0L,acr,wcr,jtreshape,z);  // Since a has no frame, we dont have to check agreement
 }    /* a $"r w */
 
-#if SY_64
 #define EXPAND(T)  \
   {T*u=(T*)wv,*v=(T*)zv,x;                                                \
    mvc(sizeof(T),&x,k,jt->fillv);                                         \
-   DO(an, if(*av++){ASSERT(wx>(C*)u,EVLENGTH); *v++=*u++;}else *v++=x;);  \
-   wv=(C*)u;                                                              \
+   DQ(an, I abit=*av++; T *uv=abit?u:&x; *v++=*uv; u+=abit;);  \
   }
-#else
-#define EXPAND(T)  \
-  {T*u=(T*)wv,*v=(T*)zv,x;                                                                       \
-   mvc(sizeof(T),&x,k,jt->fillv);                                                                \
-   for(i=0;i<q;++i)switch(*au++){                                                                \
-    case B0000:                              *v++=x;    *v++=x;    *v++=x;    *v++=x;    break;  \
-    case B0001: ASSERT(wx>  (C*)u,EVLENGTH); *v++=x;    *v++=x;    *v++=x;    *v++=*u++; break;  \
-    case B0010: ASSERT(wx>  (C*)u,EVLENGTH); *v++=x;    *v++=x;    *v++=*u++; *v++=x;    break;  \
-    case B0011: ASSERT(wx>1+(C*)u,EVLENGTH); *v++=x;    *v++=x;    *v++=*u++; *v++=*u++; break;  \
-    case B0100: ASSERT(wx>  (C*)u,EVLENGTH); *v++=x;    *v++=*u++; *v++=x;    *v++=x;    break;  \
-    case B0101: ASSERT(wx>1+(C*)u,EVLENGTH); *v++=x;    *v++=*u++; *v++=x;    *v++=*u++; break;  \
-    case B0110: ASSERT(wx>1+(C*)u,EVLENGTH); *v++=x;    *v++=*u++; *v++=*u++; *v++=x;    break;  \
-    case B0111: ASSERT(wx>2+(C*)u,EVLENGTH); *v++=x;    *v++=*u++; *v++=*u++; *v++=*u++; break;  \
-    case B1000: ASSERT(wx>  (C*)u,EVLENGTH); *v++=*u++; *v++=x;    *v++=x;    *v++=x;    break;  \
-    case B1001: ASSERT(wx>1+(C*)u,EVLENGTH); *v++=*u++; *v++=x;    *v++=x;    *v++=*u++; break;  \
-    case B1010: ASSERT(wx>1+(C*)u,EVLENGTH); *v++=*u++; *v++=x;    *v++=*u++; *v++=x;    break;  \
-    case B1011: ASSERT(wx>2+(C*)u,EVLENGTH); *v++=*u++; *v++=x;    *v++=*u++; *v++=*u++; break;  \
-    case B1100: ASSERT(wx>1+(C*)u,EVLENGTH); *v++=*u++; *v++=*u++; *v++=x;    *v++=x;    break;  \
-    case B1101: ASSERT(wx>2+(C*)u,EVLENGTH); *v++=*u++; *v++=*u++; *v++=x;    *v++=*u++; break;  \
-    case B1110: ASSERT(wx>2+(C*)u,EVLENGTH); *v++=*u++; *v++=*u++; *v++=*u++; *v++=x;    break;  \
-    case B1111: ASSERT(wx>3+(C*)u,EVLENGTH); *v++=*u++; *v++=*u++; *v++=*u++; *v++=*u++; break;  \
-   }                                                                                             \
-   if(r){av=(B*)au; DO(r, if(*av++){ASSERT(wx>(C*)u,EVLENGTH); *v++=*u++;}else *v++=x;);}        \
-   wv=(C*)u;                                                                                     \
-  }
-#endif
 
-F2(jtexpand){A z;B*av;C*wv,*wx,*zv;I an,*au,i,k,p,q,r,wc,wk,wn,wt,zn;
+F2(jtexpand){A z;B*av;C*wv,*wx,*zv;I an,*au,i,k,p,wc,wk,wn,wt,zn;
  RZ(a&&w);
  if(!(B01&AT(a)))RZ(a=cvt(B01,a));
  ASSERT(1==AR(a),EVRANK);
  RZ(w=setfv(w,w)); 
- if(!AR(w))R from(a,take(num[-2],w));
- av=BAV(a); an=AN(a); q=an>>LGSZI; r=an&(SZI-1); au=(I*)av;
- wv=CAV(w); wn=AN(w); wc=aii(w); wt=AT(w); k=bpnoun(wt); wk=k*wc; wx=wv+wk**AS(w);
+ if(!AR(w))R from(a,take(num[-2],w));  // atomic w, use a { _2 {. w
+ av=BAV(a); an=AN(a); au=(I*)av;
+ ASSERT(bsum(an,av)==AS(w)[0],EVLENGTH);  // each item of w must be used exactly once
+ wv=CAV(w); wn=AN(w); wc=aii(w); wt=AT(w); k=bpnoun(wt); wk=k*wc; wx=wv+wk*AS(w)[0];  // k=bytes/atom, wk=bytes/item, wx=end+1 of area
  RE(zn=mult(an,wc));
  GA(z,wt,zn,AR(w),AS(w)); AS(z)[0]=an; zv=CAV(z);
  switch(wk){
@@ -314,13 +289,12 @@ F2(jtexpand){A z;B*av;C*wv,*wx,*zv;I an,*au,i,k,p,q,r,wc,wk,wn,wt,zn;
 #endif
   case sizeof(I): EXPAND(I); break;
   default:  
-   mvc(k*zn,zv,k,jt->fillv); 
+   mvc(k*zn,zv,k,jt->fillv); // here we are trying to minimize calls to MC
    for(i=p=0;i<an;++i)
     if(*av++)p+=wk; 
-    else{if(p){ASSERT(wx>=wv+p,EVLENGTH); MC(zv,wv,p); wv+=p; zv+=p; p=0;} zv+=wk;}
-   if(p){ASSERT(wx>=wv+p,EVLENGTH); MC(zv,wv,p); wv+=p;}
+    else{if(p){MC(zv,wv,p); wv+=p; zv+=p; p=0;} zv+=wk;}
+   if(p){MC(zv,wv,p);}
  }
- ASSERT(wx==wv,EVLENGTH);
  RETF(z);
 }    /* a&#^:_1 w or a&#^:_1!.f w */
 

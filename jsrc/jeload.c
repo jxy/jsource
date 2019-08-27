@@ -56,7 +56,34 @@ static int AVX=0;
 static int AVX=1;
 #endif
 #ifdef ANDROID
+#include <sys/system_properties.h>
+#include <android/log.h>
 static char install[PLEN];
+
+#if __ANDROID_API__ >= 21
+// Android 'L' makes __system_property_get a non-global symbol.
+// Here we provide a stub which loads the symbol from libc via dlsym.
+typedef int (*PFN_SYSTEM_PROP_GET)(const char *, char *);
+static int _system_property_get(const char* name, char* value)
+{
+    static PFN_SYSTEM_PROP_GET _real_system_property_get = NULL;
+    if (!_real_system_property_get) {
+        // libc.so should already be open, get a handle to it.
+        void *handle = dlopen("libc.so", RTLD_NOLOAD);
+        if (!handle) {
+            __android_log_print(ANDROID_LOG_ERROR, "foobar", "Cannot dlopen libc.so: %s.\n", dlerror());
+        } else {
+            _real_system_property_get = (PFN_SYSTEM_PROP_GET)dlsym(handle, "__system_property_get");
+        }
+        if (!_real_system_property_get) {
+            __android_log_print(ANDROID_LOG_ERROR, "foobar", "Cannot resolve __system_property_get(): %s.\n", dlerror());
+        }
+    }
+    return (*_real_system_property_get)(name, value);
+}
+#else
+#define _system_property_get __system_property_get
+#endif
 #endif
 
 int jedo(char* sentence)
@@ -104,12 +131,7 @@ void jepath(char* arg,char* lib,int forceavx)
  *(wcsrchr(wpath, '\\')) = 0;
  WideCharToMultiByte(CP_UTF8,0,wpath,1+(int)wcslen(wpath),path,PLEN,0,0);
 #if SY_64
- char *jeavx=getenv("JEAVX");
- if (forceavx==1) AVX=1;       // force enable avx
- else if (forceavx==2) AVX=0;  // force disable avx
- else if (jeavx&&!strcasecmp(jeavx,"avx")) AVX=1;
- else if (jeavx&&!strcasecmp(jeavx,"noavx")) AVX=0;
- else { // auto detect
+ { // auto detect
 #if 0
 //  AVX= 0!=(0x4UL & GetEnabledXStateFeatures());
 // above line not worked for pre WIN7 SP1
@@ -130,14 +152,18 @@ void jepath(char* arg,char* lib,int forceavx)
 #endif
 #elif defined(ANDROID)
 #define AndroidPackage "com.jsoftware.j.android"
- struct stat st; int qsdcard; char tmp[PLEN];
+ struct stat st; char tmp[PLEN];
  strcpy(path,"/data/data/");
  strcat(path,AndroidPackage);
  strcpy(pathdll,path);
  strcat(pathdll,"/lib/");
- strcat(pathdll,(AVX)?JDLLNAME:JNONAVXDLLNAME);
- if(stat(pathdll,&st)){ /* android 5 or newer */
-#if defined(__aarch64__)
+ strcat(pathdll,JDLLNAME);
+ if(stat(path,&st)){ /* android 5 or newer */
+ strcpy(path,"/data/user/0/");
+ strcat(path,AndroidPackage);
+ }
+ if(stat(pathdll,&st)){ /* android 4 or newer */
+#if defined(__aarch64__)||defined(_M_ARM64)
 #define arch "arm64"
 #elif defined(__x86_64__)
 #define arch "x86_64"
@@ -147,20 +173,29 @@ void jepath(char* arg,char* lib,int forceavx)
 #define arch "arm"
 #endif
  int i;
- for(i=0;i<10;i++){
+ for(i=0;i<20;i++){
   if(i)
-   sprintf(pathdll,"/data/app/%s-%d/lib/%s/%s",AndroidPackage,i,arch,(AVX)?JDLLNAME:JNONAVXDLLNAME);
+   sprintf(pathdll,"/data/app/%s-%d/lib/%s/%s",AndroidPackage,i,arch,JDLLNAME);
   else
-   sprintf(pathdll,"/data/app/%s/lib/%s/%s",AndroidPackage,arch,(AVX)?JDLLNAME:JNONAVXDLLNAME);
+   sprintf(pathdll,"/data/app/%s/lib/%s/%s",AndroidPackage,arch,JDLLNAME);
+  if(!stat(pathdll,&st))break;
+  if(i)
+   sprintf(pathdll,"/data/app-lib/%s-%d/%s",AndroidPackage,i,JDLLNAME);
+  else
+   sprintf(pathdll,"/data/app-lib/%s/%s",AndroidPackage,JDLLNAME);
+  if(!stat(pathdll,&st))break;
+  if(i)
+   sprintf(pathdll,"/mnt/asec/%s-%d/lib/%s",AndroidPackage,i,JDLLNAME);
+  else
+   sprintf(pathdll,"/mnt/asec/%s/lib/%s",AndroidPackage,JDLLNAME);
   if(!stat(pathdll,&st))break;
  }
  }
- strcpy(tmp, "/sdcard/Android/data");
- qsdcard=stat(tmp,&st);
- strcpy(install,(qsdcard)?"/storage/emulated/0/Android/data/":"/sdcard/Android/data/");
+ strcpy(tmp, "/mnt/sdcard/Android/data");
+ strcpy(install,(stat(tmp,&st))?((stat(tmp+4,&st))?"/storage/emulated/0/Android/data/":"/sdcard/Android/data/"):"/mnt/sdcard/Android/data/");
  strcat(install,AndroidPackage);
  strcat(install,"/files");
- setenv("HOME",(qsdcard)?"/storage/emulated/0":"/sdcard",1);
+ setenv("HOME",install,1);
  if(!getenv("TMPDIR")) {
   strcpy(tmp, path);
   strcat(tmp, "/app_jandroid/tmp");
@@ -185,12 +220,7 @@ void jepath(char* arg,char* lib,int forceavx)
 #if defined(__x86_64__)
 // http://en.wikipedia.org/wiki/Advanced_Vector_Extensions
 // Linux: supported since kernel version 2.6.30 released on June 9, 2009.
- char *jeavx=getenv("JEAVX");
- if (forceavx==1) AVX=1;       // force enable avx
- else if (forceavx==2) AVX=0;  // force disable avx
- else if (jeavx&&!strcasecmp(jeavx,"avx")) AVX=1;
- else if (jeavx&&!strcasecmp(jeavx,"noavx")) AVX=0;
- else { // auto detect by uname -r
+ { // auto detect by uname -r
 #if 0
  struct utsname unm;
  if (!uname(&unm) &&
@@ -311,6 +341,16 @@ int jefirst(int type,char* arg)
 	strcat(input,"[ARGV_z_=:");
 	strcat(input,arg);
 #ifdef ANDROID
+  char propval[PROP_VALUE_MAX+1];
+  if (_system_property_get("ro.build.version.sdk", propval)){
+	strcat(input,"[APILEVEL_ja_=:");
+	strcat(input,propval);
+  }
+  if (_system_property_get("ro.build.version.release", propval)){
+	strcat(input,"[OSRELEASE_ja_=:'");
+	strcat(input,propval);
+	strcat(input,"'");
+  }
 	strcat(input,"[UNAME_z_=:'Android'");
 	strcat(input,"[INSTALLROOT_z_=:'");
 	strcat(input,install);

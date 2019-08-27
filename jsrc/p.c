@@ -23,7 +23,7 @@
 /* and pop stuff off the stack back to that top on exit       */
 /*                                                                      */
 // The nvr stack contains pointers to values, added as names are moved
-// from the queue to the stack. 
+// from the queue to the stack.  Local values are not pushed.
 
 B jtparseinit(J jt){A x;
  GAT0(x,INT,20,1); ras(x); jt->nvra=x; jt->nvrav=AAV(x); jt->nvran=(UI4)AN(x);  // Initial stack.  Size is doubled as needed
@@ -37,8 +37,8 @@ B jtparseinit(J jt){A x;
 I jtnotonupperstack(J jt, A w) {
   // w is known nonzero
   // see if name was stacked (for the first time) in this very sentence
-  A *v=jt->nvrotop+jt->nvrav;  // point to current-sentence region of the nvr area
-  DO(jt->nvrtop-jt->nvrotop, if(*v==w)R 1; ++v;);   // if name stacked in this sentence, that's OK
+  A *v=jt->parserstackframe.nvrotop+jt->nvrav;  // point to current-sentence region of the nvr area
+  DQ(jt->parserstackframe.nvrtop-jt->parserstackframe.nvrotop, if(*v==w)R 1; ++v;);   // if name stacked in this sentence, that's OK
   // see if name was not stacked at all
   R !(AFLAG(w)&AFNVR);   // return OK if name not stacked (rare, because if it wasn't stacked in the current sentence why would we think we can inplace it?)
 }
@@ -110,24 +110,21 @@ static UI4 ptcol[] = {
 #define PTFROMTYPE(z,t) {I pt=CTTZ(t); pt-=LASTNOUNX; pt=pt<0?0:pt; z=ptcol[pt];}
 #define PTFROMTYPEASGN(z,t) {I pt=CTTZ(t); pt-=LASTNOUNX; pt=pt<0?0:pt; pt=ptcol[pt]; pt=((t)&CONW)?PTASGNNAME:pt; z=(UI4)pt;}  // clear flag bit if ASGN to name
 
-static PSTK* jtpfork(J jt,A s1, A s2, A s3){
- PSTK* stack=jt->parserstkend1;  // extract the stack base (completes while the fork is running)
- A y=folk(s1,s2,s3);  // create the fork
+static PSTK* jtpfork(J jt,PSTK *stack){
+ A y=folk(stack[1].a,stack[2].a,stack[3].a);  // create the fork
  RZ(y);  // if error, return 0 stackpointer
  stack[3].t = stack[1].t; stack[3].a = y;  // take err tok from f; save result; no need to set parsertype, since it didn't change
  stack[2]=stack[0]; R stack+2;  // close up stack & return
 }
 
-static PSTK* jtphook(J jt,A s1, A s2){
- PSTK* stack=jt->parserstkend1;  // extract the stack base
- A y=hook(s1,s2);  // create the hook
+static PSTK* jtphook(J jt,PSTK *stack){
+ A y=hook(stack[1].a,stack[2].a);  // create the hook
  RZ(y);  // if error, return 0 stackpointer
- PTFROMTYPE(stack[2].pt,AT(y)) stack[2].t = stack[1].t; stack[2].a = y;  // take err tok from f; save result; no need to set parsertype, since it didn't change
+ PTFROMTYPE(stack[2].pt,AT(y)) stack[2].t = stack[1].t; stack[2].a = y;  // take err tok from f; save result
  stack[1]=stack[0]; R stack+1;  // close up stack & return
 }
 
-static PSTK* jtpparen(J jt, A s1, A s2){
- PSTK* stack=jt->parserstkend1;  // extract the stack base
+static PSTK* jtpparen(J jt,PSTK *stack){
  ASSERT(PTISCAVN(stack[1])&&PTISRPAR(stack[2]),EVSYNTAX);  // if error, signal so with 0 stack.  Look only at pt since MARK doesn't have an a
  stack[2].pt=stack[1].pt; stack[2].t=stack[0].t; stack[2].a = stack[1].a;  //  Install result over ).  Use value from expr, token # from (
  R stack+2;  // advance stack pointer to result
@@ -135,22 +132,23 @@ static PSTK* jtpparen(J jt, A s1, A s2){
 
 static F2(jtisf){RZ(symbis(onm(a),CALL1(jt->pre,w,0L),jt->symb)); R num[0];} 
 
-static PSTK* jtis(J jt,A s1,A v,A n){A f;B ger=0;C c,*s;PSTK* stack=jt->parserstkend1; 
- if(stack[0].t==1)jt->asgn = 1;  // if the word number of the lhs is 1, it's either (noun)=: or name=: or 'value'=: at the beginning of the line; so indicate
- if(jt->assignsym){symbis(n,v,(A)AT(s1));}   // Assign to the known name.  Pass in the type of the ASGN
+static PSTK* jtis(J jt,PSTK *stack){B ger=0;C *s;
+  A asgblk=stack[1].a; I asgt=AT(asgblk); A v=stack[2].a, n=stack[0].a;  // value and name
+ jt->asgn = stack[0].t==1;  // if the word number of the lhs is 1, it's either (noun)=: or name=: or 'value'=: at the beginning of the line; so indicate
+ if(jt->assignsym){symbis(n,v,(A)asgt);}   // Assign to the known name.  Pass in the type of the ASGN
  else {
   // Point to the block for the assignment; fetch the assignment pseudochar (=. or =:); choose the starting symbol table
   // depending on which type of assignment (but if there is no local symbol table, always use the global)
-  f=stack[1].a; c=*CAV(f); A symtab=jt->local&&c==CASGN?jt->local:jt->global;
-  if((AT(n)&BOX+BOXMULTIASSIGN)==BOX+BOXMULTIASSIGN){
+  A symtab=jt->locsyms; if(!(asgt&ASGNLOCAL)||AN(jt->locsyms)==1)symtab=jt->global;
+  if(AT(n)&BOXMULTIASSIGN){
    // string assignment, where the NAME blocks have already been computed.  Use them.  The fast case is where we are assigning a boxed list
-   if(AN(n)==1)n=AAV(n)[0];  // if there is only 1 name, treat this like simple assignment, fall through
+   if(AN(n)==1)n=AAV(n)[0];  // if there is only 1 name, treat this like simple assignment to first box, fall through
    else{
     // True multiple assignment
-    ASSERT(!AR(v)||AN(n)==AS(v)[0],EVLENGTH);
-    if(AR(v)==1&&AT(v)&BOX){A *nv=AAV(n), *vv=AAV(v); DO(AN(n), symbis(nv[i],vv[i],symtab);)}  // boxed list
-    else {A *nv=AAV(n); DO(AN(n), symbis(nv[i],ope(AR(v)?from(sc(i),v):v),symtab);)}
-    RNE(stack+2);
+    ASSERT(!AR(v)||AN(n)==AS(v)[0],EVLENGTH);   // v is atom, or length matches n
+    if(((AR(v)^1)+(~AT(v)&BOX))==0){A *nv=AAV(n), *vv=AAV(v); DO(AN(n), symbis(nv[i],vv[i],symtab);)}  // v is boxed list
+    else {A *nv=AAV(n); DO(AN(n), symbis(nv[i],ope(AR(v)?from(sc(i),v):v),symtab);)}  // repeat atomic v for each name, otherwise select item.  Open in either case
+    goto retstack;
    }
   }
   if(LIT&AT(n)&&1>=AR(n)){
@@ -181,9 +179,10 @@ static PSTK* jtis(J jt,A s1,A v,A n){A f;B ger=0;C c,*s;PSTK* stack=jt->parserst
   // Verify rank 1.  For each lhs-rhs pair, do the assignment (in jtisf).
   // if it is AR assignment, apply jtfxx to each assignand, to convert AR to internal form
   // if not AR assignment, just open each box of rhs and assign
-  else {ASSERT(1==AR(n),EVRANK); ASSERT(AT(v)&NOUN,EVDOMAIN); jt->symb=symtab; jt->pre=ger?jtfxx:jtope; rank2ex(n,v,0L,-1L,-1L,RMAX,RMAX,jtisf);}
+  else {ASSERT(1==AR(n),EVRANK); ASSERT(AT(v)&NOUN,EVDOMAIN); jt->symb=symtab; jt->pre=ger?jtfxx:jtope; rank2ex(n,v,0L,0,AR(v)-1<0?0:AR(v)-1,0,AR(v)-1<0?0:AR(v)-1,jtisf);}
  }
- RNE(stack+2);  // the result is the same value that was assigned
+retstack:  // return, but 0 if error
+ stack+=2; stack=jt->jerr?0:stack; R stack;  // the result is the same value that was assigned
 }
 
 static PSTK * (*(lines58[]))() = {jtpfork,jtphook,jtis,jtpparen};  // handlers for parse lines 5-8
@@ -229,11 +228,9 @@ void auditblock(A w, I nonrecurok, I virtok) {
 F1(jtparse){A z;
  RZ(w);
  A *queue=AAV(w); I m=AN(w);   // addr and length of sentence
- A *savqueue = jt->parserqueue; I4 savqueuelen = jt->parserqueuelen;  // Push error info separate from debug stack, for speed
  RZ(deba(DCPARSE,queue,(A)m,0L));  // We don't need a new stack frame if there is one already and debug is off
  z=parsea(queue,m);
  debz();
- jt->parserqueue = savqueue; jt->parserqueuelen = savqueuelen;  // restore error info for the caller
  R z;
 }
 
@@ -285,9 +282,9 @@ static A virthook(J jtip, A f, A g){
 #define jthook virthook
 #endif
 
-#define FP {stack = 0; goto exitparse;}   // indicate parse failure
+#define FP goto failparse;   // indicate parse failure and exit
 #define EP goto exitparse;   // exit parser, preserving current status
-#define EPZ(x) if(!(x)){stack=0;EP}   // exit parser if x==0
+#define EPZ(x) if(!(x)){FP}   // exit parser if x==0
 
 #if 0  // keep for commentary
 // In-place operations
@@ -402,12 +399,13 @@ static A virthook(J jtip, A f, A g){
 // Closing up the stack
 #define SM(to,from) stack[to]=stack[from]
 #endif
+A* jtextnvr(J jt){ASSERT(jt->parserstackframe.nvrtop<32000,EVLIMIT); RZ(jt->nvra = ext(1, jt->nvra)); jt->nvran=(UI4)AN(jt->nvra); jt->nvrav = AAV(jt->nvra); R jt->nvrav;}
 
 #define BACKMARKS 3   // amount of space to leave for marks at the end.  Because we stack 3 words before we start to parse, we will
  // never see 4 marks on the stack - the most we can have is 1 value + 3 marks.
 #define FRONTMARKS 1  // amount of space to leave for front-of-string mark
 // Parse a J sentence.  Input is the queue of tokens
-A jtparsea(J jt, A *queue, I m){PSTK *stack;A z,*v;I es; UI4 maxnvrlen;
+A jtparsea(J jt, A *queue, I m){PSTK *stack;A z,*v;I es;
 
  // This routine has two global responsibilities in addition to parsing.  jt->asgn must be set to 1
  // if the last thing is an assignment, and since this flag is cleared during execution (by ". and
@@ -417,34 +415,30 @@ A jtparsea(J jt, A *queue, I m){PSTK *stack;A z,*v;I es; UI4 maxnvrlen;
  // jt->parsercurrtok must be set before executing anything that might fail; it holds the original
  // word number+1 of the token that failed.  jt->parsercurrtok is set before dispatching an action routine,
  // so that the information is available for formatting an error display
-  PSTK *oend1=jt->parserstkend1;  // We have to push the stack-top so that repeated calls to parse don't grow the stack down
+  // Save info for error typeout.  We save sentence info once, and token info for every executed fragment
+ PFRAME oframe=jt->parserstackframe;   // save all the stack status
+ jt->parserstackframe.parserqueue=queue; jt->parserstackframe.parserqueuelen=(US)m;  // addr & length of words being parsed
+ jt->asgn = 0;
+ if(m>1) {  // normal case where there is a fragment to parse
   // allocate the stack.  No need to initialize it, except for the marks at the end, because we
   // never look at a stack location until we have moved from the queue to that position.
   // Each word gets two stack locations: first is the word itself, second the original word number+1
   // to use if there is an error on the word
   // If there is a stack inherited from the previous parse, and it is big enough to hold our queue, just use that.
   // The stack grows down
-  if((uintptr_t)jt->parserstkend1-(uintptr_t)jt->parserstkbgn >= (m+BACKMARKS+FRONTMARKS)*sizeof(PSTK))stack=jt->parserstkend1-BACKMARKS;   // if we can use the previous allocation, start at the end, with 3 marks
-  else{A y;  // this is the alternative, much less likely, branch
-    PSTK *obgn=jt->parserstkbgn;  // push the parser stack.  The only reason to stack the bgn pointer is so when we return to console level the stack shows empty
-    I allo = MAX((m+BACKMARKS+FRONTMARKS)*sizeof(PSTK),PARSERSTKALLO); // number of bytes to allocate.  Allow 4 marks: 1 at beginning, 3 at end
-    GATV0(y,B01,allo,1);
-    jt->parserstkbgn=(PSTK*)AV(y);   // save start of data area
-    // must guarantee stack stays aligned to size boundary; & that SM doesn't use 32-B instructions to copy 2 at a time
-     // We are taking advantage of the fact the NORMAH is 7, and thus a rank-1 array is aligned on a boundary of its size
-    jt->parserstkend1=(PSTK*)((uintptr_t)jt->parserstkbgn+allo);  // point to the end+1 of the allocation
-    y=parsea(queue,m);  // recur to use the new stack
-    jt->parserstkbgn=obgn, jt->parserstkend1=oend1;  // pop the parser stack
-    R y;
+  if((uintptr_t)jt->parserstackframe.parserstkend1-(uintptr_t)jt->parserstackframe.parserstkbgn < (m+BACKMARKS+FRONTMARKS)*sizeof(PSTK)){A y;   // we hope this gets predicted right - should branch
+   ASSERT(m<65000,EVLIMIT);  // To keep the stack frame small, we limit the length of a sentence
+   I allo = MAX((m+BACKMARKS+FRONTMARKS)*sizeof(PSTK),PARSERSTKALLO); // number of bytes to allocate.  Allow 4 marks: 1 at beginning, 3 at end
+   GATV0(y,B01,allo,1);
+   jt->parserstackframe.parserstkbgn=(PSTK*)AV(y);   // save start of data area
+   // We are taking advantage of the fact the NORMAH is 7, and thus a rank-1 array is aligned on a boundary of its size
+   jt->parserstackframe.parserstkend1=(PSTK*)((uintptr_t)jt->parserstackframe.parserstkbgn+allo);  // point to the end+1 of the allocation
+   // We could worry about hysteresis to avoid reallocation of every call
   }
-
- // Save info for error typeout.  We save sentence info once, and token info for every executed fragment
- jt->parserqueue=queue; jt->parserqueuelen=(I4)m;  // addr & length of words being parsed
- jt->asgn = 0;
- if(m>1) {  // normal case where there is a fragment to parse
+  stack=jt->parserstackframe.parserstkend1-BACKMARKS;   // start at the end, with 3 marks
 
   ++jt->parsercalls;  // now we are committed to full parse.  Push stacks.
-  UI4 ootop=jt->nvrotop; jt->nvrotop=jt->nvrtop; // push top 2 levels of NVR stack
+  I nvrotop=jt->parserstackframe.nvrotop=jt->parserstackframe.nvrtop;  // we have to keep the next-to-top nvr value visible for a subroutine.  It remains as we advance nvrtop.  Save in a local too for comp ease
 
   // We don't actually put a mark in the queue at the beginning.  When m goes down to 0, we move in a mark.
 
@@ -454,13 +448,15 @@ A jtparsea(J jt, A *queue, I m){PSTK *stack;A z,*v;I es; UI4 maxnvrlen;
   // make sure there is that much space.  BUT if there were an enormous tacit sentence, that would be
   // very inefficient.  So, if the sentence is too long, we go through and count the number of names,
   // rather than using a poor upper bound.
-  if (m < 128)maxnvrlen = (UI4)m;   // if short enough, assume they're all names
-  else {
-   maxnvrlen = 0;
-   DQ(m, if(NAME&AT(queue[i]))++maxnvrlen;)
+  {UI4 maxnvrlen;
+   if (m < 128)maxnvrlen = (UI4)m;   // if short enough, assume they're all names
+   else {
+    maxnvrlen = 0;
+    DQ(m, maxnvrlen+=(AT(queue[i])>>NAMEX)&1;)
+   }
+   // extend the nvr stack, doubling its size each time, till it can hold our names.  Don't let it get too big.  This code duplicated in 4!:55
+   while((jt->parserstackframe.nvrtop+maxnvrlen) > jt->nvran)RZ(extnvr());
   }
-  // extend the nvr stack, doubling its size each time, till it can hold our names
-  while((jt->nvrtop+maxnvrlen) > jt->nvran){RZ(jt->nvra = ext(1, jt->nvra)); jt->nvrav = AAV(jt->nvra); jt->nvran=(UI4)AN(jt->nvra);}
 
   // We have the initial stack pointer.  Grow the stack down from there
   stack[0].pt = stack[1].pt = stack[2].pt = PTMARK;  // install initial ending marks.  word numbers and value pointers are unused
@@ -471,6 +467,7 @@ A jtparsea(J jt, A *queue, I m){PSTK *stack;A z,*v;I es; UI4 maxnvrlen;
   // DO NOT RETURN from inside the parser loop.  Stacks must be processed.
 
   while(1){  // till no more matches possible...
+    UI4 stack0pt;  // will hold the EDGE+AVN value, which doesn't change much and is stored late
 
     // no executable fragment, pull from the queue.  If we pull ')', there is no way we can execute
     // anything till 2 more words have been pulled, so we pull them here to avoid parse overhead.
@@ -493,57 +490,86 @@ A jtparsea(J jt, A *queue, I m){PSTK *stack;A z,*v;I es; UI4 maxnvrlen;
        // Resolve the name.  If the name is x. m. u. etc, always resolve the name to its current value;
        // otherwise resolve nouns to values, and others to 'name~' references
        // To save some overhead, we inline this and do the analysis in a different order here
-       jt->parsercurrtok = (I4)(m+1);  // syrd can fail, so we have to set the error-word number (before it was decremented) before calling
-       if(s=syrd(y)) {   // look up the name in the symbol tables.
+       // The important performance case is local names with bucket info.  Pull that out & do it without the call overhead
+       // This code is copied from s.c
+       if(NAV(y)->bucket){I bx;
+        if(0 <= (bx = ~NAV(y)->bucketx)){   // negative bucketx (now positive); skip that many items, and then you're at the right place.  This is the path for almost all local symbols
+         s = LXAV0(jt->locsyms)[NAV(y)->bucket]+jt->sympv;  // fetch hashchain headptr, point to L for first symbol
+         while(bx--){s = s->next+jt->sympv;}  // skip the prescribed number
+         if(s->val==0)goto rdglob;  // if value has not been assigned, ignore it
+        }else{
+         // positive bucketx (now negative); that means skip that many items and then do name search.  This is set for words that were recognized as names but were not detected as assigned-to in the definition.  This is the path for global symbols
+         // If no new names have been assigned since the table was created, we can skip this search, since it must fail (this is the path for words in z eg)
+         if(!(AR(jt->locsyms)&LNAMEADDED))goto rdglob;
+         // from here on it is rare to find a name - usually they're globals defined elsewhere
+         LX lx = LXAV0(jt->locsyms)[NAV(y)->bucket];  // index of first block if any
+         I m=NAV(y)->m; C* nm=NAV(y)->s;  // length/addr of name from name block
+         while(0>++bx){lx = jt->sympv[lx].next;}
+         // Now lx is the index of the first name that might match.  Do the compares
+         while(1) {
+          if(lx==0)goto rdglob;  // If we run off chain, go read from globals
+          s = lx+jt->sympv;  // symbol entry
+          IFCMPNAME(NAV(s->name),nm,m,{if(s->val==0)goto rdglob; break;})  // if match, we're done looking; could be not found, if no value
+          lx = s->next;
+         }
+         // Here there was a value in the local symbol table
+        }
+       }else{
+        // No bucket info.  Usually this is a locative, but it could be an explicit modifier, console level, or ".
+rdglob: ;
+        jt->parserstackframe.parsercurrtok = (I4)(m+1);  // syrd can fail, so we have to set the error-word number (before it was decremented) before calling
+        s=syrdnobuckets(y);  // do full symbol lookup, knowing that we have checked for buckets already
+         // In case the name is assigned during this sentence (including subroutines), remember the data block that the name created
+         // NOTE: the nvr stack may have been relocated by action routines, so we must refer to the global value of the base pointer
+         // Stack a named value only once.  This is needed only for names whose VALUE is put onto the stack (i. e. a noun); if we stack a REFERENCE
+         // (via namerefacv), no special protection is needed.  And, it is not needed for local names, because they are inaccessible to deletion in called
+         // functions (that is, the user should not use u. to delete a local name).  If a local name is deleted, we always defer the deletion till the end of the sentence, easier than checking
+        if(s&&s->val&&AT(s->val)&NOUN&&!(AFLAG(s->val)&AFNVR)){ 
+         jt->nvrav[jt->parserstackframe.nvrtop++] = s->val;   // record the place where the value was protected, so we can free it when this sentence complaetes
+         AFLAG(s->val) |= AFNVR|AFNVRUNFREED;  // mark the value as protected and not yet deferred-freed
+        }
+       }
+       // end of looking at local/global symbol tables
+       // s has the symbol for the name
+       if(s){   // if symbol was defined...
         A sv;  // pointer to value block for the name
         
         if(!(sv = s->val))FP  // symbol table entry, but no value.
           // Following the original parser, we assume this is an error that has been reported earlier.  No ASSERT here, since we must pop nvr stack
-        I svf = AFLAG(sv);
-
         // The name is defined.  If it's a noun, use its value (the common & fast case)
         // Or, for special names (x. u. etc) that are always stacked by value, keep the value
         // Otherwise (normal adv/verb/conj name), replace with a 'name~' reference
-        if(AT(sv)&NOUN || at&NAMEBYVALUE){   // use value if noun or special name
+        if((AT(sv)|at)&(NOUN|NAMEBYVALUE)){   // use value if noun or special name
          y=sv;
-         at=AT(y);  // refresh the type with the type of the resolved name
-         // In case the name is assigned during this sentence (including subroutines), remember the data block that the name created
-         // NOTE: the nvr stack may have been relocated by action routines, so we must refer to the globals
-         // Stack a named value only once.  This is needed only for names whose VALUE is put onto the stack; if we stack a REFERENCE
-         // (via namerefacv), no special protection is needed
-         if(!(svf&AFNVR)){ 
-          jt->nvrav[jt->nvrtop++] = sv;   // record the place where the value was protected
-          AFLAG(sv) = svf|(AFNVR|AFNVRUNFREED);  // mark the value as protected and not yet deferred-freed
-         }
         } else {
          if (!(y = namerefacv(y, s)))FP   // Replace other acv with reference
-         at=AT(y);  // refresh the type with the type of the resolved name
         }
        } else {
          // undefined name.  If special x. u. etc, that's fatal; otherwise create a dummy ref to [: (to have a verb)
          if(at&NAMEBYVALUE){jsignal(EVVALUE);FP}  // Report error (Musn't ASSERT: need to pop nvr stack) and quit
          if (!(y = namerefacv(y, s)))FP    // this will create a ref to undefined name as verb [:
            // if syrd gave an error, namerefacv may return 0.  This will have previously signaled an error
-         at=AT(y);  // refresh the type with the type of the resolved name
        }
+       at=AT(y);  // refresh the type with the type of the resolved name
 
       }
 
      // If the new word was not a name (whether assigned or not), look to see if it is ) or a conjunction,
      // which allow 2 or 1 more pulls from the queue without checking for an executable fragment.
-     // NOTE that we are using the original type for the word, which will be obsolete if the word was a
+     // NOTE that we are using the original type for the word, which will be stale if the word was a
      // name that was replaced by name resolution.  We don't care - RPAR was never a name to begin with, and CONJ
      // is much more likely to be a primitive; and we don't want to take the time to refetch the resolved type
      } else es = (at>>CONJX)?at>>CONJX:es;  // 1 for CONJ, 2 for RPAR, 0 otherwise
 
-     // y has the resolved value, which is never a NAME unless there is an assignment immediately following
-     PTFROMTYPEASGN(stack[0].pt,at);   // stack the internal type too.  We split the ASGN types into with/without name to speed up IPSETZOMB
+     // y has the resolved value, which is never a NAME unless there is an assignment immediately following.
+     // Put it onto the stack along with a code indicating part of speech and the token number of the word
+     PTFROMTYPEASGN(stack[0].pt=stack0pt,at);   // stack the internal type too.  We split the ASGN types into with/without name to speed up IPSETZOMB.  Save pt in a register to avoid store forwarding
      stack[0].t = (UI4)(m+1);  // install the original token number for the word
      stack[0].a = y;   // finish setting the stack entry, with the new word
          // and to reduce required initialization of marks.  Here we take advantage of the fact the CONW is set as a flag ONLY in ASGN type, and that PSN-PS is 1
     }else{  // No more tokens.  If m was 0, we are at the (virtual) mark; otherwise we are finished
-      if(m==-1) {stack[0].pt = PTMARK; break;}  // realize the virtual mark and use it.  a and pt will not be needed
-      EP       // if there's nothing more to pull, parse is over
+      if(m==-1) {stack[0].pt=stack0pt=PTMARK; break;}  // realize the virtual mark and use it.  a and pt will not be needed
+      EP       // if there's nothing more to pull, parse is over.  This is the normal end-of-parse
     }
    }while(es-->0);  // Repeat if more pulls required.  We also exit with stack==0 if there is an error
    // words have been pulled from queue
@@ -556,7 +582,7 @@ A jtparsea(J jt, A *queue, I m){PSTK *stack;A z,*v;I es; UI4 maxnvrlen;
     // and finally returning the new front-of-stack pointer
 
     // First, create the bitmask of parser lines that are eligible to execute
-    I pmask=(((~stack[0].pt)&0x80)*2)+((stack[0].pt>>24) & (stack[1].pt>>16) & (stack[2].pt>>8) & stack[3].pt);  // bit 8 is set ONLY for LPAR
+    I pmask=(((~stack0pt)&0x80)*2)+((stack0pt>>24) & (stack[1].pt>>16) & (stack[2].pt>>8) & stack[3].pt);  // bit 8 is set ONLY for LPAR
     if(!pmask)break;  // If all 0, nothing is dispatchable, go push next word
 
     // We are going to execute an action routine.  This will be an indirect branch, and it will mispredict.  To reduce the cost of the misprediction,
@@ -565,9 +591,9 @@ A jtparsea(J jt, A *queue, I m){PSTK *stack;A z,*v;I es; UI4 maxnvrlen;
     // We also have a couple of branches before the indirect branch, and we try to similarly get some computation going before them
     I pline=CTTZ(pmask);  // Get the # of the highest-priority line
     // Save the stackpointer in case there are calls to parse in the names we execute
-    jt->parserstkend1=stack;
+    jt->parserstackframe.parserstkend1=stack;
     // Fill in the token# (in case of error) based on the line# we are running
-    jt->parsercurrtok = stack[((I)0x056A9>>(pline*2))&3].t;   // in order 9-0: 0 0 1 1 1 2 2 2 2 1->00 00 01 01 01 10 10 10 10 01->0000 0101 0110 1010 1001
+    jt->parserstackframe.parsercurrtok = stack[((I)0x056A9>>(pline*2))&3].t;   // in order 9-0: 0 0 1 1 1 2 2 2 2 1->00 00 01 01 01 10 10 10 10 01->0000 0101 0110 1010 1001
     if(pmask&0x1F){
      // Here for lines 0-4, which execute the routine pointed to by fs
      // Get the branch-to address ASAP.  It comes from the appropriate valence of the appropriate stack element.  Stack element is 2 except for line 0; valence is monadic for lines 0 1 4
@@ -594,7 +620,7 @@ A jtparsea(J jt, A *queue, I m){PSTK *stack;A z,*v;I es; UI4 maxnvrlen;
       // jt has been corrupted, now holding inplacing info
       // CODING NOTE: after considerable trial and error I found this ordering, whose purpose is to start the load of the indirect branch address as early as
       // possible before the branch.  Check the generated code on any change of compiler.
-      // Since we have a dozen or so cycles to fill, push the $: stack and close up the execution stack BEFORE we execute the verb.  If we didn't close up the stack, we
+      // Since we have half a dozen or so cycles to fill, push the $: stack and close up the execution stack BEFORE we execute the verb.  If we didn't close up the stack, we
       // could avoid having the $: stack by having $: look into the execution stack to find the verb that is being executed.  But overall it is faster to pay the expense of the $:
       // stack in exchange for being able to fill the time before the misprediction
       AF actionfn=FAV(fs)->valencefns[pline>>1];  // the routine we will execute.  It's going to take longer to read this than we can fill before the branch is mispredicted, usually
@@ -611,7 +637,7 @@ A jtparsea(J jt, A *queue, I m){PSTK *stack;A z,*v;I es; UI4 maxnvrlen;
       EPZ(y);  // fail parse if error
       stackfs[1].a=y;  // save result 2 3 3 2 3; parsetype is unchanged, token# is immaterial
      }else{
-      // Conj/adv execution.  We must get the parsing type of the result, but we don't need to worry about inplacing or recursion
+      // Lines 3-4, conj/adv execution.  We must get the parsing type of the result, but we don't need to worry about inplacing or recursion
       AF actionfn=FAV(fs)->valencefns[pline-3];  // the routine we will execute.  It's going to take longer to read this than we can fill before the branch is mispredicted, usually
       A arg1=stack[1].a;   // 1st arg, monad or left dyad
       A arg2=stack[pline-1].a;   // 2nd arg, fs or right dyad
@@ -623,49 +649,51 @@ A jtparsea(J jt, A *queue, I m){PSTK *stack;A z,*v;I es; UI4 maxnvrlen;
       PTFROMTYPE(stack[1].pt,AT(y)) stack[1].t=restok; stack[1].a=y;   // save result, move token#, recalc parsetype
      }
     }else{
-     // Here for lines 5-8, which branch to a canned routine
-     PSTK * (*actionfn)()=lines58[pline-5];  // fetch the routine that will handle this line
-     // We will call the action routine with stack 1 2 3 (line 5) or 1 2 0 (line 7).  It will fetch the stackpointer from jt->endstk.
+     // Here for lines 5-8 (fork/hook/assign/parens), which branch to a canned routine
      // It will run its function, and return the new stackpointer to use, with the stack all filled in.  If there is an error, the returned stackpointer will be 0.
-     stack=(*actionfn)(jt,stack[1].a,stack[2].a,stack[(0x60>>pline)/* obsolete&3*/].a);  // 00011 00000 produces 5-8-> 11 01 00 00
-     if(!stack)EP
+     stack=(*lines58[pline-5])(jt,stack);  // run it
+     if(!stack)FP  // fail if error
+     stack0pt=stack[0].pt;  // bottom of stack was modified, so refresh the type for it (lines 0-6 don't change it)
     }
    }
   }  // break with stack==0 on error; main exit is when queue is empty (m<0)
  exitparse:
+   // Prepare the result
+
+  if(stack){  // if no error yet...
+   // before we exited, we backed the stack to before the initial mark entry.  At this point stack[0] is invalid,
+   // stack[1] is the initial mark, stack[2] is the result, and stack[3] had better be the first ending mark
+   z=stack[2].a;   // stack[1..2] are the mark; this is the sentence result, if there is no error
+   if(!(PTISCAVN(stack[2])&&PTISM(stack[3]))){jt->parserstackframe.parsercurrtok = 0; jsignal(EVSYNTAX); z=0;}  // OK if 0 or 1 words left (0 should not occur)
+  }else{
+failparse:  // If there was an error during execution or name-stacking, exit with failure.  Error has already been signaled.  Remove zombiesym
+   CLEARZOMBIE z=0;
+  }
 
   // Now that the sentence has completed, take care of some cleanup.  Names that were reassigned after
   // their value was moved onto the stack had the decrementing of the use count deferred: we decrement
   // them now.  There may be references to these names in the result (if we are returning a verb/adv/conj),
   // so we don't free the names quite yet: we put them on the tpush stack to be freed after we know
-  // we are through with the result
-  v=jt->nvrotop+jt->nvrav;  // point to our region of the nvr area
-  DQ(jt->nvrtop-jt->nvrotop, A vv = *v; I vf = AFLAG(vv); if(!(vf&AFNVRUNFREED))tpush(vv); AFLAG(vv) = vf &= ~(AFNVR|AFNVRUNFREED); ++v;);   // schedule deferred frees.
-  jt->nvrtop=jt->nvrotop; jt->nvrotop=ootop;  // deallocate the region used in this routine
+  // we are through with the result.  If we are returning a noun, free them right away
+  v=jt->nvrav+nvrotop;  // point to our region of the nvr area
+  DQ(jt->parserstackframe.nvrtop-nvrotop, A vv = *v; I vf = AFLAG(vv); AFLAG(vv) = vf & ~(AFNVR|AFNVRUNFREED); if(!(vf&AFNVRUNFREED))if(!z||AT(z)&NOUN){fa(vv);}else{tpush(vv);} ++v;);   // schedule deferred frees.
+  // Still can't return till frame-stack popped
 
-  jt->parserstkend1=oend1; // restore the stack-top
-
+  jt->parserstackframe = oframe;
   // NOW it is OK to return
-
-  if(!stack){CLEARZOMBIE R 0;}  // If there was an error during execution or name-stacking, exit with failure.  Error has already been signaled.  Remove zombiesym
-
-  // before we exited, we backed the stack to before the initial mark entry.  At this point stack[0] is invalid,
-  // stack[1] is the initial mark, stack[2] is the result, and stack[3] had better be the first ending mark
-  z=stack[2].a;   // stack[1..2] are the mark; this is the sentence result, if there is no error
-  ASSERT(PTISCAVN(stack[2])&&PTISM(stack[3]),(jt->parsercurrtok = 0,EVSYNTAX));  // OK if 0 or 1 words left (0 should not occur)
   R z;  // this is the return point from normal parsing
 
  }else{A y;  // m<2.  Happens fairly often, and full parse can be omitted
   if(m==1){  // exit fast if empty input.  Happens only during load, but we can't deal with it
    // Only 1 word in the queue.  No need to parse - just evaluate & return.  We do it here to avoid parsing
    // overhead, because it happens enough to notice
-   jt->parsercurrtok=0;  // error token if error found
+   jt->parserstackframe.parsercurrtok=0;  // error token if error found
    I at=AT(y = queue[0]);  // fetch the word
    if(at&NAME) {L *s;
     if(s=syrd(y)) {     // Resolve the name.
       A sv;  // pointer to value block for the name
       RZ(sv = s->val);  // symbol table entry, but no value.  Must be in an explicit definition, so there is no need to raise an error
-      if(AT(sv)&NOUN || at&NAMEBYVALUE){   // in noun or special name, use value
+      if((AT(sv)|at)&(NOUN|NAMEBYVALUE)){   // in noun or special name, use value
        y=sv;
       } else RZ(y = namerefacv(y, s));   // Replace other acv with reference
     } else {
@@ -676,6 +704,7 @@ A jtparsea(J jt, A *queue, I m){PSTK *stack;A z,*v;I es; UI4 maxnvrlen;
    }
    ASSERT(AT(y)&CAVN,EVSYNTAX);
   }else y=mark;  // empty input - return with 'mark' as the value, which means nothing to parse.  This result must not be passed into a sentence
+  jt->parserstackframe = oframe;
   R y;
  }
 

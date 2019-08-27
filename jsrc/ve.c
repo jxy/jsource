@@ -21,7 +21,7 @@ AHDR2(plusII,I,I,I){I u;I v;I w;I oflo=0;
  // If u==0, v^=u is always 0 & therefore no overflow
  if(n-1==0) DQ(m, u=*x; v=*y; w= ~u; u+=v; *z=u; ++x; ++y; ++z; w^=v; v^=u; if(XANDY(w,v)<0)++oflo;)
  else if(n-1<0)DQ(m, u=*x++; I thresh = IMIN-u; if (u<=0){DQC(n, v=*y; if(v<thresh)++oflo; v=u+v; *z++=v; y++;)}else{DQC(n, v=*y; if(v>=thresh)++oflo; v=u+v; *z++=v; y++;)})
- else      DO(m, v=*y++; I thresh = IMIN-v; if (v<=0){DO(n, u=*x; if(u<thresh)++oflo; u=u+v; *z++=u; x++;)}else{DO(n, u=*x; if(u>=thresh)++oflo; u=u+v; *z++=u; x++;)})
+ else      DQ(m, v=*y++; I thresh = IMIN-v; if (v<=0){DQ(n, u=*x; if(u<thresh)++oflo; u=u+v; *z++=u; x++;)}else{DQ(n, u=*x; if(u>=thresh)++oflo; u=u+v; *z++=u; x++;)})
  if(oflo)jt->jerr=EWOVIP+EWOVIPPLUSII;
 }
 
@@ -29,7 +29,7 @@ AHDR2(plusII,I,I,I){I u;I v;I w;I oflo=0;
 AHDR2(plusBI,I,B,I){I u;I v;I oflo=0;
  if(n-1==0)  DQ(m, u=(I)*x; v=*y; if(v==IMAX)oflo+=u; v=u+v; *z++=v; x++; y++; )
  else if(n-1<0){n=~n; DQ(m, u=(I)*x++; if(u){DQ(n, v=*y; if(v==IMAX)oflo=1; v=v+1; *z++=v; y++;)}else{if(z!=y)MC(z,y,n<<LGSZI); z+=n; y+=n;})}
- else      DO(m, v=*y++; DO(n, u=(I)*x; if(v==IMAX)oflo+=u; u=u+v; *z++=u; x++;))
+ else      DQ(m, v=*y++; DQ(n, u=(I)*x; if(v==IMAX)oflo+=u; u=u+v; *z++=u; x++;))
  if(oflo)jt->jerr=EWOVIP+EWOVIPPLUSBI;
 }
 
@@ -37,7 +37,7 @@ AHDR2(plusBI,I,B,I){I u;I v;I oflo=0;
 AHDR2(plusIB,I,I,B){I u;I v;I oflo=0;
  if(n-1==0)  DQ(m, u=*x; v=(I)*y; if(u==IMAX)oflo+=v; u=u+v; *z++=u; x++; y++; )
  else if(n-1<0)DQ(m, u=*x++; DQC(n, v=(I)*y; if(u==IMAX)oflo+=v; v=u+v; *z++=v; y++;))
- else      DO(m, v=(I)*y++; if(v){DO(n, u=*x; if(u==IMAX)oflo=1; u=u+1; *z++=u; x++;)}else{if(z!=x)MC(z,x,n<<LGSZI); z+=n; x+=n;})
+ else      DQ(m, v=(I)*y++; if(v){DQ(n, u=*x; if(u==IMAX)oflo=1; u=u+1; *z++=u; x++;)}else{if(z!=x)MC(z,x,n<<LGSZI); z+=n; x+=n;})
  if(oflo)jt->jerr=EWOVIP+EWOVIPPLUSIB;
 }
 
@@ -177,7 +177,7 @@ AHDR2(minusII,I,I,I){I u;I v;I w;I oflo=0;
 // if u<0, oflo if u-v < IMIN => v > u-IMIN; if u >=0, oflo if u-v>IMAX => v < u+IMIN+1 => v <= u+IMIN => v <= u-IMIN
  else if(n-1<0)DQ(m, u=*x++; I thresh = u-IMIN; if (u<0){DQC(n, v=*y; if(v>thresh)++oflo; w=u-v; *z++=w; y++;)}else{DQC(n, v=*y; if(v<=thresh)++oflo; w=u-v; *z++=w; y++;)})
  // if v>0, oflo if u-v < IMIN => u < v+IMIN = v-IMIN; if v<=0, oflo if u-v > IMAX => u>v+IMAX => u>v-1-IMIN => u >= v-IMIN
- else      DO(m, v=*y++; I thresh = v-IMIN; if (v<=0){DO(n, u=*x; if(u>=thresh)++oflo; u=u-v; *z++=u; x++;)}else{DO(n, u=*x; if(u<thresh)++oflo; u=u-v; *z++=u; x++;)})
+ else      DQ(m, v=*y++; I thresh = v-IMIN; if (v<=0){DQ(n, u=*x; if(u>=thresh)++oflo; u=u-v; *z++=u; x++;)}else{DQ(n, u=*x; if(u<thresh)++oflo; u=u-v; *z++=u; x++;)})
  if(oflo)jt->jerr=EWOVIP+EWOVIPMINUSII;
 }
 
@@ -185,15 +185,15 @@ AHDR2(minusII,I,I,I){I u;I v;I w;I oflo=0;
 AHDR2(minusBI,I,B,I){I u;I v;I w;I oflo=0;
  if(n-1==0)  DQ(m, u=(I)*x; v=*y; u=u-v; if(v<=IMIN+1&&u<0)++oflo; *z++=u; x++; y++; )
  else if(n-1<0)DQ(m, u=(I)*x++; DQC(n, v=*y; w=u-v; if(v<=IMIN+1&&w<0)++oflo; *z++=w; y++;))
- else      DO(m, v=*y++; DO(n, u=(I)*x; u=u-v; if(v<=IMIN+1&&u<0)++oflo; *z++=u; x++;))
+ else      DQ(m, v=*y++; DQ(n, u=(I)*x; u=u-v; if(v<=IMIN+1&&u<0)++oflo; *z++=u; x++;))
  if(oflo)jt->jerr=EWOVIP+EWOVIPMINUSBI;
 }
 
 // IB subtract, noting overflow and leaving it, possibly in place.  If we add 0, copy the numbers (or leave unchanged, if in place)
 AHDR2(minusIB,I,I,B){I u;I v;I w;I oflo=0;
  if(n-1==0)  DQ(m, u=*x; v=(I)*y; if(u==IMIN)oflo+=v; u=u-v; *z++=u; x++; y++; )
- else if(n-1<0)DQ(m, u=*x++; DQC(n, v=(I)*y; if(u==IMAX)oflo+=v; w=u-v; *z++=w; y++;))
- else      DO(m, v=(I)*y++; if(v){DO(n, u=*x; if(u==IMAX)oflo=1; u=u-1; *z++=u; x++;)}else{if(z!=x)MC(z,x,n<<LGSZI); z+=n; x+=n;})
+ else if(n-1<0)DQ(m, u=*x++; DQC(n, v=(I)*y; if(u==IMIN)oflo+=v; w=u-v; *z++=w; y++;))
+ else      DQ(m, v=(I)*y++; if(v){DQ(n, u=*x; if(u==IMIN)oflo=1; u=u-1; *z++=u; x++;)}else{if(z!=x)MC(z,x,n<<LGSZI); z+=n; x+=n;})
  if(oflo)jt->jerr=EWOVIP+EWOVIPMINUSIB;
 }
 
@@ -201,7 +201,7 @@ AHDR2(minusIB,I,I,B){I u;I v;I w;I oflo=0;
 AHDR2(tymesII,I,I,I){DPMULDECLS I u;I v;if(jt->jerr)R; I *zi=z;
  if(n-1==0)  DQ(m, u=*x; v=*y; DPMUL(u,v,z, goto oflo;) z++; x++; y++; )
  else if(n-1<0)DQ(m, u=*x; DQC(n, v=*y; DPMUL(u,v,z, goto oflo;) z++; y++;) x++;)
- else      DO(m, v=*y; DO(n, u=*x; DPMUL(u,v,z, goto oflo;) z++; x++;) y++;)
+ else      DQ(m, v=*y; DQ(n, u=*x; DPMUL(u,v,z, goto oflo;) z++; x++;) y++;)
 exit: jt->mulofloloc += z-zi; R;
 oflo: jt->jerr = EWOVIP+EWOVIPMULII; *x=u; *y=v; goto exit;  // back out the last store, in case it's in-place; gcc stores before overflow
 }
@@ -210,28 +210,28 @@ oflo: jt->jerr = EWOVIP+EWOVIPMULII; *x=u; *y=v; goto exit;  // back out the las
 AHDR2(tymesBI,I,B,I){B u;I v;
  if(n-1==0)  DQ(m, u=*x; *z++=u?*y:0; x++; y++; )
  else if(n-1<0){n=~n; DQ(m, u=*x++; if(u){if(z!=y)MC(z,y,n<<LGSZI);}else{memset(z,0,n<<LGSZI);} z+=n; y+=n;)}
- else      DO(m, v=*y++; DO(n, u=*x; *z++=u?v:0; x++;))
+ else      DQ(m, v=*y++; DQ(n, u=*x; *z++=u?v:0; x++;))
 }
 
 // IB multiply, using clear/copy
 AHDR2(tymesIB,I,I,B){I u;B v;
  if(n-1==0)  DQ(m, v=*y; *z++=v?*x:0; x++; y++; )
  else if(n-1<0)DQ(m, u=*x++; DQC(n, v=*y; *z++=v?u:0; y++;))
- else      DO(m, v=*y++; if(v){if(z!=x)MC(z,x,n<<LGSZI);}else{memset(z,0,n<<LGSZI);} z+=n; x+=n;)
+ else      DQ(m, v=*y++; if(v){if(z!=x)MC(z,x,n<<LGSZI);}else{memset(z,0,n<<LGSZI);} z+=n; x+=n;)
 }
 
-// DI multiply, using clear/copy
+// BD multiply, using clear/copy
 AHDR2(tymesBD,D,B,D){B u;D v;
  if(n-1==0)  DQ(m, u=*x; *z++=u?*y:0; x++; y++; )
  else if(n-1<0){n=~n; DQ(m, u=*x++; if(u){if(z!=y)MC(z,y,n*sizeof(D));}else{memset(z,0,n*sizeof(D));} z+=n; y+=n;)}
- else      DO(m, v=*y++; DO(n, u=*x; *z++=u?v:0; x++;))
+ else      DQ(m, v=*y++; DQ(n, u=*x; *z++=u?v:0; x++;))
 }
 
-// ID multiply, using clear/copy
+// DB multiply, using clear/copy
 AHDR2(tymesDB,D,D,B){D u;B v;
  if(n-1==0)  DQ(m, v=*y; *z++=v?*x:0; x++; y++; )
  else if(n-1<0)DQ(m, u=*x++; DQC(n, v=*y; *z++=v?u:0; y++;))
- else      DO(m, v=*y++; if(v){if(z!=x)MC(z,x,n*sizeof(D));}else{memset(z,0,n*sizeof(D));} z+=n; x+=n;)
+ else      DQ(m, v=*y++; if(v){if(z!=x)MC(z,x,n*sizeof(D));}else{memset(z,0,n*sizeof(D));} z+=n; x+=n;)
 }
 
 // Overflow repair routines
@@ -315,7 +315,7 @@ APFX(  maxDB, D,D,B, MAX)     APFX(  maxDI, D,D,I, MAX)         /* maxDD */
 APFX(  maxSS, SB,SB,SB, SBMAX)
 
 
-static D jtremdd(J jt,D a,D b){D q,x,y;
+D jtremdd(J jt,D a,D b){D q,x,y;
  if(!a)R b;
  ASSERT(!INF(b),EVNAN);
  if(a==inf )R 0<=b?b:a;
@@ -326,7 +326,7 @@ static D jtremdd(J jt,D a,D b){D q,x,y;
 ANAN(remDD, D,D,D, remdd)
 ANAN(remZZ, Z,Z,Z, zrem )
 
-static I jtremid(J jt,I a,D b){D r;I k;
+I jtremid(J jt,I a,D b){D r;I k;
  ASSERT(a&&-9e15<b&&b<9e15,EWOV);
  r=b-a*floor(b/a); k=(I)r;
  ASSERT(k==r,EWOV);   // not really overflow - just has a fractional part
@@ -335,13 +335,43 @@ static I jtremid(J jt,I a,D b){D r;I k;
 
 APFX(remID, I,I,D, remid)
 
-static I remii(I a,I b){I r; R (a!=(a>>(BW-1)))?(r=b%a,0<a?r+(a&(r>>(BW-1))):r+(a&((-r)>>(BW-1)))):a?0:b;}  // must handle IMIN/-1, which overflows.  If a=0, return b.
+I remii(I a,I b){I r; R (a!=(a>>(BW-1)))?(r=b%a,0<a?r+(a&(r>>(BW-1))):r+(a&((-r)>>(BW-1)))):a?0:b;}  // must handle IMIN/-1, which overflows.  If a=0, return b.
 
 AHDR2(remII,I,I,I){I u,v;
- if(n-1==0)  DQ(m,               *z++=remii(*x,*y); x++; y++; )
- else if(n-1<0)DQ(m, u=*x++; if(0<=u&&!(u&(u-1))){--u; DQC(n, *z++=u&*y++;);}
-                    else DQC(n, *z++=remii( u,*y);      y++;))
- else      DQ(m, v=*y++; DQ(n, *z++=remii(*x, v); x++;     ));
+ if(n-1==0){DQ(m,*z++=remii(*x,*y); x++; y++; )
+ }else if(n-1<0){   // repeated x.  Handle special cases and avoid integer divide
+#if SY_64 && C_USEMULTINTRINSIC
+  DQ(m, u=*x++;
+    // take abs(x); handle negative x in a postpass
+   UI ua=-u>=0?-u:u;  // abs(x)
+   if(!(ua&(ua-1))){I umsk = ua-1; DQC(n, *z++=umsk&*y++;);  // x is a power of 2, including 0
+   }else{
+    // calculate 1/abs(x) to 53-bit precision.  Remember, x is at least 3, so the MSB will never have signed significance
+    UI uarecip = (UI)(18446744073709551616.0/(D)(I)ua);  // recip, with binary point above the msb.  2^64 / ua
+    // add in correction for the remaining precision.  The result will still never be higher than the true reciprocal
+    I deficitprec = -(I)(uarecip*ua);  // we need to increase uarecip by enough to add (deficitprec) units to (uarecip*ua)
+    // because of rounding during the divide, deficitprec may be positive or negative, so we must 2's-comp-correct the product
+    UI xx; UI himul; DPUMUL(uarecip,(UI)deficitprec,xx,himul); uarecip=deficitprec<0?0:uarecip; uarecip+=himul;   // now we have 63 bits of uarecip
+    // Now loop through each input value.  It is possible that the quotient coming out of the multiplication will be
+    // low by at most 1; we correct it if it is
+    // The computations here are unsigned, because if signed the binary point gets offset and the upper significance requires a 128-bit shift.
+    // Since negative arguments are unusual, we use 1 branch to handle them.  This may mispredict.
+    DQC(n, I yv=*y;
+      // Multiply by recip to get quotient, which is up to 1/2 LSB low; get remainder; adjust remainder if too high; store
+      // 2's-complement adjust for negative y; to make the result still always on the low side, subtract an extra 1.
+      DPUMUL(uarecip,(UI)yv,xx,himul); himul-=(uarecip+1)&(yv>>(BW-1)); I rem=yv-himul*ua; rem=(rem-(I)ua)>=0?rem-(I)ua:rem; *z++=rem;
+     y++;)
+   }
+   // if x was negative, move the remainder into the x+1 to 0 range
+   if(u<-1){I *zt=z; DQC(n, I t=*--zt; t=t>0?t-ua:t; *zt=t;)}
+  )
+#else
+  DQ(m, u=*x++;
+   if(0<=u&&!(u&(u-1))){--u; DQC(n, *z++=u&*y++;);}
+   else DQC(n, *z++=remii( u,*y);      y++;)
+  )
+#endif
+ }else      DQ(m, v=*y++; DQ(n, *z++=remii(*x, v); x++;     ));
 }
 
 
@@ -399,24 +429,24 @@ F2(jtintdiv){A z;B b,flr;I an,ar,*as,*av,c,d,j,k,m,n,p,p1,r,*s,wn,wr,*ws,*wv,*zv
  if(!wr&&p&&!(p&p1)){
   k=0; j=1; while(p>j){++k; j<<=1;}
   switch((0<d?0:2)+(flr?0:1)){
-   case 0: DO(n,          *zv++=*av++>>k;);                    break;
-   case 1: DO(n, c=*av++; *zv++=0< c?1+((c-1)>>k):(c+p1)>>k;); break;
-   case 2: DO(n, c=*av++; *zv++=c>IMIN?-c>>k:-(-c>>k););       break;
-   case 3: DO(n, c=*av++; *zv++=0<=c?-(c>>k):1+(-(1+c)>>k););
+   case 0: DQ(n,          *zv++=*av++>>k;);                    break;
+   case 1: DQ(n, c=*av++; *zv++=0< c?1+((c-1)>>k):(c+p1)>>k;); break;
+   case 2: DQ(n, c=*av++; *zv++=c>IMIN?-c>>k:-(-c>>k););       break;
+   case 3: DQ(n, c=*av++; *zv++=0<=c?-(c>>k):1+(-(1+c)>>k););
  }}else if(flr){
-  if(1==n)    DO(m, c=*av++; GETD;                *zv++=INTDIVF(c,d);  )
-  else   if(b)DO(m,          GETD; DO(n, c=*av++; *zv++=INTDIVF(c,d););)
-  else        DO(m, c=*av++;       DO(n, GETD;    *zv++=INTDIVF(c,d););)
+  if(1==n)    DQ(m, c=*av++; GETD;                *zv++=INTDIVF(c,d);  )
+  else   if(b)DQ(m,          GETD; DQ(n, c=*av++; *zv++=INTDIVF(c,d););)
+  else        DQ(m, c=*av++;       DQ(n, GETD;    *zv++=INTDIVF(c,d););)
  }else{
-  if(1==n)    DO(m, c=*av++; GETD;                *zv++=INTDIVC(c,d);  )
-  else   if(b)DO(m,          GETD; DO(n, c=*av++; *zv++=INTDIVC(c,d););)
-  else        DO(m, c=*av++;       DO(n, GETD;    *zv++=INTDIVC(c,d););)
+  if(1==n)    DQ(m, c=*av++; GETD;                *zv++=INTDIVC(c,d);  )
+  else   if(b)DQ(m,          GETD; DQ(n, c=*av++; *zv++=INTDIVC(c,d););)
+  else        DQ(m, c=*av++;       DQ(n, GETD;    *zv++=INTDIVC(c,d););)
  }
  R z?z:flr?floor1(divide(a,w)):ceil1(divide(a,w));
 }    /* <.@% or >.@% on integers */
 
 
-static F2(jtweight){RZ(a&&w); R df1(behead(over(AR(w)?w:reshape(a,w),num[1])),bsdot(slash(ds(CSTAR))));}
+static F2(jtweight){RZ(a&&w); R df1(behead(over(AR(w)?w:reshape(a,w),num[1])),bsdot(slash(ds(CSTAR))));}  // */\. }. (({:$a)$w),1
 
 F1(jtbase1){A z;B*v;I c,d,m,n,p,r,*s,t,*x;
  RZ(w);
@@ -425,7 +455,7 @@ F1(jtbase1){A z;B*v;I c,d,m,n,p,r,*s,t,*x;
  if(c>(SY_64?63:31)||!(t&B01))R pdt(w,weight(sc(c),t&RAT+XNUM?cvt(XNUM,num[2]):num[2]));
  CPROD1(n,m,r-1,s);
  GATV(z,INT,m,r?r-1:0,s); x=m+AV(z); v=n+BAV(w);
- if(c)DO(m, p=0; d=1; DO(c, if(*--v)p+=d; d+=d;); *--x=p;)
+ if(c)DQ(m, p=0; d=1; DQ(c, if(*--v)p+=d; d+=d;); *--x=p;)
  else memset(x-m,C0,m*SZI);
  RETF(z);
 }
@@ -437,7 +467,7 @@ F2(jtbase2){I ar,*as,at,c,t,wr,*ws,wt;
  ASSERT(!((at|wt)&SPARSE),EVNONCE); t=maxtyped(at,wt);
  if(!(t&at))RZ(a=cvt(t,a));
  if(!(t&wt))RZ(w=cvt(t,w));
- R 1>=ar?pdt(w,weight(sc(c),a)):rank2ex(w,rank2ex(sc(c),a,0L,0L,1L,0L,1L,jtweight),0L,1L,1L,1L,1L,jtpdt);
+ R 1>=ar?pdt(w,weight(sc(c),a)):rank2ex(w,rank2ex(sc(c),a,0L,0L,MIN(ar,1),0L,MIN(ar,1),jtweight),0L,MIN(wr,1),1L,MIN(wr,1),1L,jtpdt);
 }
 
 // #: y
@@ -461,16 +491,16 @@ F1(jtabase1){A d,z;B*zv;I c,n,p,r,t,*v;UI x;
   // But we can't delete a digit if any of the values were negative - all are significant then
   // We also can't delete a digit if there is only 1 digit in the numbers
   if(AS(z)[AR(z)-1]<=1 || i0(aslash(CPLUSDOT,ravel(lt(w,zeroionei[0])))))R z;
-  if(0==i0(aslash(CMAX,ravel(irs1(z,0L,1L,jthead)))))R irs1(z,0L,1L,jtbehead);
+  if(0==i0(aslash(CMAX,ravel(IRS1(z,0L,1L,jthead,d)))))R IRS1(z,0L,1L,jtbehead,d);
   RETF(z);
  }
  // Integer.  Calculate x=max magnitude encountered (minimum of 1, to leave 1 output value)
  x=1; v=AV(w);
- DO(n, p=*v++; x|=(UI)(p>0?p:-p););  // overflow happens on IMIN, no prob
+ DQ(n, p=*v++; x|=(UI)(p>0?p:-p););  // overflow happens on IMIN, no prob
  for(c=0;x;x>>=1){++c;}  // count # bits in result
  GATV(z,B01,n*c,1+r,AS(w)); AS(z)[r]=c;  // Allocate result area, install shape
  v=n+AV(w); zv=AN(z)+BAV(z);  // v->last input location (prebiased), zv->last result location (prebiased)
- DO(n, x=*--v; DO(c, *--zv=(B)(x&1); x>>=1;));  // copy in the bits, starting with the LSB
+ DQ(n, x=*--v; DQ(c, *--zv=(B)(x&1); x>>=1;));  // copy in the bits, starting with the LSB
  RETF(z);
 }
 
@@ -486,20 +516,20 @@ F2(jtabase2){A z;I an,ar,at,t,wn,wr,wt,zn;
   // If a ends with _1 followed by any number of 1, there will be overflow if w contains any imin.  Detect that very rare case
   av=an+AV(a); wv=wn+AV(w);
   for(zv=av, d=an;d&&*--zv==1;--d);
-  if(d&&*zv==-1){zv=wv; DO(wn, if(*--zv==IMIN){d=0; break;}) if(!d){RZ(a=cvt(FL,a)); R abase2(a,w);}}
+  if(d&&*zv==-1){zv=wv; DQ(wn, if(*--zv==IMIN){d=0; break;}) if(!d){RZ(a=cvt(FL,a)); R abase2(a,w);}}
   RE(zn=mult(an,wn)); GATV(z,INT,zn,1+wr,AS(w)); AS(z)[wr]=an;  // allocate result area
   zv=zn+AV(z);
   if(2==an&&!av[-2]&&0<(d=av[-1])){I d1,k;
    // Special case: a is (0,d) where d is positive
    if(d&(d1=d-1)){I q,r,xs;
     // d is not a power of 2
-    DO(wn, x=*--wv; xs=(x>>(BW-1)); q=(x-xs)/d+xs; r=x-q*d; *--zv=r; *--zv=q;)  // remainder has same sign as dividend.  If neg, add 1, divide, sub 1 from quotient; then make remainder right
+    DQ(wn, x=*--wv; xs=(x>>(BW-1)); q=(x-xs)/d+xs; r=x-q*d; *--zv=r; *--zv=q;)  // remainder has same sign as dividend.  If neg, add 1, divide, sub 1 from quotient; then make remainder right
    }else{
     // d is a power of 2
     k=CTTZ(d);  // k = #zeros below the 1 in d
-    DO(wn, x=*--wv; *--zv=x&d1; *--zv=x>>k;)
+    DQ(wn, x=*--wv; *--zv=x&d1; *--zv=x>>k;)
    }
-  }else DO(wn, x=*--wv; u=av; DO(an, d=*--u; *--zv=r=remii(d,x); x=d?(x-r)/d:0;););
+  }else DQ(wn, x=*--wv; u=av; DQ(an, d=*--u; *--zv=r=remii(d,x); x=d?(x-r)/d:0;););
   RETF(z);
  }
  {PROLOG(0070);A y,*zv;C*u,*yv;I k;
@@ -507,18 +537,22 @@ F2(jtabase2){A z;I an,ar,at,t,wn,wr,wt,zn;
   k=bpnoun(at); u=an*k+CAV(a);
   GA(y,at, 1, 0,0); yv=CAV(y);
   GATV0(z,BOX,an,1); zv=an+AAV(z);
-  DO(an, MC(yv,u-=k,k); RZ(w=divide(minus(w,*--zv=residue(y,w)),y)););
+  DQ(an, MC(yv,u-=k,k); RZ(w=divide(minus(w,*--zv=residue(y,w)),y)););
   z=ope(z);
   EPILOG(z);
 }}
 
-// Compute 2 | w for INT w, leaving Boolean result.   kludge this should shift into mask & store fullwords
-F1(jtintmod2){A z;B*b,*v;I mask,m,n,q,r,*u,*wi;
- RZ(w);F1PREFIP;  // allow inplacing but don't use it, since the input is INT and the result is B01
- n=AN(w); q=n>>LGSZI; r=n&(SZI-1); v=BAV(w)+!liln*(SZI-1);
- GATV(z,B01,n,AR(w),AS(w)); u=AV(z);
- b=(B*)&mask; DO(SZI, b[i]=1;);
- b=(B*)&m; DO(q, DO(SZI, b[i]=*v; v+=SZI;); *u++=mask&m;)
- b=(B*)u; wi=AV(w)+(q<<LGSZI); DO(r, *b++=1&*wi++?1:0;);
+// Compute power-of-2 | w for INT w, by ANDing.  Result is boolean if mod is 1 or 2
+A jtintmod2(J jt,A w,I mod){A z;B *v;I n,q,r,*u;UI m=0;  // init m for warning
+ RZ(w);F1PREFIP;
+ if(mod>2)R jtatomic2(jtinplace,sc(mod-1),w,ds(CBW0001));  // INT result, by AND
+ // the rest is boolean result
+ n=AN(w); v=BAV(w);  // littleendian only
+ GATV(z,B01,n,AR(w),AS(w)); RZ(n);  // loops below can't handle empty
+ u=AV(z); q=(n-1)>>(LGSZI/C_LE); r=((n-1)&(SZI-1))+1;   // there is always a remnant
+ I mask=mod==2?VALIDBOOLEAN:0;  // if mod is 1, all results will be 0; otherwise boolean result
+ DQ(q, DQ(SZI, m=(m>>8)+((UI)*v<<((SZI-1)*8)); v+=SZI;); *u++=m&mask;)
+ DQ(r, m=(m>>8)+((UI)*v<<((SZI-1)*8)); v+=SZI;);  // 1-8 bytes
+ STOREBYTES(v,m&mask,8-r);
  RETF(z);
 }

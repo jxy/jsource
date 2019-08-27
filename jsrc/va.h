@@ -7,7 +7,12 @@ typedef struct {VA2 p2[13];VA2 pins[7];VA2 ppfx[7];VA2 psfx[7];} VA;
 typedef struct {VA2 p1[6];} UA;
 
                                     /*   cv - control vector               */
-#define VARGX           2           // bit position for arg flags
+#define VIPOKWX         0      // This routine can put its result over W
+#define VIPOKW          (1<<VIPOKWX)
+#define VIPOKAX         1      // This routine can put its result over A
+#define VIPOKA          (1<<VIPOKAX)
+// bits 2-3 kept open for flags in va2
+#define VARGX           4           // bit position for arg flags
 #define VBB             (B01<<VARGX)         /* convert arguments to B              */
 #define VII             (INT<<VARGX)         /* convert arguments to I              */
 #define VDD             (FL<<VARGX)          /* convert arguments to D              */
@@ -15,7 +20,7 @@ typedef struct {VA2 p1[6];} UA;
 #define Vxx             (XNUM<<VARGX)        /* convert arguments to XNUM           */
 #define VQQ             (RAT<<VARGX)         /* convert arguments to RAT            */
 #define VARGMSK         (VBB|VII|VDD|VZZ|Vxx|VQQ)  // mask for argument requested type
-#define VRESX           10           // bit position for result flags
+#define VRESX           12           // bit position for result flags
 #define VB              (B01<<VRESX)/* result type B                       */
 #define VI              (INT<<VRESX)/* result type I                       */
 #define VD              (FL<<VRESX) /* result type D                       */
@@ -26,17 +31,14 @@ typedef struct {VA2 p1[6];} UA;
 #define VRESMSK         (VB|VI|VD|VZ|VX|VQ|VSB)  // mask for result-type
 #define VRD             (SLIT<<VRESX)// convert result to D if possible - unused code point
 #define VRI             (SBOX<<VRESX)// convert result to I if possible - unused code point
-#define VXCVTYPEX       27          // bit position for VX conversion type
-#define VXCVTYPEMSK     (3<<VXCVTYPEX)  // mask for bit-positions hold XNUM conversion type
-#define VXX             (Vxx|(XMEXACT<<VXCVTYPEX))  // exact conversion
-#define VXEQ            (Vxx|(XMEXMT<<VXCVTYPEX))   /* convert to XNUM for = ~:            */
-#define VXCF            (Vxx|(XMCEIL<<VXCVTYPEX))   /* convert to XNUM ceiling/floor       */
-#define VXFC            (Vxx|(XMFLR<<VXCVTYPEX))  /* convert to XNUM floor/ceiling       */
-#define VIPOKWX         0      // This routine can put its result over W
-#define VIPOKW          (1<<VIPOKWX)
-#define VIPOKAX         1      // This routine can put its result over A
-#define VIPOKA          (1<<VIPOKAX)
-#define VCANHALTX       29    // This routine can generate an error after it has started
+// bits VRESX+8 9 10 12 13 14 are free
+#define VXCVTYPEX       29          // bit position for VX conversion type
+#define VXCVTYPEMSK     ((I)3<<VXCVTYPEX)  // mask for bit-positions hold XNUM conversion type
+#define VXX             (Vxx|((I)XMEXACT<<VXCVTYPEX))  // exact conversion
+#define VXEQ            (Vxx|((I)XMEXMT<<VXCVTYPEX))   /* convert to XNUM for = ~:            */
+#define VXCF            (Vxx|((I)XMCEIL<<VXCVTYPEX))   /* convert to XNUM ceiling/floor       */
+#define VXFC            (Vxx|((I)XMFLR<<VXCVTYPEX))  /* convert to XNUM floor/ceiling       */
+#define VCANHALTX       31    // This routine can generate an error after it has started
 #define VCANHALT        (1<<VCANHALTX)
 
 // Extract the argument-conversion type from cv coming from the table
@@ -102,7 +104,6 @@ typedef struct {VA2 p1[6];} UA;
 // comparisons between LIT types, one word at a time producing bits in v.  work is destroyed
 #define CMPEQCC(u,v)    (work=(u)^(v), ZBYTESTOZBITS(work), work=~work, work&=VALIDBOOLEAN)
 #define CMPNECC(u,v)    (work=(u)^(v), ZBYTESTOZBITS(work), work&=VALIDBOOLEAN)
-// obsolete #define CMPNECC(u,v)    (v^=(u), ZBYTESTOZBITS(v), v&=VALIDBOOLEAN)
 
 #define PLUS(u,v)       ((u)+   (v))
 #define PLUSO(u,v)      ((u)+(D)(v))
@@ -145,11 +146,59 @@ typedef struct {VA2 p1[6];} UA;
 #define BW1110(x,y)     (~( (x)& (y)))
 #define BW1111(x,y)     (-1)
 
-#define AHDR1(f,Tz,Tx)          void f(JST * RESTRICT jt,            I n,Tz* z,Tx* x)
-#define AHDR2(f,Tz,Tx,Ty)       void f(J jt,I m,Tz* RESTRICTI z,Tx* RESTRICTI x,Ty* RESTRICTI y,I n)
-#define AHDRP(f,Tz,Tx)          void f(J jt,I m,I d,I n,Tz* RESTRICTI z,Tx* RESTRICTI x)
-#define AHDRR(f,Tz,Tx)          void f(J jt,I m,I d,I n,Tz* RESTRICTI z,Tx* RESTRICTI x)
-#define AHDRS(f,Tz,Tx)          void f(J jt,I m,I d,I n,Tz* RESTRICTI z,Tx* RESTRICTI x)
+typedef void AHDR1FN(JST * RESTRICT jt,I n,void* z,void* x);
+typedef void AHDR2FN(I n,I m,void* RESTRICTI x,void* RESTRICTI y,void* RESTRICTI z,J jt);
+typedef void AHDRPFN(I d,I n,I m,void* RESTRICTI x,void* RESTRICTI z,J jt);
+typedef void AHDRRFN(I d,I n,I m,void* RESTRICTI x,void* RESTRICTI z,J jt);
+typedef void AHDRSFN(I d,I n,I m,void* RESTRICTI x,void* RESTRICTI z,J jt);
+
+#define AHDR1(f,Tz,Tx)          void f(JST * RESTRICT jt,I n,Tz* z,Tx* x)
+#define AHDR2(f,Tz,Tx,Ty)       void f(I n,I m,Tx* RESTRICTI x,Ty* RESTRICTI y,Tz* RESTRICTI z,J jt)
+#define AHDRP(f,Tz,Tx)          void f(I d,I n,I m,Tx* RESTRICTI x,Tz* RESTRICTI z,J jt)
+#define AHDRR(f,Tz,Tx)          void f(I d,I n,I m,Tx* RESTRICTI x,Tz* RESTRICTI z,J jt)
+#define AHDRS(f,Tz,Tx)          void f(I d,I n,I m,Tx* RESTRICTI x,Tz* RESTRICTI z,J jt)
+
+// value in vaptr[]
+#define VA2B0 1
+#define VA2B1 2
+#define VA2B2 3
+#define VA2B3 4
+#define VA2B4 5
+#define VA2B5 6
+#define VA2B6 7
+#define VA2B7 8
+#define VA2B8 9
+#define VA2B9 10
+#define VA2BA 11
+#define VA2BB 12
+#define VA2BC 13
+#define VA2BD 14
+#define VA2BE 15
+#define VA2BF 16
+#define VA2NE 17 // 35
+#define VA2DIV 18
+#define VA2NOR 19 // 32
+#define VA2GCD 20 // 31
+#define VA2MINUS 21
+#define VA2LT 22
+#define VA2EQ 23
+#define VA2GT 24
+#define VA2LCM 25 // 33
+#define VA2NAND 26 // 34
+#define VA2GE 27 // 30
+#define VA2LE 28
+// the following are in the same order in va1
+#define VA2MIN 29 // 27
+#define VA2MAX 30 // 29
+#define VA2PLUS 31 // 20
+#define VA2MULT 32 // 19
+#define VA2POW 33 // 25
+#define VA2RESIDUE 34 // 26
+#define VA2OUTOF 35 // 17
+#define VA2CIRCLE 36
+#define VA1ROOT 37
+#define VA1LOG 38
+
 
 /*
  b    1 iff cell rank of a <= cell rank of w
@@ -193,34 +242,6 @@ typedef struct {VA2 p1[6];} UA;
   NAN1V;                                                       \
  }
 
-#if 0 // obsolete
-#define APFY(f,Tz,Tx,Ty,pfx)   \
- AHDR2(f,Tz,A,A){A u,v;I c,d;                                                                  \
-  c=jt->rela;                                                                                  \
-  d=jt->relw;                                                                                  \
-  switch((c?2:0)+(d?1:0)){                                                                     \
-   case 0:                                                                                     \
-    if(n-1==0)  DO(m,                         *z++=pfx(*x,          *y          ); x++; y++; )   \
-    else if(n-1<0)DO(m, u=         *x++;  DOC(n, *z++=pfx(u,           *y          );      y++;))   \
-    else      DO(m, v=         *y++;  DO(n, *z++=pfx(*x,          v           ); x++;     ));  \
-    R;                                                                                         \
-   case 1:                                                                                     \
-    if(n-1==0)  DO(m,                         *z++=pfx(*x,          (A)(d+(I)*y)); x++; y++; )   \
-    else if(n-1<0)DO(m, u=         *x++;  DOC(n, *z++=pfx(u,           (A)(d+(I)*y));      y++;))   \
-    else      DO(m, v=(A)(d+(I)*y++); DO(n, *z++=pfx(*x,          v           ); x++;     ));  \
-    R;                                                                                         \
-   case 2:                                                                                     \
-    if(n-1==0)  DO(m,                         *z++=pfx((A)(c+(I)*x),*y          ); x++; y++; )   \
-    else if(n-1<0)DO(m, u=(A)(c+(I)*x++); DOC(n, *z++=pfx(u,           *y          );      y++;))   \
-    else      DO(m, v=         *y++;  DO(n, *z++=pfx((A)(c+(I)*x),v           ); x++;     ));  \
-    R;                                                                                         \
-   case 3:                                                                                     \
-    if(n-1==0)  DO(m,                         *z++=pfx((A)(c+(I)*x),(A)(d+(I)*y)); x++; y++; )   \
-    else if(n-1<0)DO(m, u=(A)(c+(I)*x++); DOC(n, *z++=pfx(u,           (A)(d+(I)*y));      y++;))   \
-    else      DO(m, v=(A)(d+(I)*y++); DO(n, *z++=pfx((A)(c+(I)*x),v           ); x++;     ));  \
- }}
-#endif
-
 /* Embedded visual tools v3.0 fails perform the z++ on all wince platforms. -KBI */
 #if SY_WINCE
 #define ACMP(f,Tz,Tx,Ty,pfx)   \
@@ -252,37 +273,6 @@ typedef struct {VA2 p1[6];} UA;
  }
 
 
-#if 0 // obsolete original.  It tries to keep alignment, but doesn't handle buffers that are originally unaligned
-#define BFSUB(xb,yi,pfx,bpfx)  \
- {B*a,*p,*yb,*zb;I j,k;                                        \
-  a=xb; p=(B*)&u; k=0;                                         \
-  if(0==r)for(j=0;j<m;++j){                                    \
-   c=*a++; DO(SZI, p[i]=c;); DO(q, v=*yi++; *zz++=pfx(u,v););  \
-  }else   for(j=0;j<m;++j){                                    \
-   q=(t-k)>>LGSZI; r=(t-k)&(SZI-1);                                   \
-   c=*a++; DO(SZI, p[i]=c;); DO(q, v=*yi++; *zz++=pfx(u,v););  \
-   if(0==r)k=0;                                                \
-   else{                                                       \
-    yb=(B*)yi; zb=(B*)zz;                                      \
-                   DO(r, d=*yb++; *zb++=bpfx(c,d););           \
-    c=*a; k=SZI-r; DO(k, d=*yb++; *zb++=bpfx(c,d););           \
-    ++yi; ++zz;                                                \
- }}}
-
-#define BPFX(f,pfx,bpfx,pfyx,bpfyx)  \
- AHDR2(f,B,B,B){B c,d;I dd,q,r,t,u,v,*xx,*yy,*zz;       \
-  t=n-1==0?m:n; q=t>>LGSZI; r=t&(SZI-1);                         \
-  xx=(I*)x; yy=(I*)y; zz=(I*)z;                         \
-  if(n-1==0){                                             \
-   DO(q, u=*xx++; v=*yy++; *zz++=pfx(u,v););            \
-   if(r){u=*xx++; v=*yy++; dd=pfx(u,v); MC(zz,&dd,r);}  \
-  }else if(t<SZI){                                      \
-   if(n-1<0)DO(m, c=*x++; DOC(n, v=*y++; *z++=bpfx(c,v);))   \
-   else DO(m, d=*y++; DO(n, u=*x++; *z++=bpfx(u,d);));  \
-  }else if(n-1<0){n=~n; BFSUB(x,yy,pfx, bpfx)}                      \
-  else       BFSUB(y,xx,pfyx,bpfyx)                     \
- }
-#else
 // n and m are never 0.
 #if 0 // waiting till me learn how to XCTL
 static void f##1(J jt,I m,void* RESTRICTI z,void* RESTRICTI x,void* RESTRICTI y){I u,v; \
@@ -297,7 +287,7 @@ static void f##1(J jt,I m,void* RESTRICTI z,void* RESTRICTI x,void* RESTRICTI y)
  u=*(I*)x; v=*(I*)y; u=pfx(u,v); STOREBYTES(z,u,(-m)&(SZI-1));  \
 }
 #endif
-#if 1
+
 #define BPFXNOAVX(f,pfx,bpfx,pfyx,bpfyx,fuv,decls,decls256)  \
 AHDR2(f,void,void,void){ I u,v;       \
  decls \
@@ -366,24 +356,4 @@ AHDR2(f,void,void,void){ I u,v;       \
 #else
 #define BPFXAVX2(f,pfx,bpfx,pfyx,bpfyx,fuv,decls,decls256) BPFXNOAVX(f,pfx,bpfx,pfyx,bpfyx,fuv,decls,decls256)
 #define BPFX(f,pfx,bpfx,pfyx,bpfyx,fuv,decls,decls256) BPFXNOAVX(f,pfx,bpfx,pfyx,bpfyx,fuv,decls,decls256)
-#endif
-#else  // obsolete 
-// n and m are never 0.
-#define BFSUB(xb,yi,pfx,bpfx)  \
- {I j;                                        \
-  for(j=0;j<m;++j){                                    \
-   REPLBYTETOW(*xb++,u); DQ((n-1)>>LGSZI, v=*yi++; *zz++=pfx(u,v););  \
-   v=*yi; I dd=pfx(u,v); STOREBYTES(zz,dd,(-n)&(SZI-1)); yi=(I*)((UC*)yi+(((n-1)&(SZI-1))+1)); zz=(I*)((UC*)zz+(((n-1)&(SZI-1))+1)); \
- }}
-
-#define BPFX(f,pfx,bpfx,pfyx,bpfyx)  \
- AHDR2(f,B,B,B){I u,v,*xx,*yy,*zz;       \
-  xx=(I*)x; yy=(I*)y; zz=(I*)z;                         \
-  if(n-1==0){                                             \
-   DQ((m-1)>>LGSZI, u=*xx++; v=*yy++; *zz++=pfx(u,v););            \
-   u=*xx; v=*yy; I dd=pfx(u,v); STOREBYTES(zz,dd,(-m)&(SZI-1));  \
-  }else if(n-1<0){n=~n; BFSUB(x,yy,pfx, bpfx)}                      \
-  else       BFSUB(y,xx,pfyx,bpfyx)                     \
- }
-#endif
 #endif

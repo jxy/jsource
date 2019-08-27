@@ -13,6 +13,42 @@ fi
 
 common="-march=native $OPENMP -fPIC -O2 -fwrapv"
 
+SRC_ASM_LINUX=" \
+ keccak1600-x86_64-elf.o \
+ sha1-x86_64-elf.o \
+ sha256-x86_64-elf.o \
+ sha512-x86_64-elf.o "
+
+SRC_ASM_LINUX32=" \
+ keccak1600-mmx-elf.o \
+ sha1-586-elf.o \
+ sha256-586-elf.o \
+ sha512-586-elf.o "
+
+SRC_ASM_RASPI=" \
+ keccak1600-armv8-elf.o \
+ sha1-armv8-elf.o \
+ sha256-armv8-elf.o \
+ sha512-armv8-elf.o "
+
+SRC_ASM_RASPI32=" \
+ keccak1600-armv4-elf.o \
+ sha1-armv4-elf.o \
+ sha256-armv4-elf.o \
+ sha512-armv4-elf.o "
+
+SRC_ASM_MAC=" \
+ keccak1600-x86_64-macho.o \
+ sha1-x86_64-macho.o \
+ sha256-x86_64-macho.o \
+ sha512-x86_64-macho.o "
+
+SRC_ASM_MAC32=" \
+ keccak1600-mmx-macho.o \
+ sha1-586-macho.o \
+ sha256-586-macho.o \
+ sha512-586-macho.o "
+
 javx2="${javx2:=0}"
 
 case $jplatform in
@@ -21,6 +57,9 @@ raspberry) # linux arm64
 TARGET=libj.so
 COMPILE="$common -march=armv8-a+crc -DRASPI -DC_CRC32C=1 "
 LINK=" $LDFLAGS -shared -Wl,-soname,libj.so -lm -ldl $LDOPENMP -o libj.so "
+OBJS_AESARM=" aes-arm.o "
+SRC_ASM="${SRC_ASM_RASPI}"
+GASM_FLAGS=""
 ;;
 
 darwin)
@@ -33,6 +72,9 @@ else
 CFLAGS_SIMD=" -DC_AVX2=1 -mavx2 "
 fi
 OBJS_FMA=" blis/gemm_int-fma.o "
+OBJS_AESNI=" aes-ni.o "
+SRC_ASM="${SRC_ASM_MAC}"
+GASM_FLAGS=""
 ;;
 
 *)
@@ -45,15 +87,18 @@ else
 CFLAGS_SIMD=" -DC_AVX2=1 -mavx2 "
 fi
 OBJS_FMA=" blis/gemm_int-fma.o "
+OBJS_AESNI=" aes-ni.o "
+SRC_ASM="${SRC_ASM_LINUX}"
+GASM_FLAGS=""
 ;;
 
 esac
 
-echo "COMPILE=$COMPILE"
-
 OBJS="\
  a.o \
  ab.o \
+ aes-c.o \
+ aes-sse2.o \
  af.o \
  ai.o \
  am.o \
@@ -171,6 +216,7 @@ OBJS="\
  x.o \
  x15.o \
  xa.o \
+ xaes.o \
  xb.o \
  xc.o \
  xcrc.o \
@@ -184,8 +230,18 @@ OBJS="\
  xs.o \
  xsha.o \
  xt.o \
- xu.o "
+ xu.o \
+ keccak1600.o \
+ md4_dgst.o \
+ md4_one.o \
+ md5_dgst.o \
+ md5_one.o \
+ openssl-util.o \
+ sha1_one.o \
+ sha256.o \
+ sha3.o \
+ sha512.o "
 
-export OBJS OBJS_FMA COMPILE CFLAGS_SIMD LINK TARGET
+export OBJS OBJS_FMA OBJS_AESNI OBJS_AESARM SRC_ASM GASM_FLAGS COMPILE CFLAGS_SIMD LINK TARGET
 $jmake/domake.sh
 

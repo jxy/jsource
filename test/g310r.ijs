@@ -1,7 +1,7 @@
 1:@:(dbr bind Debug)@:(9!:19)2^_44[(echo^:ECHOFILENAME) './g310r.ijs'
 NB. : representations of explicit operators -----------------------------
 
-nl=: 10{a.
+nln=: 10{a.
 nn=: <@((,'0')&;)
 
 F=: 2 : 0
@@ -36,10 +36,10 @@ f2=: + F2 *
 (5!:2 <'f1') -: ,&.> '+';(5!:2 <'F1');'*'
 (5!:2 <'f2') -: ,&.> '+';(5!:2 <'F2');'*'
 
-(5!:5 <'F' ) -: '2 : 0',nl,'u v y',nl,':',nl,'x u v y',nl,')'
+(5!:5 <'F' ) -: '2 : 0',nln,'u v y',nln,':',nln,'x u v y',nln,')'
 (5!:5 <'F1') -: '2 : ''u v y'''
 (5!:5 <'F2') -: '2 : ('':''; ''x u v y'')'
-(5!:5 <'f' ) -: '+ (2 : 0) *',(i.&nl }. ]) 5!:5 <'F'
+(5!:5 <'f' ) -: '+ (2 : 0) *',(i.&nln }. ]) 5!:5 <'F'
 (5!:5 <'f1') -: '+ (',(5!:5 <'F1'),') *'
 (5!:5 <'f2') -: '+ (',(5!:5 <'F2'),') *'
 
@@ -79,14 +79,127 @@ sum=: +/
 (5!:2 <'g1') -: (,&.>'+/');<5!:2 <'G1'
 (5!:2 <'g2') -: (,&.>'+/');<5!:2 <'G2'
 
-(5!:5 <'G' ) -: '1 : 0',nl,'u y',nl,':',nl,'x u y',nl,')'
+(5!:5 <'G' ) -: '1 : 0',nln,'u y',nln,':',nln,'x u y',nln,')'
 (5!:5 <'G1') -: '1 : ''u y'''
 (5!:5 <'G2') -: '1 : ('':''; ''x u y'')'
-(5!:5 <'g' ) -: '+/ (1 : 0)',(i.&nl }. ]) 5!:5 <'G'
+(5!:5 <'g' ) -: '+/ (1 : 0)',(i.&nln }. ]) 5!:5 <'G'
 (5!:5 <'g1') -: '+/ (',(5!:5 <'G1'),')'
 (5!:5 <'g2') -: '+/ (',(5!:5 <'G2'),')'
 
+ 
+NB. Local name passed to another modifier
+'`v1 v2 v3' =: -`*:`-:   NB. these are the values found by dou
+dou =: 1 : '". (5!:5<''u'') , ''  :: ]'' , ": y return. u'  NB. This processes by name
+v =: 3 : 0
+r =. ''
+v1 =. v4 =. v5 =. v6 =. v7 =. v8 =. +
+r =. r , v1 dou 5
+v2 =. %
+r =. r , v2 dou 5
+v3 =. +:
+r =. r , v3 dou 6
+r
+)
+_5 25 3 -: v ''
+dou =: 1 : 'u.  :: ] y'  NB. This used the implicit locative
+5 0.2 12 -: v ''
 
-4!:55 ;:'F f F1 f1 F2 f2 G g G1 g1 G2 g2 nl nn sum'
+
+NB. processing on u./v. in native locales
+a_z_ =: 1 : 0
+s =. 6
+cocurrent 'yyy'
+r =. u. y
+assert. (<'yyy') -: coname''
+assert. s = 6
+r
+)
+f =: 3 : 0
+s =. 7
+t =. ".
+j=: 8
+j_xxx_=. 5
+cocurrent 'xxx'
+(t a y) , (t a 'j')
+)
+7 5 = f 's'
+
+d_yyy_=: 9:
+d_xxx_=:7:
+c_z_ =: 2 : 0
+s =. 15
+cocurrent 'base'
+r =. ((d+u.) a x),(v. a y)  NB. d and u run in different locales (d in yyy, u in calling locale base/xxx)
+NB. execution of a changes the locale to yyy because the operator is anonymous
+assert. s = 15
+r
+)
+
+f =: 4 : 0
+s =. 17
+t =. ".
+r =. *:
+j=: 8
+j_xxx_=. 5
+cocurrent 'xxx'
+r =. (x r c t y) , (x r c t 'j')  NB. locale changes between executions because the operator is anonymous
+r
+)
+153 17 153 5 -: 12 f 's'
+
+a =: 1 : 'u.'
+20 = +: a 10
+
+aa =: 1 : 'u. a'
+20 = +: aa 10
+
+NB. References passed through
+a =: 1 : 0
+1+u.
+)
+
+aa =: 1 : 0
+(*:@u) a
+)
+
+26 = (<: aa) 6
+
+NB. References assigned
+aa =: 1 : 0
+s =. 9:
+p =. 10
+t =. *:@u.
+q =: *:@u. f.  NB. verifies fix picks up from caller
+(u. 'p'),(t 'p'),(q 'p'),((*:@u.) a 'p'),(t a 'p'),(q a 'p')
+)
+
+f =: 3 : 0
+s =. ".
+p =. 15
+s aa
+)
+15 225 100 226 226 101 -: f''  NB. The returns from a all get fixed, but only at lowest level
+
+NB. Returns
+5 -: 10 + (2 : 'u. v.') - 5
+_5 -: 10 + (2 : '(u.~ v.)~') - 5
+NB. v. not fixed (bug)  24 = +: 2 : 'u.^:(1:`([v.))' - 12
++: 2 :' v."_`u.@.(*@#@])' *:
+'noun result was required' -: 3 : 0 etx ''
+nm =. + + +
+ + 2 : 'v."_`' nm
+)
+nm =. +:
+2 -: + 2 : 0 - (2)
+nm =. +
+%: 2 : 'u. v.' nm   NB. return contains nm, executed in caller
+)
+6 = 1 (+ 2 : 'x undefname`u.`v.@.[ y' -) 5
+_3 = 2 (+ 2 : 'x undefname`u.`v.@.[ y' -) 5
+'value error' -: 0 (+ 2 : 'x undefname`u.`v.@.[ y' -) etx 5
+
+
+4!:55 ;:'a aa q a_z_ c_z_ d_yyy_ d_xxx_ j j_xxx_ F f F1 f1 F2 f2 G g G1 g1 G2 g2 nln nn sum'
+18!:55 ;:'xxx yyy'
 
 

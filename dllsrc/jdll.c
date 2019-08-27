@@ -30,7 +30,9 @@ extern I utowsize(C4* src, I srcn);
 int valid(C* psrc, C* psnk);
 C* esub(J jt, long ec);
 
+#ifdef OLECOM
 extern int uniflag;
+#endif
 
 I jdo(J, C*);
 
@@ -63,6 +65,8 @@ void toasc(WCHAR* src, C* sink)
 int _stdcall JBreak(J jt){ return 0;}
 
 int _stdcall JIsBusy(J jt){	return 0;}
+
+#ifdef OLECOM
 
 #if !SY_WINCE
 
@@ -257,13 +261,12 @@ int jget(J jt, C* name, VARIANT* v, int dobstr)
 {
 	A a;
 	char gn[256];
-	I old;
 	int er;
 
 	if(strlen(name) >= sizeof(gn)) return EVILNAME;
 	if(valid(name, gn)) return EVILNAME; 
 	RZ(a=symbrd(nfs(strlen(gn),gn)));
-	old = jt->tnextpushx;
+	A *old = jt->tnextpushp;
 	er = a2v (jt, a, v, dobstr);
 	tpop (old);
 	return er;
@@ -584,7 +587,7 @@ void oleoutput(J jt, I n, char* s)
 int jsetx(J jt, C* name, VARIANT* v, int dobstrs)
 {
 	int er;
-	I old=jt->tnextpushx;
+	A *old=jt->tnextpushp;
 	char gn[256];
 
 	// validate name
@@ -669,6 +672,8 @@ int _stdcall JDoR(J jt, C* p, VARIANT* v)
 	R e;
 }
 #endif // wince
+
+#endif
 
 // previously in separate file when jdll.c and jcom.c both exisited
 char modulepath[_MAX_PATH];
@@ -780,12 +785,11 @@ J _stdcall JInit()
 // clean up at the end of a J instance
 int _stdcall JFree(J jt)
 {
-	I old;
 	if(!jt) return 0;
 #if !SY_WINCE
 	dllquit(jt);  // clean up call dll
 #endif
-	if(jt->xep&&AN(jt->xep)){old=jt->tnextpushx; immex(jt->xep); fa(jt->xep); jt->xep=0; jt->jerr=0; jt->etxn=0; tpop(old); }
+	if(jt->xep&&AN(jt->xep)){A *old=jt->tnextpushp; immex(jt->xep); fa(jt->xep); jt->xep=0; jt->jerr=0; jt->etxn=0; tpop(old); }
 	HeapDestroy(jt->heap);
 	return 0;
 }

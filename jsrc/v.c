@@ -9,20 +9,20 @@
 F1(jttally ){A z; RZ(w); z=sc(IC(w));            RETF(AT(w)&XNUM+RAT?xco1(z):z);}
 F1(jtshapex){A z; RZ(w); z=vec(INT,AR(w),AS(w)); RETF(AT(w)&XNUM+RAT?xco1(z):z);}
 F1(jtshape){RZ(w); R vec(INT,AR(w),AS(w));}
-F1(jtisempty){RZ(w); R num[AN(w)==0];}
-F1(jtisnotempty){RZ(w); R num[AN(w)!=0];}
+F1(jtisempty){RZ(w); if(AT(w)&SPARSE)R eps(zeroionei[0],shape(w)); R num[AN(w)==0];}
+F1(jtisnotempty){RZ(w); if(AT(w)&SPARSE)R not(eps(zeroionei[0],shape(w))); R num[AN(w)!=0];}
 F1(jtisitems){RZ(w); R num[!AR(w)||AS(w)[0]];}
 F1(jtrank){F1PREFIP; RZ(w); R sc(AR(w));}
-F1(jtnatoms){F1PREFIP; RZ(w); R sc(AN(w));}
+F1(jtnatoms){F1PREFIP; RZ(w); if(AT(w)&SPARSE)R df1(shape(w),slash(ds(CPLUS))); R sc(AN(w));}
 
 // ,y and ,"r y - producing virtual blocks
 F1(jtravel){A a,c,q,x,y,y0,z;B*b;I f,j,m,r,*u,*v,*yv;P*wp,*zp;
  F1PREFIP; RZ(w); 
- r=(RANKT)jt->ranks; r=AR(w)<r?AR(w):r; f=AR(w)-r; RESETRANK; // r=effective rank (jt->rank is effective rank from irs1), f=frame
+ r=(RANKT)jt->ranks; r=AR(w)<r?AR(w):r; f=AR(w)-r; // r=effective rank (jt->rank is effective rank from irs1), f=frame
  if(!(AT(w)&SPARSE)){
-  if(r==1)R RETARG(w);  // if we are enfiling 1-cells, there's nothing to do, return the input (note: rank of sparse array is always 1)
+  if(r==1)R RETARG(w);  // if we are enfiling 1-cells, there's nothing to do, return the input (note: AN of sparse array is always 1)
   CPROD(AN(w),m,r,f+AS(w));   // m=#atoms in cell
-  if((I)jtinplace&JTINPLACEW && r && ASGNINPLACE(w) && !(AFLAG(w)&AFUNINCORPABLE)){  // inplace allowed, rank not 0 (so shape will fit), usecount is right
+  if(ASGNINPLACESGN(SGNIF((I)jtinplace,JTINPLACEWX)&(-r),w) && !(AFLAG(w)&AFUNINCORPABLE)){  // inplace allowed, rank not 0 (so shape will fit), usecount is right
    // operation is loosely inplaceable.  Just shorten the shape to frame,(#atoms in cell).  We do this here rather than relying on
    // the self-virtual-block code in virtual() because we can do it for indirect types also, since we know we are not changing
    // the number of atoms
@@ -36,6 +36,7 @@ F1(jtravel){A a,c,q,x,y,y0,z;B*b;I f,j,m,r,*u,*v,*yv;P*wp,*zp;
   MC(AV(z),AV(w),AN(w)<<bplg(AT(w))); RETF(z); // if dense, move the data and relocate it as needed
  }
  // the rest handles sparse matrix enfile
+ RESETRANK;   // clear IRS for calls made here
  RE(m=prod(r,f+AS(w)));  // # atoms in cell
  GASPARSE(z,AT(w),1,1+f,AS(w)); AS(z)[f]=m;   // allocate result area, shape=frame+1 more to hold size of cell; fill in shape
  wp=PAV(w); zp=PAV(z);
@@ -44,13 +45,13 @@ F1(jtravel){A a,c,q,x,y,y0,z;B*b;I f,j,m,r,*u,*v,*yv;P*wp,*zp;
   if(memchr(b+f,C0,r)){memset(b+f,C1,r); RZ(w=reaxis(ifb(AR(w),b),w)); wp=PAV(w); x=SPA(wp,x);}
   else RZ(x=ca(SPA(wp,x)));
   RZ(a=caro(ifb(1+f,b)));   // avoid readonly block
-  GATV0(c,INT,r,1L); v=r+AV(c); j=AR(w); m=1; DO(r, *--v=m; m*=AS(w)[--j];);
+  GATV0(c,INT,r,1L); v=r+AV(c); j=AR(w); m=1; DQ(r, *--v=m; m*=AS(w)[--j];);
   y0=SPA(wp,i); v=AS(y0); m=v[0]; I n=v[1];
   RZ(q=pdt(dropr(n-r,y0),c));
   GATV0(y,INT,m*(1+n-r),2); v=AS(y); v[0]=m; v[1]=1+n-r;
   yv=AV(y); u=AV(y0); v=AV(q); j=n-r;
-  DO(m, ICPY(yv,u,j); yv[j]=*v++; yv+=1+j; u+=n;);
- }else{RZ(a=ca(SPA(wp,a))); RZ(x=irs1(SPA(wp,x),0L,r,jtravel)); RZ(y=ca(SPA(wp,i)));}
+  DQ(m, ICPY(yv,u,j); yv[j]=*v++; yv+=1+j; u+=n;);
+ }else{RZ(a=ca(SPA(wp,a))); RZ(x=IRS1(SPA(wp,x),0L,r,jtravel,y0)); RZ(y=ca(SPA(wp,i)));}
  SPB(zp,a,a); 
  SPB(zp,e,ca(SPA(wp,e)));
  SPB(zp,x,x);
@@ -58,17 +59,12 @@ F1(jtravel){A a,c,q,x,y,y0,z;B*b;I f,j,m,r,*u,*v,*yv;P*wp,*zp;
  RETF(z);
 }
 
-F1(jttable){A z;I f,r,*s,wr,*ws,wt;
- RZ(w);
- wt=AT(w); ws=AS(w);
- wr=AR(w); r=(RANKT)jt->ranks; r=wr<r?wr:r; f=wr-r; RESETRANK; // wr=rank, r=effective rank (jt->rank is effective rank from irs1), f=frame
-
- if(wt&SPARSE){z=irs1(w,0L,r?r-1:0,jtravel); R r?z:irs1(z,0L,0L,jtravel);}
- GA(z,wt,AN(w),2+f,ws); s=f+AS(z);
- if(r)*(1+s)=prod(r-1,1+f+ws); else *s=*(1+s)=1;
- MC(AV(z),AV(w),AN(w)<<bplg(wt));
- RETF(z);
-}
+F1(jttable){A z,zz;I r,wr;
+ RZ(w);F1PREFIP;
+ wr=AR(w); r=(RANKT)jt->ranks; r=wr<r?wr:r;  // r=rank to use
+ RZ(IRSIP1(w,0L,r-1<0?0:r-1,jtravel,z));  // perform ravel on items
+ R r?z:IRSIP1(z,0L,0L,jtravel,zz);  // If we are raveling atoms, do it one more time on atoms
+} // ,."r y
 
 // ] [ and ]"n ["n, dyadic
 // length error has already been detected, in irs
@@ -78,7 +74,7 @@ static A jtlr2(J jt,B left,A a,A w){A z;C*v;I acr,af,ar,k,n,of,*os,r,*s,t,
  // ?r=rank of ? arg; ?cr= verb-rank for that arg; ?f=frame for ?; ?s->shape
  // We know that jt->rank is nonzero, because the caller checked it
  ar=AR(a); acr=jt->ranks>>RANKTX; acr=ar<acr?ar:acr; af=ar-acr;
- wr=AR(w); wcr=(RANKT)jt->ranks; wcr=wr<wcr?wr:wcr;  wf=wr-wcr;  // RESETRANK not required because we call no primitives from here on
+ wr=AR(w); wcr=(RANKT)jt->ranks; wcr=wr<wcr?wr:wcr;  wf=wr-wcr;  // RESETRANK not required because we call no primitives from here on,. 
  // Cells of the shorter-frame argument are repeated.  If the shorter- (or equal-)-frame argument
  // is the one being discarded (eg (i. 10 10) ["0 i. 10), the replication doesn't matter, and we
  // simply keep the surviving argument intact.  We can do this because we have no PROLOG
@@ -106,7 +102,7 @@ F1(jtiota){A z;I m,n,*v;
  RZ(w=vi(w)); n=AN(w); v=AV(w);
  if(1==n){m=*v; R 0>m?apv(-m,-m-1,-1L):IX(m);}
  RE(m=prod(n,v)); z=reshape(mag(w),IX(ABS(m)));
- DO(n, if(0>v[i])z=irs1(z,0L,n-i,jtreverse););
+ DO(n, A zz; if(0>v[i])z=IRS1(z,0L,n-i,jtreverse,zz););
  RETF(z);
 }
 
@@ -125,11 +121,11 @@ F1(jtjico1){A y,z;B b;D d,*v;I c,m,n;
 DF1(jtnum1){RZ(   w&&self); R FAV(self)->fgh[2];}
 DF2(jtnum2){RZ(a&&w&&self); R FAV(self)->fgh[2];}
 
-F2(jtfromr  ){R irs2(a,w,VFLAGNONE, RMAX,1L,jtfrom  );}
-F2(jtrepeatr){R irs2(a,w,VFLAGNONE, RMAX,1L,jtrepeat);}
+F2(jtfromr  ){RZ(a&&w); A z; R IRS2(a,w,0, RMAX,1L,jtfrom  ,z);} // no agreement check because left rank is infinite - no frame
+F2(jtrepeatr){RZ(a&&w); A z; R IRS2(a,w,0, RMAX,1L,jtrepeat,z);}
 
-A jttaker(J jt,I n,A w){R irs2(sc(n),w,VFLAGNONE, RMAX,1L,jttake);}
-A jtdropr(J jt,I n,A w){R irs2(sc(n),w,VFLAGNONE, RMAX,1L,jtdrop);}
+A jttaker(J jt,I n,A w){RZ(w); A a,z; RZ(a=sc(n)); R IRS2(a,w,0, RMAX,1L,jttake,z);}
+A jtdropr(J jt,I n,A w){RZ(w); A a,z; RZ(a=sc(n)); R IRS2(a,w,0, RMAX,1L,jtdrop,z);}
 
 F1(jticap){A a,e;I n;P*p;
  F1RANK(1,jticap,0);
@@ -146,9 +142,9 @@ A jtcharmap(J jt,A w,A x,A y){A z;B bb[256];I k,n,wn;UC c,*u,*v,zz[256];
  if(!(LIT&AT(w)))R from(indexof(x,w),y);
  wn=AN(w); n=MIN(AN(x),AN(y)); u=n+UAV(x); v=n+UAV(y);
  k=256; memset(bb,C0,256); if(n<AN(y))memset(zz,*(n+UAV(y)),256);
- DO(n, c=*--u; zz[c]=*--v; if(!bb[c]){--k; bb[c]=1;});
+ DQ(n, c=*--u; zz[c]=*--v; if(!bb[c]){--k; bb[c]=1;});
  GATV(z,LIT,wn,AR(w),AS(w)); v=UAV(z); u=UAV(w);
- if(k&&n==AN(y))DO(wn, c=*u++; ASSERT(bb[c],EVINDEX); *v++=zz[c];)
- else if(!bitwisecharamp(zz,wn,u,v))DO(wn, *v++=zz[*u++];);
+ if(k&&n==AN(y))DQ(wn, c=*u++; ASSERT(bb[c],EVINDEX); *v++=zz[c];)
+ else if(!bitwisecharamp(zz,wn,u,v))DQ(wn, *v++=zz[*u++];);
  RETF(z);
 }    /* y {~ x i. w */
