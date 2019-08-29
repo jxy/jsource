@@ -49,8 +49,6 @@ SRC_ASM_MAC32=" \
  sha256-586-macho.o \
  sha512-586-macho.o "
 
-javx2="${javx2:=0}"
-
 case $jplatform in
 
 raspberry) # linux arm64
@@ -59,37 +57,24 @@ COMPILE="$common -march=armv8-a+crc -DRASPI -DC_CRC32C=1 "
 LINK=" $LDFLAGS -shared -Wl,-soname,libj.so -lm -ldl $LDOPENMP -o libj.so "
 OBJS_AESARM=" aes-arm.o "
 SRC_ASM="${SRC_ASM_RASPI}"
-GASM_FLAGS=""
 ;;
 
 darwin)
 TARGET=libj.dylib
-COMPILE="$darwin -DC_AVX=1 "
+COMPILE="$darwin -DC_AVX=1 -DC_AVX2=1 -mavx -mavx2 "
 LINK=" $LDFLAGS -dynamiclib -lm -ldl $LDOPENMP -o libj.dylib"
-if [ "x$javx2" != x'1' ] ; then
-CFLAGS_SIMD=" -mavx "
-else
-CFLAGS_SIMD=" -DC_AVX2=1 -mavx2 "
-fi
 OBJS_FMA=" blis/gemm_int-fma.o "
 OBJS_AESNI=" aes-ni.o "
 SRC_ASM="${SRC_ASM_MAC}"
-GASM_FLAGS=""
 ;;
 
 *)
 TARGET=libj.so
-COMPILE="$common -DC_AVX=1 -flto "
+COMPILE="$common -DC_AVX=1 -flto -mavx "
 LINK=" $LDFLAGS $COMPILE -shared -Wl,-soname,libj.so -lm -ldl $LDOPENMP -o libj.so "
-if [ "x$javx2" != x'1' ] ; then
-CFLAGS_SIMD=" -mavx "
-else
-CFLAGS_SIMD=" -DC_AVX2=1 -mavx2 "
-fi
 OBJS_FMA=" blis/gemm_int-fma.o "
 OBJS_AESNI=" aes-ni.o "
 SRC_ASM="${SRC_ASM_LINUX}"
-GASM_FLAGS=""
 ;;
 
 esac

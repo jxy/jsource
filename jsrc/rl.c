@@ -139,10 +139,10 @@ static F1(jtlbox){A p,*v,*vv,*wv,x,y;B b=0;I n;
 A jtdecorate(J jt,A w,I t){
  if(AN(w)==0)R w;  // if empty string, don't decorate
  if(t&FL){
-  // float: make sure there is a . somewhere, or infinity/indefinite ('_' followed by space/end/.), else put '.' on the end
+  // float: make sure there is a . somewhere, or infinity/indefinite ('_' followed by space/end/.), else put '.' on the end or at position of first 'e'
   B needdot = !memchr(CAV(w),'.',AN(w));  // check for decimal point
   if(needdot){DO(AN(w), if(CAV(w)[i]=='_' && (i==AN(w)-1 || CAV(w)[i+1]==' ')){needdot=0; break;} )}  // check for infinity
-  if(needdot)w=over(w,scc('.'));
+  if(needdot){w=over(w,scc('.')); RZ(w=rifvs(w)); DQ(AN(w) , if(CAV(w)[i]==' ')R w;  if(CAV(w)[i]=='e'){C f='.'; C *s=&CAV(w)[i]; DO(AN(w)-i, C ff=s[i]; s[i]=f; f=ff;)}) }
  }else if(t&INT){
   // integer: if the string contains nothing but one-digit 0/1 values, prepend a '0'
   I l=AN(w); C *s=CAV(w); do{if((*s&-2)!='0')break; ++s; if(--l==0)break; if(*s!=' ')break; ++s;}while(--l);
@@ -267,7 +267,7 @@ static F2(jtlinsert){A*av,f,g,h,t,t0,t1,t2,*u,y;B b,ft,gt,ht;C c,id;I n;V*v;
  n=AN(a); av=AAV(a);  
  v=VAV(w); id=v->id;
  b=id==CCOLON&&VXOP&v->flag;
- I fndx=(AT(w)&ADV)&&!v->fgh[0]; A fs=v->fgh[fndx]; A gs=v->fgh[fndx^1];  // In adverbs, if f is empty look to g for the left arg (used by m b.)
+ I fndx=(id==CBDOT)&&!v->fgh[0]; A fs=v->fgh[fndx]; A gs=v->fgh[fndx^1];  // In verb for m b., if f is empty look to g for the left arg.  It would be nice to be more general
 // ?t tells whether () is needed around the f/g/h component
  if(1<=n){f=av[0]; t=fs; c=ID(t); ft=c==CHOOK||c==CFORK||c==CADVF||(b||id==CFORK)&&NOUN&AT(t)&&lp(f);}  // f: () if it's hook fork && or noun left end of nvv or n (op)
  if(2<=n){g=av[1]; t=gs; c=ID(t); gt=VERB&AT(w)    ?c==CHOOK||c==CFORK:lp(g);}
@@ -322,7 +322,7 @@ static DF1(jtlrr){A hs,t,*tv;C id;I fl,m;V*v;
  if(AT(w)&NOUN)R lnoun(w);
  // if f is 0, we take f from g.  In other words, adverbs can put their left arg in either f or g.  u b. uses g so that it can leave f=0 to allow it to function as an ATOMIC2 op
  v=VAV(w); id=v->id;
- I fndx=(AT(w)&ADV)&&!v->fgh[0]; A fs=v->fgh[fndx]; A gs=v->fgh[fndx^1];  // In adverbs, if f is empty look to g for the left arg (used by m b.)
+ I fndx=(id==CBDOT)&&!v->fgh[0]; A fs=v->fgh[fndx]; A gs=v->fgh[fndx^1];  // In verb for m b., if f is empty look to g for the left arg.  It would be nice to be more general
  hs=v->fgh[2]; fl=v->flag; if(id==CBOX)gs=0;  // ignore gs field in BOX, there to simulate BOXATOP
  if(fl&VXOPCALL)R lrr(hs);
  m=(I )!!fs+(I )(gs&&id!=CBOX)+(I )(id==CFORK)+(I )(hs&&id==CCOLON&&VXOP&fl);  // BOX has g for BOXATOP; ignore it
