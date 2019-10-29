@@ -86,6 +86,28 @@ sum=: +/
 (5!:5 <'g1') -: '+/ (',(5!:5 <'G1'),')'
 (5!:5 <'g2') -: '+/ (',(5!:5 <'G2'),')'
 
+NB. Going through locatives leaves global path unchanged
+a_z_ =. a =. 1 : 0
+u. f.
+1
+)
++ a
+f =. ((coname '') -: coname)
+f a
+g =. a_z_
++ g
+f g
+3 : 0 ''
+assert. + a
+ff =. ((coname '') -: coname)
+assert. f a
+assert. ff a
+assert. ((coname '') -: coname) g
+assert. f g
+assert. ff g
+1
+)
+4!:55 ;:'a a_z_'  NB. names used below
  
 NB. Local name passed to another modifier
 '`v1 v2 v3' =: -`*:`-:   NB. these are the values found by dou
@@ -198,8 +220,31 @@ nm =. +
 _3 = 2 (+ 2 : 'x undefname`u.`v.@.[ y' -) 5
 'value error' -: 0 (+ 2 : 'x undefname`u.`v.@.[ y' -) etx 5
 
+NB. Inverse lookups stop fixing at inverse
+4!:55 ;:'a c'
+cocurrent 'xxx'
+nameinxxx =: ]
+dec=: 3 : 0
+nameinxxx y
+:
+nameinxxx y
+)
+enc=: 3 : 0
+>:@nameinxxx y
+:
+>:@nameinxxx y
+)
+cocurrent 'z'
+a =: enc_xxx_ :. dec_xxx_
+c=: a_z_^:_1
+cocurrent 'base'
+1 -: ]&.a 0
+1 -: ]&.c 0
+101 -: 100 [&.a 0
+101 -: 100 [&.c 0
 
-4!:55 ;:'a aa q a_z_ c_z_ d_yyy_ d_xxx_ j j_xxx_ F f F1 f1 F2 f2 G g G1 g1 G2 g2 nln nn sum'
+
+4!:55 ;:'a aa q a_z_ c_z_ d_yyy_ d_xxx_ j j_xxx_ dou F f F1 f1 F2 f2 G g G1 g1 G2 g2 nameinxxx_xxx_ nln nn sum'
 18!:55 ;:'xxx yyy'
 
 

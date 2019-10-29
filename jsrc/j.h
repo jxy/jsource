@@ -391,6 +391,17 @@ extern unsigned int __cdecl _clearfp (void);
 #define MEMCPYTUNE 4096  // (bytes) unpredictable blocks shorter than this should just use MCISxx.  Keep as power of 2
 #define MEMCPYTUNELOOP 350  // (bytes) predictable blocks shorter than this should just use MCISxx.
 
+// Tuning options for cip.c
+#define IGEMM_THRES  5000000     // when m*n*p less than this use cached; when higher, use BLAS   scaf must TUNE this
+#ifdef _MSC_VER
+#define DGEMM_THRES  (-1)     // when m*n*p less than this use cached; when higher, use BLAS   _1 means 'never'
+#else
+#define DGEMM_THRES  5000000     // when m*n*p less than this use cached; when higher, use BLAS   _1 means 'never'
+#endif
+#define DCACHED_THRES  (64*64*64)    // when m*n*p less than this use blocked; when higher, use cached
+#define ZGEMM_THRES  2000000     // when m*n*p less than this use cached; when higher, use BLAS  
+
+
 
 // Debugging options
 
@@ -429,7 +440,7 @@ extern unsigned int __cdecl _clearfp (void);
 #define ASSERTD(b,s)    {if(!(b)){jsigd((s)); R 0;}}
 #define ASSERTMTV(w)    {RZ(w); ASSERT(1==AR(w),EVRANK); ASSERT(!AN(w),EVLENGTH);}
 #define ASSERTN(b,e,nm) {if(!(b)){jt->curname=(nm); jsignal(e); R 0;}}  // set name for display (only if error)
-#define ASSERTSYS(b,s)  {if(!(b)){jsignal(EVSYSTEM); jtwri(jt,MTYOSYS,"",(I)strlen(s),s); R 0;}}
+#define ASSERTSYS(b,s)  {if(!(b)){fprintf(stderr,"system error: %s : file %s line %d\n",s,__FILE__,__LINE__); jsignal(EVSYSTEM); jtwri(jt,MTYOSYS,"",(I)strlen(s),s); R 0;}}
 #define ASSERTW(b,e)    {if(!(b)){if((e)<=NEVM)jsignal(e); else jt->jerr=(e); R;}}
 // verify that shapes *x and *y match for l axes, with no mispredicted branches
 #if C_AVX&&SY_64
@@ -496,7 +507,7 @@ extern unsigned int __cdecl _clearfp (void);
 #define ALLOBYTESVSZ(atoms,rank,size,islast,isname)      ( ((((rank)|(!SY_64))*SZI  + ((islast)? (isname)?(NORMAH*SZI+sizeof(NM)+SZI-1):(NORMAH*SZI+SZI-1) : (NORMAH*SZI-1)) + (atoms)*(size)))  )  // # bytes to allocate allowing 1 I for string pad - include mem hdr - minus 1
 // here when size is constant.  The number of bytes, rounded up with overhead added, must not exceed 2^(PMINL+4)
 #define ALLOBYTES(atoms,rank,size,islast,isname)      ((size&(SZI-1))?ALLOBYTESVSZ(atoms,rank,size,islast,isname):(SZI*(((rank)|(!SY_64))+NORMAH+((size)>>LGSZI)*(atoms)+!!(islast))-1))  // # bytes to allocate-1
-#define ALLOBLOCK(n) ((n)<2*PMIN?((n)<PMIN?PMINL-1:PMINL) : (n)<8*PMIN?((n)<4*PMIN?PMINL+1:PMINL+2) : (n)<32*PMIN?PMINL+3:IMIN)   // lg2(#bytes to allocate)-1.  n is #bytes-1
+#define ALLOBLOCK(n) ((n)<2*PMIN?((n)<PMIN?PMINL-1:PMINL) : (n)<8*PMIN?((n)<4*PMIN?PMINL+1:PMINL+2) : (n)<32*PMIN?((n)<16*PMIN?PMINL+3:PMINL+4) : IMIN)   // lg2(#bytes to allocate)-1.  n is #bytes-1
 // value to put into name->bucketx for locale names: number if numeric, hash otherwise
 #define BUCKETXLOC(len,s) ((*(s)<='9')?strtoI10s((len),(s)):(I)nmhash((len),(s)))
 // GA() is used when the type is unknown.  This routine is in m.c and documents the function of these macros.
@@ -611,8 +622,16 @@ extern unsigned int __cdecl _clearfp (void);
 #define INSTALLRATNF(x,xv,k,z) if(UCISRECUR(x)){ra(z.n); ra(z.d);} xv[k]=z   // Don't do the free - if we are installing into known 0
 #define INSTALLRATRECUR(xv,k,z) rifv(z.n); rifv(z.d); {I zzK=(k); {Q zzZ=xv[k]; ra(z.n); ra(z.d); fa(zzZ.n); fa(zzZ.d);} xv[zzK]=z;}  // Don't test - we know we are installing into a recursive block
 // Use IRS[12] to call a verb that supports IRS.  Rank is nonnegative; result is assigned to z
-#define IRS1(w,fs,r,f1,z) (jt->ranks=(RANK2T)((((I)AR(w)-(r+1))>>(BW-1))|(r)),z=((AF)(f1))(jt,(w),(A)(fs)),jt->ranks=(RANK2T)~0,z)  // nonneg rank
-#define IRSIP1(w,fs,r,f1,z) (jt->ranks=(RANK2T)((((I)AR(w)-(r+1))>>(BW-1))|(r)),z=((AF)(f1))(jtinplace,(w),(A)(fs)),jt->ranks=(RANK2T)~0,z)  // nonneg rank
+// obsolete #if defined(__GNUC__) && !defined(__clang__) && (__GNUC__ < 5)
+// obsolete #define IRS1(w,fs,r,f1,z) (jt->ranks=(RANK2T)((r>=AR(w)?-1:0)|(r)),z=((AF)(f1))(jt,(w),(A)(fs)),jt->ranks=(RANK2T)~0,z)  // nonneg rank
+// obsolete #define IRSIP1(w,fs,r,f1,z) (jt->ranks=(RANK2T)((r>=AR(w)?-1:0)|(r)),z=((AF)(f1))(jtinplace,(w),(A)(fs)),jt->ranks=(RANK2T)~0,z)  // nonneg rank
+// obsolete #else
+#define IRS1COMMON(j,w,fs,r,f1,z) (z=(A)(r),z=(I)AR(w)>(I)(r)?z:(A)~0,jt->ranks=(RANK2T)(I)z,z=((AF)(f1))(j,(w),(A)(fs)),jt->ranks=(RANK2T)~0,z)  // nonneg rank
+// obsolete #define IRS1(w,fs,r,f1,z) (jt->ranks=(RANK2T)((((I)AR(w)-(r+1))>>(BW-1))|(r)),z=((AF)(f1))(jt,(w),(A)(fs)),jt->ranks=(RANK2T)~0,z)  // nonneg rank
+// obsolete #define IRSIP1(w,fs,r,f1,z) (jt->ranks=(RANK2T)((((I)AR(w)-(r+1))>>(BW-1))|(r)),z=((AF)(f1))(jtinplace,(w),(A)(fs)),jt->ranks=(RANK2T)~0,z)  // nonneg rank
+#define IRS1(w,fs,r,f1,z) IRS1COMMON(jt,w,fs,r,f1,z)  // nonneg rank
+#define IRSIP1(w,fs,r,f1,z) IRS1COMMON(jtinplace,w,fs,r,f1,z)  // nonneg rank
+// obsolete #endif
 #define IRS2COMMON(j,a,w,fs,l,r,f2,z) (jt->ranks=(RANK2T)(((((I)AR(a)-(l)>0)?(l):RMAX)<<RANKTX)+(((I)AR(w)-(r)>0)?(r):RMAX)),z=((AF)(f2))(j,(a),(w),(A)(fs)),jt->ranks=(RANK2T)~0,z) // nonneg rank
 #define IRS2(a,w,fs,l,r,f2,z) IRS2COMMON(jt,a,w,fs,l,r,f2,z)
 #define IRSIP2(a,w,fs,l,r,f2,z) IRS2COMMON(jtinplace,a,w,fs,l,r,f2,z)
@@ -661,6 +680,12 @@ extern unsigned int __cdecl _clearfp (void);
 // change the type of the inplaceable block z to t.  We know or assume that the type is being changed.  If the block is UNINCORPABLE (& therefore virtual), replace it with a clone first.  z is an lvalue
 #define MODBLOCKTYPE(z,t)  {if(AFLAG(z)&AFUNINCORPABLE){RZ(z=clonevirtual(z));} AT(z)=(t);}
 #define MODIFIABLE(x)   (x)   // indicates that we modify the result, and it had better not be read-only
+// define multiply-add
+#if C_AVX2
+#define MUL_ACC(addend,mplr1,mplr2) _mm256_fmadd_pd(mplr1,mplr2,addend)
+#else
+#define MUL_ACC(addend,mplr1,mplr2) _mm256_add_pd(addend , _mm256_mul_pd(mplr1,mplr2))
+#endif
 #define NAN0            (_clearfp())
 #if defined(_MSC_VER) && _MSC_VER==1800 && !SY_64 // bug in some versions of VS 2013
 #define NAN1            {if(_SW_INVALID&_statusfp()){_clearfp();jsignal(EVNAN); R 0;}}
@@ -871,6 +896,23 @@ extern unsigned int __cdecl _clearfp (void);
 #define CACHELINESIZE 64  // size of processor cache line, in case we align to it
 
 
+// flags in call to cachedmmult and blockedmmult
+#define FLGCMPX 0
+#define FLGCMP ((I)1<<FLGCMPX)  // arguments are complex
+#define FLGAUTRIX 1
+#define FLGAUTRI ((I)1<<FLGAUTRIX)  // left arg is upper-triangular
+#define FLGWUTRIX 2
+#define FLGWUTRI ((I)1<<FLGWUTRIX)  // left arg is upper-triangular
+#define FLGINTX 3
+#define FLGINT ((I)1<<FLGINTX)  // args are INT
+#define FLGZFIRSTX 4
+#define FLGZFIRST ((I)1<<FLGZFIRSTX)  // first pass of the Z values, use 0
+#define FLGZLASTX 5
+#define FLGZLAST ((I)1<<FLGZLASTX)  // last pass of the Z values, write to output
+#define FLGWMINUSZX 6
+#define FLGWMINUSZ ((I)1<<FLGWMINUSZX)  // calculate z-x*y rather than x*y.  Used by %.
+
+
 
 #include "ja.h" 
 #include "jc.h" 
@@ -908,7 +950,7 @@ extern unsigned int __cdecl _clearfp (void);
 #define CTTZ(w) _tzcnt_u32((UINT)(w))
 #if SY_64
 #define CTTZI(w) _tzcnt_u64((UI)(w))
-#define CTLZI(in,out) _BitScanReverse64(&(out),in)
+#define CTLZI(in,out) _BitScanReverse64(&(out),in)  // actually bit # of highest set bit
 #else
 #define CTTZI(w) _tzcnt_u32((UINT)(w))
 #define CTLZI(in,out) _BitScanReverse(&(out),in)

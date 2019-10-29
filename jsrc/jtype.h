@@ -116,7 +116,7 @@ struct AD {
  US h;   // reserved for allocator.  Not used for AFNJA memory
  RANKT r;  // rank
 #endif
- I s[1];   // shape starts here
+ I s[1];   // shape starts here.  NOTE!! s[0] is always OK to fetch.  We allocate 8 words minimum and s[0] is the last.
 };
 
 typedef struct {A a,t;}TA;
@@ -172,7 +172,7 @@ typedef I SI;
 #define UCAV(x)         (     (UC*)(x)+AK(x) )  /* unsigned character      */
 #define USAV(x)         ((US*)((C*)(x)+AK(x)))  /* wchar                   */
 #define UAV(x)          (     (UC*)(x)+AK(x) )  /* unsigned character      */
-#define UIAV(x)         ((UI*)((C*)(x)+AK(x)))  /* unsigned character      */
+#define UIAV(x)         ((UI*)((C*)(x)+AK(x)))  /* unsigned integer      */
 #define UI4AV(x)        ((UI4*)((C*)(x)+AK(x)))  /* unsigned 32-bit int      */
 #define C4AV(x)         ((C4*)((C*)(x)+AK(x)))  /* literal4                */
 #define NAV(x)          ((NM*)((C*)(x)+AKXR(1)))  // name, which is always allocated as rank 1, for some reason
@@ -180,8 +180,9 @@ typedef I SI;
 #define IAV0(x)         ((I*)((C*)(x)+AKXR(0)))  // integer in a stack- or heap-allocated atom (rank 0 - used for internal tables)
 #define IAV1(x)         ((I*)((C*)(x)+AKXR(1)))  // integer in a stack- or heap-allocated list (rank 1)
 #define BAV0(x)         ( (C*)((C*)(x)+AKXR(0)) )  // Boolean when rank is 0 - fixed position (known to avoid segfault)
-#define LXAV0(x)        ( (LX*)((C*)(x)+AKXR(0)) )  // Integer when rank is 0 - fixed position (for SYMB tables).  Note AK() is used in SYMB tables
+#define LXAV0(x)        ( (LX*)((C*)(x)+AKXR(0)) )  // Symbol when rank is 0 - fixed position (for SYMB tables).  Note AK() is used in SYMB tables
 #define DAV(x)          ( (D*)((C*)(x)+AK(x)))  /* double                  */
+#define DAV2(x)         ( (D*)((C*)(x)+AKXR(2)) )  // Double when rank is 2 - fixed position (for matrix inversion)
 #define ZAV(x)          ( (Z*)((C*)(x)+AK(x)))  /* complex                 */
 #define XAV(x)          ( (X*)((C*)(x)+AK(x)))  /* extended                */
 #define QAV(x)          ( (Q*)((C*)(x)+AK(x)))  /* rational                */
@@ -420,6 +421,9 @@ typedef I SI;
 #define AFUNINCORPABLEX 19      // matches XDX
 #define AFUNINCORPABLE  ((I)1<<AFUNINCORPABLEX)  // (used in result.h) this block is a virtual block used for subarray tracking and must not
                                 // ever be put into a boxed array, even if WILLBEOPENED is set, because it changes
+#define AFUPPERTRIX 30      // matches RPAR
+#define AFUPPERTRI  ((I)1<<AFUPPERTRIX)  // (used in cip.c) This is an upper-triangular matrix
+
 #define AFAUDITUCX      32   // this & above is used for auditing the stack (you must run stack audits on a 64-bit system)
 #define AFAUDITUC       ((I)1<<AFAUDITUCX)    // this field is used for auditing the tstack, holds the number of deletes implied on the stack for the block
 
@@ -432,6 +436,7 @@ typedef I SI;
 
 #define FIXALOCSONLYLOWEST 4  // to fixa: replace only the first occurrence of u/v in each branch
 #define FIXALOCSONLY 8  // to fixa: replace only u/v (IMPLOC)
+#define FIXASTOPATINV 16  // to fixa: stop afixing a branch when it gets to a an explicit obverse
 
 
 typedef struct {I i;US n,go,source;C type;C canend;} CW;
@@ -656,6 +661,7 @@ typedef struct {AF valencefns[2];A fgh[3];union { D lD; void *lvp[2]; I lI; I4 l
 // for FIT conj, the CCT data
 // for RANK conj, lI4[0-2] has the signed ranks
 // for Fold final operator, pointer to the dyadic EP of the handler (xdefn or unquote)
+// For cyclic iterators, lI has the index of the next gerund to execute
 
 // lc is a local-use byte.  Used in atomic dyads to indicate which singleton function to execute
 // in the derived function from fold, lc has the original id byte of the fold op

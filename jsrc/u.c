@@ -76,8 +76,10 @@ I jtprod(J jt,I n,I*v){D z=1; DO(n, z*=(D)v[i];); ASSERT(z<=IMAX,EVLIMIT); R(I)z
 
 #endif
 
+// w is a boolean array, result is 1 iff all values are 0
 B all0(A w){if(!w)R 0; R !memchr(AV(w),C1,AN(w));}
 
+// w is a boolean array, result is 1 iff all values are 1
 B all1(A w){if(!w)R 0; R !memchr(AV(w),C0,AN(w));}
 
 // Number of atoms in an item.
@@ -172,7 +174,7 @@ C cf(A w){if(!w)R 0; R*CAV(w);}  // first character in a character array
 C cl(A w){if(!w)R 0; R*(CAV(w)+AN(w)-1);}  // last character in a character array
 
 
-A jtcstr(J jt,C*s){R rifvs(str((I)strlen(s),s));}  // used only for initialization, so ensure real string returned
+A jtcstr(J jt,C*s){A z; RZ(z=rifvs(str((I)strlen(s),s))); CAV(z)[AN(z)]=0; R z;}  // used only for initialization, so ensure real string returned.  The string has only the non-NUL, but add a trailing NUL.  There's always room.
 
 // Return 1 iff w is the evocation of a name.  w must be a FUNC
 B evoke(A w){V*v=FAV(w); R CTILDE==v->id&&v->fgh[0]&&NAME&AT(v->fgh[0]);}

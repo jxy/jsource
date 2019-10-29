@@ -83,7 +83,7 @@ static DF1(jtfpown){A fs,z;AF f1;I n;V*sv;A *old;
  fs=sv->fgh[0]; f1=FAV(fs)->valencefns[0];
  z=w; 
  old=jt->tnextpushp; 
- DQ(n, JATTN; RZ(z=CALL1IP(f1,z,fs)); z=gc(z,old);); 
+ DQ(n, JBREAK0; RZ(z=CALL1IP(f1,z,fs)); z=gc(z,old);); 
  RETF(z);
 // }
 }
@@ -104,7 +104,7 @@ static DF1(jtply1){PROLOG(0040);DECLFG;A b,hs,j,*xv,y,z;B*bv,q;I i,k,m,n,*nv,p=0
    RZ(z=CALL1(f1,y=z,fs));  // z=next power, y=previous power
    if(q&&equ(y,z)){DQ(m-k, INSTALLBOX(x,xv,k,z); ++k;); break;}  // if there is an infinity, check for repetition; if any, use it for all higher powers, & be done
    while(k<m&&i==nv[k]){INSTALLBOX(x,xv,k,z); ++k; q=k<m?bv[k]:0;}  // otherwise use result for all equal powers
-   if(!(i&7)){JATTN; if(!gc3((A*)&x,&z,0L,old))R0;}
+   if(!(i&7)){JBREAK0; if(!gc3((A*)&x,&z,0L,old))R0;}
  }}
  if(0<p){  // if there was a negative power...
   RZ(fs=inv(fs)); f1=FAV(fs)->valencefns[0];
@@ -116,7 +116,7 @@ static DF1(jtply1){PROLOG(0040);DECLFG;A b,hs,j,*xv,y,z;B*bv,q;I i,k,m,n,*nv,p=0
    RZ(z=CALL1(f1,y=z,fs));
    if(q&&equ(y,z)){DQ(1+k, INSTALLBOX(x,xv,k,z); --k;); break;}
    while(0<=k&&i==nv[k]){INSTALLBOX(x,xv,k,z); --k; q=0<=k?bv[k]:0;}
-   if(!(i&7)){JATTN; if(!gc3((A*)&x,&z,0L,old))R0;}
+   if(!(i&7)){JBREAK0; if(!gc3((A*)&x,&z,0L,old))R0;}
  }}
  z=ope(reshape(shape(hs),from(grade1(j),x))); EPILOG(z);
 }
@@ -128,8 +128,8 @@ static DF1(jtpinf1){DECLFG;PROLOG(0340);A z;
   RZ(z=CALL1(f1,w,fs));  // call the fn
   I isend=equ(z,w);  // remember if it is the same as last time
   if(!((isend-1)&++i&7)) {  // every so often, but always when we leave...
-   JATTN;   // check for user interrupt, in case the function doesn't allocate memory
-   EPILOGNORET(z);  // free up allocated blocks, but keep z
+   JBREAK0;   // check for user interrupt, in case the function doesn't allocate memory
+   RZ(z=EPILOGNORET(z));  // free up allocated blocks, but keep z.  If z is virtual it will be realized
    if(isend)RETF(z);  // return at end
   }
   w=z;  // make the new result the starting value for next loop
@@ -204,8 +204,9 @@ z=(FAV(u)->valencefns[1])(FAV(u)->flag&VJTFLGOK2?jtinplace:jt,a,w,u);} \
 ,0109)
 // here for x u@:]^:v y and x u@]^:v y
 CS2IP(static,jtpowv2a, \
+jtinplace=(J)((I)jtinplace&~JTINPLACEA); /* monads always have IP2 clear */ \
 A u; A v; fs=FAV(fs)->fgh[0]; RZ(u=CALL2(g2,a,w,gs));  /* execute v */ \
-if(!AR(u) && (v=vib(u)) && !(IAV(v)[0]&~1)){z=IAV(v)[0]?(FAV(fs)->valencefns[0])(FAV(fs)->flag&VJTFLGOK2?jtinplace:jt,w,fs):w;} \
+if(!AR(u) && (v=vib(u)) && !(IAV(v)[0]&~1)){z=IAV(v)[0]?(FAV(fs)->valencefns[0])(FAV(fs)->flag&VJTFLGOK1?jtinplace:jt,w,fs):w;} \
 else{RESETERR; RZ(u = powop(fs,u,(A)1));  \
 z=(FAV(u)->valencefns[0])(FAV(u)->flag&VJTFLGOK1?jtinplace:jt,w,u);} \
 ,0110)

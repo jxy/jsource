@@ -22,7 +22,7 @@ static UC typesizes[] = {
 B01SIZE, LITSIZE, INTSIZE, FLSIZE, CMPXSIZE, BOXSIZE, XNUMSIZE, RATSIZE,
 -1,           -1, SB01SIZE, SLITSIZE, SINTSIZE, SFLSIZE, SCMPXSIZE, SBOXSIZE,
 SBTSIZE, C2TSIZE, C4TSIZE, XDSIZE, XZSIZE, ASGNSIZE, MARKSIZE, NAMESIZE,
-SYMBSIZE, CONWSIZE, LPARSIZE, VERBSIZE, ADVSIZE, CONJSIZE, RPARSIZE,-1,
+SYMBSIZE, CONWSIZE, LPARSIZE, INTSIZE, INTSIZE, INTSIZE, RPARSIZE,-1,  // note ACV sizes are in INTs
 };
 
 // Priority is
@@ -146,6 +146,7 @@ static B jtevinit(J jt){A q,*v;
  v[EVDOMAIN ]=cstr("domain error"               );
  v[EVFACCESS]=cstr("file access error"          );
  v[EVFNAME  ]=cstr("file name error"            );
+ v[EVFOLDLIMIT]=cstr("fold limit"            );
  v[EVFNUM   ]=cstr("file number error"          );
  v[EVILNAME ]=cstr("ill-formed name"            );
  v[EVILNUM  ]=cstr("ill-formed number"          );
@@ -224,6 +225,9 @@ jt->assert = 1;
  A vimp=ca(vnam); NAV(vimp)->flag|=NMIMPLOC;
  jt->implocref[1] = fdef(0,CTILDE,VERB, 0,0, vimp,0L,0L, 0, RMAX,RMAX,RMAX);  //create 'v.'~
 
+ jt->igemm_thres=IGEMM_THRES;   // tuning parameters for cip.c
+ jt->dgemm_thres=DGEMM_THRES;
+ jt->zgemm_thres=ZGEMM_THRES;
  R 1;
 }
 

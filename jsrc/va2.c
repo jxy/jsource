@@ -181,7 +181,7 @@ static VA va[]={
  {{(VF)divBB,VD}, {(VF)divBI,VD+VIP0I}, {(VF)divBD,VD+VIPOKW},
   {(VF)divIB,VD+VIPI0}, {(VF)divII,VD+VIPI0+VIP0I}, {(VF)divID,VD+VIPID},
   {(VF)divDB,VD+VIPOKA}, {(VF)divDI,VD+VIPDI}, {(VF)divDD,VD+VIP+VCANHALT}, 
-  {(VF)divZZ,VZ+VZZ}, {(VF)divXX,VX+VXX}, {(VF)divQQ,VQ+VQQ}, {0,0}},
+  {(VF)divZZ,VZ+VZZ+VIP}, {(VF)divXX,VX+VXX}, {(VF)divQQ,VQ+VQQ}, {0,0}},
  {{(VF)divinsD,VD+VDD}, {(VF)divinsD,VD+VDD}, {(VF)divinsD,VD}, {(VF)divinsZ,VZ}},
  {{(VF)divpfxD,VD+VDD}, {(VF)divpfxD,VD+VDD}, {(VF)divpfxD,VD}, {(VF)divpfxZ,VZ}},
  {{(VF)divsfxD,VD+VDD}, {(VF)divsfxD,VD+VDD}, {(VF)divsfxD,VD}, {(VF)divsfxZ,VZ}} },
@@ -308,7 +308,7 @@ static VA va[]={
  {{(VF)andBB,  VB+VIP}, {(VF)tymesBI,VI+VIPOKW}, {(VF)tymesBD,VD+VIPOKW},
   {(VF)tymesIB,VI+VIPOKA}, {(VF)tymesII,VI+VIP}, {(VF)tymesID,VD+VIPID},
   {(VF)tymesDB,VD+VIPOKA}, {(VF)tymesDI,VD+VIPDI}, {(VF)tymesDD,VD+VIP}, 
-  {(VF)tymesZZ,VZ+VZZ}, {(VF)tymesXX,VX+VXX}, {(VF)tymesQQ,VQ+VQQ}, {0,0}},
+  {(VF)tymesZZ,VZ+VZZ+VIP}, {(VF)tymesXX,VX+VXX}, {(VF)tymesQQ,VQ+VQQ}, {0,0}},
  {{(VF)andinsB,VB}, {(VF)tymesinsI,VI}, {(VF)tymesinsD,VD}, {(VF)tymesinsZ,VZ}, {0,0},          {0,0},          {0,0}},
  {{(VF)andpfxB,VB}, {(VF)tymespfxI,VI}, {(VF)tymespfxD,VD+VIPOKW}, {(VF)tymespfxZ,VZ}, {(VF)tymespfxX,VX}, {(VF)tymespfxQ,VQ}, {0,0}},
  {{(VF)andsfxB,VB}, {(VF)tymessfxI,VI}, {(VF)tymessfxD,VD+VIPOKW}, {(VF)tymessfxZ,VZ}, {(VF)tymessfxX,VX}, {(VF)tymessfxQ,VQ}, {0,0}} },
@@ -476,7 +476,7 @@ printf("va2a: indexes="); spt=SPA(PAV(a),i); DO(AN(spt), printf(" %d",IAV(spt)[i
 
 // All dyadic arithmetic verbs f enter here, and also f"n.  a and w are the arguments, id
 // is the pseudocharacter indicating what operation is to be performed.  self is the block for this primitive,
-// ranks are the ranks to use
+// ranks are the ranks of the verb, argranks are the ranks of a and w combined into 1 field
 static A jtva2(J jt,AD * RESTRICT a,AD * RESTRICT w,AD * RESTRICT self,RANK2T ranks,UI argranks){A z;I m,
      mf,n,nf,shortr,* RESTRICT s,*sf,zn,awzk[3];VA2 adocv;UI fr;  // fr will eventually be frame/rank  nf (and mf) change roles during execution
  fr=argranks>>RANKTX; shortr=argranks&RANKTMSK;  // fr,shortr = ar,wr to begin with.  Changes later
@@ -740,10 +740,131 @@ static A jtva2(J jt,AD * RESTRICT a,AD * RESTRICT w,AD * RESTRICT self,RANK2T ra
 
 // 4-nested loop for dot-products.  Handles repeats for inner and outer frame.  oneprod is the code for calculating a single vector inner product *zv++ = *av++ dot *wv++
 // If there is inner frame, it is the a arg that is repeated
-#define SUMATLOOP(ti,to,oneprod) \
-  {ti * RESTRICT av=ti##AV(a),* RESTRICT wv=ti##AV(w); to * RESTRICT zv=to##AV(z); DQ(nfro, I jj=nfri; ti *ov0=repeata?av:wv; while(1){DQ(ndpo, I j=ndpi; ti *av0=av; while(1){oneprod if(!--j)break; av=av0;}) if(!--jj)break; if(repeata)av=ov0;else wv=ov0; })}
+// LIT is set in it if it is OK to use 2x2 operations (viz a has no inner frame & w has no outer frame)
+#define SUMATLOOP2(ti,to,oneprod2,oneprod1) \
+  {ti * RESTRICT av=avp,* RESTRICT wv=wvp; to * RESTRICT zv=zvp; \
+   __m256i endmask = _mm256_loadu_si256((__m256i*)(jt->validitymask+((-dplen)&(NPAR-1))));  /* mask for 00=1111, 01=1000, 10=1100, 11=1110 */ \
+   __m256d acc000; __m256d acc010; __m256d acc100; __m256d acc110; \
+   __m256d acc001; __m256d acc011; __m256d acc101; __m256d acc111; \
+   _mm256_zeroupper(VOIDARG); \
+   DQ(nfro, I jj=nfri; ti *ov0=it&BOX?av:wv; \
+    while(1){  \
+     DQ(ndpo, I j=ndpi; ti *av0=av; /* i is how many a's are left, j is how many w's*/ \
+      while(1){ \
+       if(it&LIT&&jj>1){ \
+        ti * RESTRICT wv1=wv+dplen; wv1=j==1?wv:wv1; \
+        oneprod2  \
+        if(j>1){--j; _mm_storeu_pd(zv,_mm256_castpd256_pd128 (acc000)); _mm_storeu_pd(zv+ndpi,_mm256_castpd256_pd128 (acc100)); wv+=dplen; zv +=2;} \
+        else{_mm_storel_pd(zv,_mm256_castpd256_pd128 (acc000)); _mm_storel_pd(zv+ndpi,_mm256_castpd256_pd128 (acc100));  zv+=1;} \
+       }else{ \
+        oneprod1  \
+        _mm_storel_pd(zv,_mm256_castpd256_pd128 (acc000)); \
+        zv+=1; \
+       } \
+       if(!--j)break; \
+       av=av0;  \
+      } \
+      if(it&LIT&&jj>1){--i; av+=dplen; zv+=ndpi;} \
+     ) \
+     if((jj-=(((it&LIT)>>1)+1))<=0)break; \
+     if(it&BOX)av=ov0;else wv=ov0; \
+    } \
+   ) \
+  }
 
+#define SUMATLOOP(ti,to,oneprod) \
+  {ti * RESTRICT av=avp,* RESTRICT wv=wvp; to * RESTRICT zv=zvp; \
+   DQ(nfro, I jj=nfri; ti *ov0=it&BOX?av:wv; \
+    while(1){  \
+     DQ(ndpo, I j=ndpi; ti *av0=av; /* i is how many a's are left, j is how many w's*/ \
+      while(1){oneprod if(!--j)break; av=av0;} \
+     ) \
+     if(!--jj)break; \
+     if(it&BOX)av=ov0;else wv=ov0; } \
+   ) \
+  }
+
+// 
 #if C_AVX&&SY_64
+// Do one 2x2 product of length dplen.  Leave results in acc000/010.  dplen must be >0
+// av, wv, wv1 are set up
+#define ONEPRODAVXD2(label,mid2x2,last2x2) {\
+   acc000=_mm256_set1_pd(0.0); acc010=acc000; acc100=acc000; acc110=acc000; \
+   acc001=acc000; acc011=acc000; acc101=acc000; acc111=acc000; \
+   I rem=dplen; \
+   if(rem>8*NPAR)goto label##8; \
+   while(rem>NPAR){ \
+    if(rem>4*NPAR) \
+     {if(rem>6*NPAR){if(rem>7*NPAR)goto label##7;else goto label##6;}else {if(rem>5*NPAR)goto label##5;else goto label##4;}} \
+    else{if(rem>2*NPAR){if(rem>3*NPAR)goto label##3;else goto label##2;}else {if(rem>1*NPAR)goto label##1;else break;}} \
+    label##8: mid2x2(7,0)  label##7: mid2x2(6,1)  label##6: mid2x2(5,0)  label##5: mid2x2(4,1)  \
+    label##4: mid2x2(3,0)  label##3: mid2x2(2,1)  label##2: mid2x2(1,0)  label##1: mid2x2(0,1)  \
+    av+=8*NPAR; wv+=8*NPAR; wv1+=8*NPAR; \
+    if((rem-=8*NPAR)>8*NPAR)goto label##8;  \
+   } \
+   av-=(NPAR-rem)&-NPAR; wv-=(NPAR-rem)&-NPAR; wv1-=(NPAR-rem)&-NPAR; \
+   last2x2  \
+   acc000=_mm256_add_pd(acc000,acc001); acc010=_mm256_add_pd(acc010,acc011); acc100=_mm256_add_pd(acc100,acc101); acc110=_mm256_add_pd(acc110,acc111);  \
+   acc000=_mm256_add_pd(acc000,_mm256_permute2f128_pd(acc000,acc000,0x01)); acc010=_mm256_add_pd(acc010,_mm256_permute2f128_pd(acc010,acc010,0x01)); \
+    acc100=_mm256_add_pd(acc100,_mm256_permute2f128_pd(acc100,acc100,0x01)); acc110=_mm256_add_pd(acc110,_mm256_permute2f128_pd(acc110,acc110,0x01)); \
+   acc000=_mm256_add_pd(acc000,_mm256_permute_pd (acc000,0xf)); acc010=_mm256_add_pd(acc010,_mm256_permute_pd (acc010,0x0));  \
+    acc100=_mm256_add_pd(acc100,_mm256_permute_pd (acc100,0xf)); acc110=_mm256_add_pd(acc110,_mm256_permute_pd (acc110,0x0)); \
+   acc000=_mm256_blend_pd(acc000,acc010,0xa); acc100=_mm256_blend_pd(acc100,acc110,0xa); \
+   av+=((dplen-1)&(NPAR-1))+1;  wv+=((dplen-1)&(NPAR-1))+1; \
+   }
+
+// do one 2x2, 4 combinations from offset using accumulator accno.
+// av, wv, and wv1 are set
+#define CELL2X2M(offset,accno) \
+ acc00##accno = MUL_ACC(acc00##accno, _mm256_loadu_pd(&av[offset*NPAR]), _mm256_loadu_pd(&wv[offset*NPAR])); \
+ acc01##accno = MUL_ACC(acc01##accno, _mm256_loadu_pd(&av[offset*NPAR]), _mm256_loadu_pd(&wv1[offset*NPAR])); \
+ acc10##accno = MUL_ACC(acc10##accno, _mm256_loadu_pd(&av[dplen+offset*NPAR]), _mm256_loadu_pd(&wv[offset*NPAR])); \
+ acc11##accno = MUL_ACC(acc11##accno, _mm256_loadu_pd(&av[dplen+offset*NPAR]), _mm256_loadu_pd(&wv1[offset*NPAR]));
+
+// same but with mask, on cell number 0
+#define CELL2X2L \
+ acc000 = MUL_ACC(acc000, _mm256_maskload_pd(&av[0],endmask), _mm256_maskload_pd(&wv[0],endmask)); \
+ acc010 = MUL_ACC(acc010, _mm256_maskload_pd(&av[0],endmask), _mm256_maskload_pd(&wv1[0],endmask)); \
+ acc100 = MUL_ACC(acc100, _mm256_maskload_pd(&av[dplen+0],endmask), _mm256_maskload_pd(&wv[0],endmask)); \
+ acc110 = MUL_ACC(acc110, _mm256_maskload_pd(&av[dplen+0],endmask), _mm256_maskload_pd(&wv1[0],endmask));
+
+// Do one 1x1 product of length dplen.  Leave results in acc000.  dplen must be >0
+// av,  wv, are set up
+#define ONEPRODAVXD1(label,mid1x1,last1x1) {\
+   acc000=_mm256_set1_pd(0.0); acc010=acc000; acc100=acc000; acc110=acc000; \
+   acc001=acc000; acc011=acc000; acc101=acc000; acc111=acc000; \
+   I rem=dplen; \
+   if(rem>8*NPAR)goto label##8; \
+   while(rem>NPAR){ \
+    if(rem>4*NPAR) \
+     {if(rem>6*NPAR){if(rem>7*NPAR)goto label##7;else goto label##6;}else {if(rem>5*NPAR)goto label##5;else goto label##4;}} \
+    else{if(rem>2*NPAR){if(rem>3*NPAR)goto label##3;else goto label##2;}else {if(rem>1*NPAR)goto label##1;else break;}} \
+    label##8: mid1x1(7,000)  label##7: mid1x1(6,001)  label##6: mid1x1(5,010)  label##5: mid1x1(4,011)  \
+    label##4: mid1x1(3,100)  label##3: mid1x1(2,101)  label##2: mid1x1(1,110)  label##1: mid1x1(0,111)  \
+    av+=8*NPAR; wv+=8*NPAR;  \
+    if((rem-=8*NPAR)>8*NPAR)goto label##8;  \
+   } \
+   av-=(NPAR-rem)&-NPAR; wv-=(NPAR-rem)&-NPAR; \
+   last1x1  \
+   acc000=_mm256_add_pd(acc000,acc001); acc010=_mm256_add_pd(acc010,acc011); acc100=_mm256_add_pd(acc100,acc101); acc110=_mm256_add_pd(acc110,acc111);  \
+   acc000=_mm256_add_pd(acc000,acc010); acc100=_mm256_add_pd(acc100,acc110); \
+   acc000=_mm256_add_pd(acc000,acc100);  \
+   acc000=_mm256_add_pd(acc000,_mm256_permute2f128_pd(acc000,acc000,0x01)); \
+   acc000=_mm256_add_pd(acc000,_mm256_permute_pd (acc000,0xf)); \
+   av+=((dplen-1)&(NPAR-1))+1;  wv+=((dplen-1)&(NPAR-1))+1; \
+   }
+
+// do one 1x1, using accumulator accno.
+// av, wv are set
+#define CELL1X1M(offset,accno) \
+ acc##accno = MUL_ACC(acc##accno, _mm256_loadu_pd(&av[offset*NPAR]), _mm256_loadu_pd(&wv[offset*NPAR]));
+
+// same but with mask, on cell number 0
+#define CELL1X1L \
+ acc000 = MUL_ACC(acc000, _mm256_maskload_pd(&av[0],endmask), _mm256_maskload_pd(&wv[0],endmask));
+
+
+
 #define ONEPRODD \
  __m256i endmask; /* length mask for the last word */ \
  _mm256_zeroupper(VOIDARG); \
@@ -752,18 +873,18 @@ static A jtva2(J jt,AD * RESTRICT a,AD * RESTRICT w,AD * RESTRICT self,RANK2T ra
  endmask = _mm256_loadu_si256((__m256i*)(jt->validitymask+((-dplen)&(NPAR-1))));  /* mask for 00=1111, 01=1000, 10=1100, 11=1110 */ \
  __m256d acc0=idreg; __m256d acc1=idreg; __m256d acc2=idreg; __m256d acc3=idreg; \
  DQ((dplen-1)>>(2+LGNPAR), \
-  acc0=_mm256_add_pd(acc0,_mm256_mul_pd(_mm256_loadu_pd(av),_mm256_loadu_pd(wv))); \
-  acc1=_mm256_add_pd(acc1,_mm256_mul_pd(_mm256_loadu_pd(av+1*NPAR),_mm256_loadu_pd(wv+1*NPAR))); \
-  acc2=_mm256_add_pd(acc2,_mm256_mul_pd(_mm256_loadu_pd(av+2*NPAR),_mm256_loadu_pd(wv+2*NPAR))); \
-  acc3=_mm256_add_pd(acc3,_mm256_mul_pd(_mm256_loadu_pd(av+3*NPAR),_mm256_loadu_pd(wv+3*NPAR))); av+=4*NPAR;  wv+=4*NPAR; \
+  acc0=MUL_ACC(acc0,_mm256_loadu_pd(av),_mm256_loadu_pd(wv)); \
+  acc1=MUL_ACC(acc1,_mm256_loadu_pd(av+1*NPAR),_mm256_loadu_pd(wv+1*NPAR)); \
+  acc2=MUL_ACC(acc2,_mm256_loadu_pd(av+2*NPAR),_mm256_loadu_pd(wv+2*NPAR)); \
+  acc3=MUL_ACC(acc3,_mm256_loadu_pd(av+3*NPAR),_mm256_loadu_pd(wv+3*NPAR)); av+=4*NPAR;  wv+=4*NPAR; \
  ) \
- if((dplen-1)&((4-1)<<LGNPAR)){acc0=_mm256_add_pd(acc0,_mm256_mul_pd(_mm256_loadu_pd(av),_mm256_loadu_pd(wv))); \
-  if(((dplen-1)&((4-1)<<LGNPAR))>=2*NPAR){acc1=_mm256_add_pd(acc1,_mm256_mul_pd(_mm256_loadu_pd(av+NPAR),_mm256_loadu_pd(wv+NPAR))); \
-   if(((dplen-1)&((4-1)<<LGNPAR))>2*NPAR){acc2=_mm256_add_pd(acc2,_mm256_mul_pd(_mm256_loadu_pd(av+2*NPAR),_mm256_loadu_pd(wv+2*NPAR)));} \
+ if((dplen-1)&((4-1)<<LGNPAR)){acc0=MUL_ACC(acc0,_mm256_loadu_pd(av),_mm256_loadu_pd(wv)); \
+  if(((dplen-1)&((4-1)<<LGNPAR))>=2*NPAR){acc1=MUL_ACC(acc1,_mm256_loadu_pd(av+NPAR),_mm256_loadu_pd(wv+NPAR)); \
+   if(((dplen-1)&((4-1)<<LGNPAR))>2*NPAR){acc2=MUL_ACC(acc2,_mm256_loadu_pd(av+2*NPAR),_mm256_loadu_pd(wv+2*NPAR));} \
   } \
   av+=(dplen-1)&((4-1)<<LGNPAR); wv+=(dplen-1)&((4-1)<<LGNPAR);  \
  } \
- acc3=_mm256_add_pd(acc3,_mm256_mul_pd(_mm256_maskload_pd(av,endmask),_mm256_maskload_pd(wv,endmask))); av+=((dplen-1)&(NPAR-1))+1;  wv+=((dplen-1)&(NPAR-1))+1; \
+ acc3=MUL_ACC(acc3,_mm256_maskload_pd(av,endmask),_mm256_maskload_pd(wv,endmask)); av+=((dplen-1)&(NPAR-1))+1;  wv+=((dplen-1)&(NPAR-1))+1; \
  acc0=_mm256_add_pd(acc0,acc1); acc2=_mm256_add_pd(acc2,acc3); acc0=_mm256_add_pd(acc0,acc2); /* combine accumulators vertically */ \
  acc0=_mm256_add_pd(acc0,_mm256_permute2f128_pd(acc0,acc0,0x01)); acc0=_mm256_add_pd(acc0,_mm256_permute_pd (acc0,0xf));   /* combine accumulators horizontally  01+=23, 0+=1 */ \
  _mm_storel_pd(zv++,_mm256_castpd256_pd128 (acc0));/* store the single result */
@@ -778,18 +899,80 @@ static A jtva2(J jt,AD * RESTRICT a,AD * RESTRICT w,AD * RESTRICT self,RANK2T ra
 // ndpo is */ inner frame of w, i. e. the number of times to repeat the inner loop
 // nfri is the number of times to repeat the short-frame operand for the outer loop
 // nfri is */ surplus outer frame
-// repeata is set if a has the shorter outer frame
+// it&BOX is set if a has the shorter outer frame
 // w is never repeated in the inner loop (i. e. you can have multiple w but not multiple a; exchange args to ensure this
-A jtsumattymesprods(J jt,I it,A a, A w,I dplen,I nfro,I nfri,I ndpo,I ndpi,I repeata,A z){
- if(it==FL){
+// if LIT is set in it, it is OK to use 2x2 operations (viz inner frame of a and outer frame of w are empty)
+// 'repeata' flag comes from it&BOX
+I jtsumattymesprods(J jt,I it,void *avp, void *wvp,I dplen,I nfro,I nfri,I ndpo,I ndpi,void *zvp){
+ if(it&FL){
   NAN0;
+#if C_AVX
+#if 0 // obsolete 
+  {D * RESTRICT av=DAV(a),* RESTRICT wv=DAV(w); D * RESTRICT zv=DAV(z); 
+   __m256i endmask = _mm256_loadu_si256((__m256i*)(jt->validitymask+((-dplen)&(NPAR-1))));  /* mask for 00=1111, 01=1000, 10=1100, 11=1110 */ 
+   __m256d acc000; __m256d acc010; __m256d acc100; __m256d acc110; 
+   __m256d acc001; __m256d acc011; __m256d acc101; __m256d acc111; 
+   _mm256_zeroupper(VOIDARG); 
+   {I i=(I)(nfro)-1;    for(;i>=0;--i){ I jj=nfri; D *ov0=repeata?av:wv; 
+    while(1){  
+     {I i=(I)(ndpo)-1;    for(;i>=0;--i){I j=ndpi; D *av0=av; /* i is how many a's are left, j is how many w's*/ 
+      while(1){ 
+       if(it&LIT&&jj>1){ 
+        D * RESTRICT wv1=wv+dplen; wv1=j==1?wv:wv1; 
+   {
+   acc000=_mm256_set1_pd(0.0); acc010=acc000; acc100=acc000; acc110=acc000; 
+   acc001=acc000; acc011=acc000; acc101=acc000; acc111=acc000; 
+   I rem=dplen; 
+   if(rem>8*NPAR)goto label8; 
+   while(rem>NPAR){ 
+    if(rem>4*NPAR) 
+     {if(rem>6*NPAR){if(rem>7*NPAR)goto label7;else goto label6;}else {if(rem>5*NPAR)goto label5;else goto label4;}} 
+    else{if(rem>2*NPAR){if(rem>3*NPAR)goto label3;else goto label2;}else {if(rem>1*NPAR)goto label1;else break;}} 
+    label8: CELL2X2M(7,0)  label7: CELL2X2M(6,1)  label6: CELL2X2M(5,0)  label5: CELL2X2M(4,1)  
+    label4: CELL2X2M(3,0)  label3: CELL2X2M(2,1)  label2: CELL2X2M(1,0)  label1: CELL2X2M(0,1)  
+    av+=8*NPAR; wv+=8*NPAR; wv1+=8*NPAR; 
+    if((rem-=8*NPAR)>8*NPAR)goto label8;  
+   } 
+   av-=(NPAR-rem)&-NPAR; wv-=(NPAR-rem)&-NPAR; wv1-=(NPAR-rem)&-NPAR; 
+   CELL2X2L  
+   acc000=_mm256_add_pd(acc000,acc001); acc010=_mm256_add_pd(acc010,acc011); acc100=_mm256_add_pd(acc100,acc101); acc110=_mm256_add_pd(acc110,acc111);  
+   acc000=_mm256_add_pd(acc000,_mm256_permute2f128_pd(acc000,acc000,0x01)); acc010=_mm256_add_pd(acc010,_mm256_permute2f128_pd(acc010,acc010,0x01)); 
+    acc100=_mm256_add_pd(acc100,_mm256_permute2f128_pd(acc100,acc100,0x01)); acc110=_mm256_add_pd(acc110,_mm256_permute2f128_pd(acc110,acc110,0x01)); 
+   acc000=_mm256_add_pd(acc000,_mm256_permute_pd (acc000,0xf)); acc010=_mm256_add_pd(acc010,_mm256_permute_pd (acc010,0x0));  
+    acc100=_mm256_add_pd(acc100,_mm256_permute_pd (acc100,0xf)); acc110=_mm256_add_pd(acc110,_mm256_permute_pd (acc110,0x0)); 
+   acc000=_mm256_blend_pd(acc000,acc010,0xa); acc100=_mm256_blend_pd(acc100,acc110,0xa); 
+   av+=((dplen-1)&(NPAR-1))+1;  wv+=((dplen-1)&(NPAR-1))+1; 
+   }
+// scaf        ONEPRODAVXD2(D2,CELL2X2M,CELL2X2L)  
+        if(j>1){--j; _mm_storeu_pd(zv,_mm256_castpd256_pd128 (acc000)); _mm_storeu_pd(zv+ndpi,_mm256_castpd256_pd128 (acc100)); wv+=dplen; zv +=2;} 
+        else{_mm_storel_pd(zv,_mm256_castpd256_pd128 (acc000)); _mm_storel_pd(zv+ndpi,_mm256_castpd256_pd128 (acc100));  zv+=1;} 
+       }else{ 
+ONEPRODAVXD1(D1,CELL1X1M,CELL1X1L)
+        _mm_storel_pd(zv,_mm256_castpd256_pd128 (acc000)); 
+        zv+=1; 
+       } 
+       if(!--j)break; 
+       av=av0;  
+      } 
+      if(it&LIT&&jj>1){--i; av+=dplen; zv+=ndpi;} 
+     }}
+     if((jj-=(((it&LIT)>>1)+1))<=0)break; 
+     if(repeata)av=ov0;else wv=ov0; 
+    } 
+   }}
+  }
+#else
+  SUMATLOOP2(D,D,ONEPRODAVXD2(D2,CELL2X2M,CELL2X2L),ONEPRODAVXD1(D1,CELL1X1M,CELL1X1L));
+#endif
+#else
   SUMATLOOP(D,D,ONEPRODD)
+#endif
   if(NANTEST){  // if there was an error, it might be 0 * _ which we will turn to 0.  So rerun, checking for that.
    NAN0;
    SUMATLOOP(D,D,D total=0.0; DQ(dplen, D u=*av++; D v=*wv++; if(u&&v)total+=dmul2(u,v);); *zv++=total;)
    NAN1;
   }
- }else if(it==INT){
+ }else if(it&INT){
   SUMATLOOP(I,D,D total0=0.0; D total1=0.0; if(dplen&1)total1=(D)*av++*(D)*wv++; DQ(dplen>>1, total0+=(D)*av++*(D)*wv++; total1+=(D)*av++*(D)*wv++;); *zv++=total0+total1;)
  }else{
   SUMATLOOP(B,I,
@@ -798,7 +981,7 @@ A jtsumattymesprods(J jt,I it,A a, A w,I dplen,I nfro,I nfri,I ndpo,I ndpi,I rep
    *zv++=total;
   )
  }
- RETF(z);
+ RETF(1);
 }
 
 
@@ -814,7 +997,6 @@ DF2(jtsumattymes1){
    // Now that we have used the rank info, clear jt->ranks.  All verbs start with jt->ranks=RMAXX unless they have "n applied
    // we do this before we generate failures
  RESETRANK;  // This is required if we go to slower code
- I it=MAX(AT(a),AT(w));  // if input types are dissimilar, convert to the larger
  // if an argument is empty, sparse, has cell-rank 0, or not a fast arithmetic type, revert to the code for f/@:g atomic
  if(((-((AT(a)|AT(w))&(NOUN&~(B01|INT|FL))))|(AN(a)-1)|(AN(w)-1)|(acr-1)|(wcr-1))<0) { // test for all unusual cases
   R rank2ex(a,w,FAV(self)->fgh[0],MIN(acr,1),MIN(wcr,1),acr,wcr,jtfslashatg);
@@ -828,25 +1010,33 @@ DF2(jtsumattymes1){
  // Exchange if needed to make the cell-rank of a no greater than that of w.  That way we know that w will never repeat in the inner loop
  if(acr>wcr){A t=w; I tr=wr; I tcr=wcr; w=a; wr=ar; wcr=acr; a=t; ar=tr; acr=tcr;}
 
+ // Convert arguments as required
+ I it=MAX(AT(a),AT(w));  // if input types are dissimilar, convert to the larger
+ if(it!=(AT(w)|AT(a))){
+  if(TYPESNE(it,AT(a))){RZ(a=cvt(it,a));}  // convert to common input type
+  else if(TYPESNE(it,AT(w))){RZ(w=cvt(it,w));}
+ }
+
  // Verify inner frames match
  ASSERTAGREE(AS(a)+ar-acr, AS(w)+wr-wcr, acr-1) ASSERT(AS(a)[ar-1]==AS(w)[wr-1],EVLENGTH);  // agreement error if not prefix match
 
  // calculate inner repeat amounts and result shape
  I dplen = AS(a)[ar-1];  // number of atoms in 1 dot-product
- I ndpo; PROD(ndpo,acr-1,AS(w)+wr-wcr);  // number of cells of a = # outer loops
+ I ndpo; PROD(ndpo,acr-1,AS(w)+wr-wcr);  // number of cells of a = # 2d-level loops
  I ndpi; PROD(ndpi,wcr-acr,AS(w)+wr-wcr+acr-1);  // number of times each cell of a must be repeated (= excess frame of w)
  I zn=ndpo*ndpi;  // number of results from 1 inner cell.  This can't overflow since frames agree and operands are not empty
 
  A z; 
  // if there is frame, create the outer loop values
- I nfro,nfri,repeata;  // outer loop counts, and which arg is repeated
+ I nfro,nfri;  // outer loop counts, and which arg is repeated
  if(((ar-acr)|(wr-wcr))==0){  // normal case
   nfro=nfri=1;  // no outer loops, repeata immaterial
   GA(z,FL>>(it&B01),ndpo*ndpi,wcr-1,AS(w));  // type is INT if inputs booleans, otherwise FL
  }else{
   // There is frame, analyze and check it
   I af=ar-acr; I wf=wr-wcr; I commonf=wf; I *as=AS(a), *ws=AS(w); I *longs=as;
-  repeata=wf>=af; commonf=wf>=af?af:commonf; longs=wf>=af?ws:longs;  // repeat flag, length of common frame, pointer to long shape
+  it|=(ndpo==1)>wf?LIT:0;  // if there is no inner frame for a, and no outer frame for w, signal OK to use 2x2 multiplies.  Mainly this is +/@:*"1/
+  commonf=wf>=af?af:commonf; longs=wf>=af?ws:longs; it|=wf>=af?BOX:0;  // repeat flag, length of common frame, pointer to long shape
   af+=wf; af-=2*commonf;  // repurpose af to be length of surplus frame
   ASSERTAGREE(as,ws,commonf)  // verify common frame
   PROD(nfri,af,longs+commonf); PROD(nfro,commonf,longs);   // number of outer loops, number of repeats
@@ -856,11 +1046,8 @@ DF2(jtsumattymes1){
   MCISH(zs,longs,af+commonf); MCISH(zs+af+commonf,ws+wr-wcr,wcr-1);
  }
 
- // Convert arguments as required
- if(TYPESNE(it,AT(a))){RZ(a=cvt(it,a));}  // convert to common input type
- if(TYPESNE(it,AT(w))){RZ(w=cvt(it,w));}
-
- RETF(jtsumattymesprods(jt,it,a,w,dplen,nfro,nfri,ndpo,ndpi,repeata,z));
+ RZ(jtsumattymesprods(jt,it,voidAV(a),voidAV(w),dplen,nfro,nfri,ndpo,ndpi,voidAV(z)));  // eval, check for error
+ RETF(z);
 }
 
 

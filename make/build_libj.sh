@@ -70,7 +70,7 @@ SRC_ASM="${SRC_ASM_MAC}"
 
 *)
 TARGET=libj.so
-COMPILE="$common -DC_AVX=1 -flto -mavx "
+COMPILE="$common -DC_AVX=1 $DAVX2 -flto "
 LINK=" $LDFLAGS $COMPILE -shared -Wl,-soname,libj.so -lm -ldl $LDOPENMP -o libj.so "
 OBJS_FMA=" blis/gemm_int-fma.o "
 OBJS_AESNI=" aes-ni.o "
@@ -227,6 +227,6 @@ OBJS="\
  sha3.o \
  sha512.o "
 
-export OBJS OBJS_FMA OBJS_AESNI OBJS_AESARM SRC_ASM GASM_FLAGS COMPILE CFLAGS_SIMD LINK TARGET
+export OBJS OBJS_FMA OBJS_AESNI OBJS_AESARM SRC_ASM GASM_FLAGS COMPILE LINK TARGET
 $jmake/domake.sh
 

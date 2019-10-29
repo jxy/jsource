@@ -64,8 +64,9 @@ static B jtforinit(J jt,CDATA*cv,A t){A x;C*s,*v;I k;
  R 1;
 }    /* for. do. end. initializations */
 
+// A for. block is ending.   free what needs to be freed.  Don't delete any names
 static B jtunstackcv(J jt,CDATA*cv){
- if(cv->x){ex(link(cv->x,str(cv->k,cv->iv))); fa(cv->x);}
+ if(cv->x){/* obsolete ex(link(cv->x,str(cv->k,cv->iv)));*/ fa(cv->x);}
  fa(cv->t); 
  R 1;
 }
@@ -119,7 +120,6 @@ DF2(jtxdefn){PROLOG(0048);
  A *line;   // pointer to the words of the definition.  Filled in by LINE
  I n;  // number of lines in the definition.  Filled in by LINE
  CW *cw;  // pointer to control-word info for the definition.  Filled in by LINE
-
  I gsfctdl;  // flags: 1=locked 2=debug(& not locked) 4=tdi!=0 8=cd!=0 16=thisframe!=0 32=symtable was the original (i. e. AR(symtab)&LSYMINUSE) 256=original debug flag (must be highest bit)
 // obsolete I lk;  // lock/debug flag: 1=locked function; 0=normal operation; -1=this function is being debugged
  DC callframe=0;  // pointer to the debug frame of the caller to this function (only if it's named), but 0 if we are not debugging
@@ -172,7 +172,8 @@ DF2(jtxdefn){PROLOG(0048);
      // If we are in debug mode, and the current stack frame has the DCCALL type, pass the debugger
      // information about this execution: the local symbols and the control-word table
      if(self==jt->sitop->dcf){  // if the stack frame is for this exec
-      jt->sitop->dcloc=jt->locsyms; jt->sitop->dcc=hv[1];  // install info about the exec
+// obsolete       jt->sitop->dcloc=jt->locsyms; jt->sitop->dcc=hv[1];  // install info about the exec
+      jt->sitop->dcloc=locsym; jt->sitop->dcc=hv[1];  // install info about the exec
       // Use this out-of-the-way place to ensure that the compiler will not try to put for. and try. stuff into registers
       forcetomemory(&tdi); forcetomemory(&tdv); forcetomemory(&cv); 
      }
@@ -190,6 +191,10 @@ DF2(jtxdefn){PROLOG(0048);
 // obsolete   AM(locsym)=(I)jt->locsyms; jt->locsyms=locsym;   // Chain the calling symbol table to this one
   SYMPUSHLOCAL(locsym);   // Chain the calling symbol table to this one
 
+  // assignsym etc should never be set here; if it is, there must have been a pun-in-ASGSAFE that caused us to mark a
+  // derived verb as ASGSAFE and it was later overwritten with an unsafe verb.  That would be a major mess; we'll invest 2 stores
+  // in preventing it - still not a full fix, since invalid inplacing may have been done already
+  CLEARZOMBIE
   // Assign the special names x y m n u v.  Do this late in initialization because it would be bad to fail after assigning to yx (memory leak would result)
   // For low-rank short verbs, this takes a significant amount of time using IS, because the name doesn't have bucket info and is
   // not an assignment-in-place
@@ -199,7 +204,7 @@ DF2(jtxdefn){PROLOG(0048);
   // directly.
   UI4 yxbucks = *(UI4*)LXAV0(locsym);  // get the yx bucket indexes, stored in first hashchain by crelocalsyms
   L *ybuckptr = LXAV0(locsym)[(US)yxbucks]+jt->sympv;  // pointer to sym block for y
-  L *xbuckptr = LXAV0(locsym)[yxbucks>>16]+jt->sympv;  // pointer to sym block for y
+  L *xbuckptr = LXAV0(locsym)[yxbucks>>16]+jt->sympv;  // pointer to sym block for x
   if(w){ RZ(ras(w)); ybuckptr->val=w; ybuckptr->sn=jt->slisti;}  // If y given, install it & incr usecount as in assignment.  Include the script index of the modification
     // for x (if given), slot is from the beginning of hashchain EXCEPT when that collides with y; then follow y's chain
     // We have verified that hardware CRC32 never results in collision, but the software hashes do (needs to be confirmed on ARM CPU hardware CRC32C)
@@ -210,10 +215,6 @@ DF2(jtxdefn){PROLOG(0048);
    if(v){(IS(vnam,v)); if(NOUN&AT(v))IS(nnam,v); }  // bug errors here must be detected
   }
  }
- // assignsym etc should never be set here; if it is, there must have been a pun-in-ASGSAFE that caused us to mark a
- // derived verb as ASGSAFE and it was later overwritten with an unsafe verb.  That would be a major mess; we'll invest 2 stores
- // in preventing it - still not a full fix, since invalid inplacing may have been done already
- CLEARZOMBIE
 
  FDEPINC(1);   // do not use error exit after this point; use BASSERT, BGA, BZ
  // remember tnextpushx.  We will tpop after every sentence to free blocks.  Do this AFTER any memory
@@ -272,6 +273,7 @@ DF2(jtxdefn){PROLOG(0048);
    if((UI)i>=(UI)n||(cwtype=(ci=i+cw)->type)!=CTBLOCK||jt->cxspecials)break;  // avoid indirect-branch overhead on the likely case
   case CASSERT:
   case CTBLOCK:
+tblockcase:
    // execute and parse line as if for B block, except save the result in t
    // If there is a possibility that the previous B result may become the result of this definition,
    // protect it during the frees during the T block.  Otherwise, just free memory
@@ -389,11 +391,15 @@ dobblock:
     BZ(forinit(cv,t)); t=0;
    }
    ++cv->j;  // step to first (or next) iteration
+   if(cv->x){A x;  // assign xyz and xyz_index for for_xyz.
+    symbisdel(nfs(6+cv->k,cv->xv),x=sc(cv->j),  locsym);  // Assign line number.  since there is no sentence, take deletion off nvr stack
+    symbisdel(nfs(  cv->k,cv->iv),cv->j<cv->n?from(x,cv->t):mtv,locsym);
+   }
    if(cv->j<cv->n){  // if there are more iterations to do...
-    if(cv->x){A x;  // assign xyz and xyz_index for for_xyz.
-     symbisdel(nfs(6+cv->k,cv->xv),x=sc(cv->j),  locsym);  // since there is no sentence, take deletion off nvr stack
-     symbisdel(nfs(  cv->k,cv->iv),from(x,cv->t),locsym);
-    }
+// obsolete     if(cv->x){A x;  // assign xyz and xyz_index for for_xyz.
+// obsolete      symbisdel(nfs(6+cv->k,cv->xv),x=sc(cv->j),  locsym);  // since there is no sentence, take deletion off nvr stack
+// obsolete      symbisdel(nfs(  cv->k,cv->iv),from(x,cv->t),locsym);
+// obsolete     }
     ++i; continue;   // advance to next line and process it
    }
    // if there are no more iterations, fall through... (this deallocates the loop variables)
@@ -437,21 +443,31 @@ dobblock:
    // case. and fcase. are used to start a selection.  t has the result of the T block; we check to
    // make sure this is a noun, and save it on the stack in cv->t.  Then clear t
    if(!cv->t){
-    BASSERT(t,EVCTRL);
+    // This is the first case.  That means the t block has the select. value.  Save it.
+    BASSERT(t,EVCTRL);  // error if select. case.
     CHECKNOUN    // if t is not a noun, signal error on the last line executed in the T block
-    t=boxopen(t); BZ(ras(t)); BZ(cv->t=t); t=0;
+// obsolete     t=boxopen(t);
+    BZ(ras(t)); cv->t=t; t=0;  // protect t from free while we are comparing with it, save in stack
    }
    i=ci->go;  // Go to next sentence, which might be in the default case (if T block is empty)
-   break;
+   if((UI)i<(UI)n&&(cwtype=(ci=i+cw)->type)==CTBLOCK&&!jt->cxspecials)goto tblockcase;  // avoid indirect-branch overhead on the likely case, which is case. t-block do.
+   break;  // if it's not a t-block, take the indirect branch
   case CDOSEL:   // do. after case. or fcase.
    // do. for case./fcase. evaluates the condition.  t is the result (a T block); if it is nonexistent
    // or not all 0, we advance to the next sentence (in the case); otherwise skip to next test/end
-
-   if(t){CHECKNOUN}    // if t is not a noun, signal error on the last line executed in the T block
-
-   i=t&&all0(eps(cv->t,boxopen(t)))?ci->go:1+i; // cv +./@:e. boxopen t; go to miscompare point if no match
-   // Clear t to ensure that the next case./fcase. does not think it's the first one
-   t=0; 
+   ++i;  // go to NSI if case tests true
+   if(t){    // if t is not a noun, signal error on the last line executed in the T block
+    CHECKNOUN
+    if(!((AT(t)|AT(cv->t))&BOX)){
+     // if neither t nor cv is boxed, just compare for equality.  Boxed empty goes through the other path
+     if(!equ(t,cv->t))i=ci->go;  // should perhaps take the scalar case specially & send it through singleton code
+    }else{
+     if(all0(eps(boxopen(cv->t),boxopen(t))))i=ci->go;  // if case tests false, jump around bblock   test is cv +./@:,@:e. boxopen t
+    }
+    // Clear t to ensure that the next case./fcase. does not reuse this value
+    t=0;
+   }
+   if((UI)i<(UI)n&&((cwtype=(ci=i+cw)->type)&31)==CBBLOCK&&!jt->cxspecials)goto dobblock;  // avoid indirect-branch overhead on the likely  case. ... do. bblock
    break;
   default:   //   CELSE CWHILST CGOTO CEND
    if(2<=*jt->adbreakr) { BASSERT(0,EVBREAK);} 
@@ -462,6 +478,7 @@ dobblock:
  // We still must not take an error exit in this runout.  We have to hang around to the end to restore symbol tables, pointers, etc.
 
  FDEPDEC(1);  // OK to ASSERT now
+ //  z may be 0 here and may become 0 before we exit
  if(z){
   // There was a result (normal case)
   // If we are executing a verb (whether or not it started with 3 : or [12] :), make sure the result is a noun.
@@ -582,7 +599,7 @@ static F1(jtcolon0){A l,z;C*p,*q,*s;I m,n;
   RE(l=jgets("\001"));
   if(!l)break;
   m=AN(l); p=q=CAV(l); 
-  if(m){while(' '==*p)++p; if(')'==*p){while(' '==*++p); if(p>=m+q)break;}}
+  while(p<q+m&&' '==*p)++p; if(p<q+m&&')'==*p){while(p<q+m&&' '==*++p); if(p>=m+q)break;}  // if ) with nothing else but blanks, stop
   while(AN(z)<=n+m){RZ(z=ext(0,z)); s=CAV(z);}
   MC(s+n,q,m); n+=m; *(s+n)=CLF; ++n;
  }
@@ -797,12 +814,12 @@ A jtclonelocalsyms(J jt, A a){A z;I j;I an=AN(a); LX *av=LXAV0(a),*zv;
 
 F2(jtcolon){A d,h,*hv,m;B b;C*s;I flag=VFLAGNONE,n,p;
  RZ(a&&w);
- if(VERB&AT(a)&AT(w)){
+ if(VERB&AT(a)&AT(w)){  // v : v case
   if(CCOLON==FAV(a)->id&&FAV(a)->fgh[0]&&VERB&AT(FAV(a)->fgh[0])&&VERB&AT(FAV(a)->fgh[1]))a=FAV(a)->fgh[0];  // look for v : v; don't fail if fgh[0]==0 (namerefop).  Must test fgh[0] first
   if(CCOLON==FAV(w)->id&&FAV(w)->fgh[0]&&VERB&AT(FAV(w)->fgh[0])&&VERB&AT(FAV(w)->fgh[1]))w=FAV(w)->fgh[1];
   R fdef(0,CCOLON,VERB,xv1,xv2,a,w,0L,((FAV(a)->flag&FAV(w)->flag)&VASGSAFE),mr(a),lr(w),rr(w));  // derived verb is ASGSAFE if both parents are 
  }
- RE(n=i0(a));
+ RE(n=i0(a));  // m : n; set n=type of result
  if(equ(w,num[0])){RZ(w=colon0(mark)); if(!n)R w;}
  if((C2T+C4T)&AT(w))RZ(w=cvt(LIT,w));
  if(10<n){s=CAV(w); p=AN(w); if(p&&CLF==s[p-1])RZ(w=str(p-1,s));}

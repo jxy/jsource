@@ -101,7 +101,7 @@ B jtmeminit(J jt){I k,m=MLEN;
 // Audit all memory chains to detect overrun
 void jtauditmemchains(J jt){
 #if MEMAUDIT&16
-I Wi,Wj;A Wx; if(jt->peekdata){for(Wi=PMINL;Wi<=PLIML;++Wi){Wj=0; Wx=(jt->mfree[-PMINL+Wi].pool); while(Wx){if(FHRHPOOLBIN(AFHRH(Wx))!=(Wi-PMINL)||(UI4)AFHRH(Wx)!=Wx->fill)SEGFAULT Wx=AFCHAIN(Wx); ++Wj;}}}
+I Wi,Wj;A Wx,prevWx=0; if(jt->peekdata){for(Wi=PMINL;Wi<=PLIML;++Wi){Wj=0; Wx=(jt->mfree[-PMINL+Wi].pool); while(Wx){if(FHRHPOOLBIN(AFHRH(Wx))!=(Wi-PMINL)||(UI4)AFHRH(Wx)!=Wx->fill)SEGFAULT prevWx=Wx; Wx=AFCHAIN(Wx); ++Wj;}}}
 #endif
 }
 
@@ -860,6 +860,7 @@ if((I)jt&3)SEGFAULT
   if(blockx<PLIML){ 
    // small block: allocate from pool
    mfreeb=jt->mfree[-PMINL+1+blockx].ballo; // bytes in pool allocations
+
    if(z){         // allocate from a chain of free blocks
     jt->mfree[-PMINL+1+blockx].pool = AFCHAIN(z);  // remove & use the head of the free chain
 #if MEMAUDIT&1

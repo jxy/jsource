@@ -59,6 +59,10 @@ f=: 4 : 0
 (r.3 15?@$100)   test o.?15 7$1100
 (r.3 15?@$100)   test r.?15 7$1100
 
+(o.75 77?@$100)   test o.?77 81$1000
+(r.75 77?@$100)   test r.?77 81$1000
+
+
 (?1000)          test o.?1000
 (?1000)          test o.?10$1000
 (r.?1000)        test ?10 2 3 1$1000
@@ -124,9 +128,10 @@ f=: 4 : 0
  1
 )
 3 : 0 ''
-f"0/~ i. 10
+f"0/~ i. 33
 f"0/~ 64 + i: 10
 f"0/~ 128 + i: 10
+(200000 + i. 2) f"0 ] 10 + i. 2  NB. BLAS - just 2 times, since the test is slow
 NB. No longer is it settable if. 1 (17 b.) arch =: 6!:6 (0) do.   NB. 6!:6 returns bit 0 set if AVX supported
 NB.  NB. Rerun with AVX off
 NB.  f"0/~ i. 10

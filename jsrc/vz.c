@@ -47,7 +47,7 @@ ZF2(jtzdiv){ZF2DECL;D t;
   if(ABS(c)<ABS(d)){t=a; a=-b; b=t;  t=c; c=-d; d=t;}
   a/=c; b/=c; d/=c; t=1+d*d; zr=(a+TYMES(b,d))/t; zi=(b-TYMES(a,d))/t;
  }else if(ZNZ(u))switch(2*(I )(0>a)+(I )(0>b)){
-   case 0: if(a> b)zr= inf; else zi= inf; break;
+   case 0: if(a> b)zr= inf; else zi= inf; break; 
    case 1: if(a>-b)zr= inf; else zi=-inf; break;
    case 2: if(a<-b)zr=-inf; else zi= inf; break;
    case 3: if(a< b)zr=-inf; else zi=-inf;
@@ -98,9 +98,10 @@ ZF2(jtzrem){D a,b,d;Z q;
  R zminus(v,ztymes(u,q));
 }
 
-ZF2(jtzgcd){D a,b;Z t,z;
+ZF2(jtzgcd){D a,b;Z t,z;I lim;
  ZASSERT(!(ZINF(u)||ZINF(v)),EVNAN);
- while(ZNZ(u)){t=zrem(u,v); v.re=u.re; v.im=u.im; u.re=t.re; u.im=t.im;}
+ for(lim=2048; lim>0&&ZNZ(u); --lim){t=zrem(u,v); v.re=u.re; v.im=u.im; u.re=t.re; u.im=t.im;}  // max # iters is log(MAXFLOAT)/log(phi)
+ if(lim==0)R zeroZ;  // if Euclid failed, return 0j0
  z.re=a=v.re; z.im=b=v.im;
  switch(2*(I )(0>a)+(I )(0>b)){
   case 0: if(!a){z.re= b; z.im=0;}                        break;

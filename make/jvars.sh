@@ -13,13 +13,15 @@ jplatform=`uname|tr '[:upper:]' '[:lower:]'`
 jsuffix=so
 if [ $jplatform = "darwin" ] ; then jsuffix=dylib ; fi
 
-CC=clang80 # compiler
-LDFLAGS='-fuse-ld=lld80 -L/usr/local/lib'
+CC=clang90 # compiler
+LDFLAGS='-fuse-ld=lld90 -L/usr/local/lib'
 USE_LINENOISE=0
 make=gmake
+#DAVX2="-DC_AVX2=1"
+DAVX2=""
 
 # should not be necessary to edit after here
 tsu=$jgit/test/tsu.ijs
 j="$jbld/j/bin/jconsole $tsu"
 
-export jgit jbld jplatform j jmake CC make
+export jgit jbld jplatform j jmake CC make DAVX2

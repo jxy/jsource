@@ -145,6 +145,9 @@ typedef struct {
  I*   numloctbl;         // pointer to data area for locale-number to locale translation
  UI4  numlocsize;       // AN(jt->stnum)
 #endif
+ I    igemm_thres;      // used by cip.c: when m*n*p exceeds this, use BLAS for integer matrix product.  _1 means 'never'
+ I    dgemm_thres;      // used by cip.c: when m*n*p exceeds this, use BLAS for float matrix product.  _1 means 'never'
+ I    zgemm_thres;      // used by cip.c: when m*n*p exceeds this, use BLAS for complex matrix product.  _1 means 'never'
  A    implocref[2];     // references to 'u.'~ and 'v.'~, marked as implicit locatives
  I4   parsercalls;      /* # times parser was called                       */
  A*   tstacknext;       // if not 0, points to the recently-used tstack buffer, whose chain field points to tstacknext
@@ -271,7 +274,7 @@ typedef struct {
  void*sminput;
  void*smoutput;         /* sm.. sm/wd callbacks set by JSM()               */
  void*smpoll;           /* re-used in wd                                   */
- I    smoption;         /* wd options, see comment in jtwd                 */
+ UI   smoption;         /* wd options, see comment in jtwd                 */
  D    spfor;            /* semi-global for use by spfor()                  */
  C*   th2buf;           /* space for formatting one number                 */
  I    th2bufn;          /* current max length of buf                       */
@@ -302,7 +305,11 @@ typedef struct {
  UI*  rngV0[5];         /* RNG: state vectors for RNG0                     */
  UI*  rngv;             /* RNG: rngV[rng]                                  */
  I    rngw;             /* RNG: # bits in a random #                       */
+// workareas for individual primitives, overlapping in the same memory
 union {
+ struct{
+  D determ;  // determinant of the triangular matrix, if the matrix to be inverted was B01 or INT.  Set to 0 to suppress INT rounding
+ } minv;
  struct {
   B    nla[256];         /* namelist names mask                             */
   I    nlt;              /* namelist type  mask                             */

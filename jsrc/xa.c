@@ -61,7 +61,7 @@ F1(jtevms){A t,*tv,*wv;
  GAT0(t,BOX,1+NEVM,1); tv=AAV(t); 
  *tv++=mtv;
  wv=AAV(w);
- DQ(NEVM, RZ(*tv++=vs(*wv++)););
+ DQ(NEVM, RZ(*tv=ca(vs(*wv))); CAV(*tv)[AN(*tv)]=0; ++tv; ++wv;);  // NUL-terminate.  ca to make sure there's room
  ras(t); fa(jt->evm); jt->evm=t;
  R mtv;
 }
@@ -418,6 +418,40 @@ OPENSSL_setcap();
  hwfma=(getCpuFeatures()&CPU_X86_FEATURE_FMA)?1:0;
 #endif
 R mtm;
+}
+
+// 9!:58  undocumented
+// query/set gemm threshold
+// 0 igemm_thres  integer threshold
+// 1 dgemm_thres  real threshold
+// 2 zgemm_thres  complex threshold
+
+F1(jtgemmtune){I k;
+ RZ(w);
+ ASSERT(AT(w)&(B01+INT),EVDOMAIN);
+ ASSERT(1==AN(w),EVLENGTH);
+ ASSERT(1>=AR(w),EVRANK);
+ RE(k=i0(w));  // get arg
+ ASSERT(k==0||k==1||k==2,EVDOMAIN);
+ R sc((0==k)?jt->igemm_thres:(1==k)?jt->dgemm_thres:jt->zgemm_thres);
+}
+
+F2(jtgemmtune2){I j,k;
+ RZ(a&&w);
+ ASSERT(AT(a)&(B01+INT),EVDOMAIN);
+ ASSERT(1==AN(a),EVLENGTH);
+ ASSERT(1>=AR(a),EVRANK);
+ ASSERT(AT(w)&(B01+INT),EVDOMAIN);
+ ASSERT(1==AN(w),EVLENGTH);
+ ASSERT(1>=AR(w),EVRANK);
+ RE(j=i0(a));  // get arg
+ RE(k=i0(w));  // get arg
+ ASSERT(j>=-1,EVDOMAIN);
+ ASSERT(k==0||k==1||k==2,EVDOMAIN);
+ if(k==0) jt->igemm_thres=j;
+ else if(k==1) jt->dgemm_thres=j;
+ else jt->zgemm_thres=j;
+ R sc(1);
 }
 
 // enable/disable tstack auditing, since some testcases run too long with it enabled

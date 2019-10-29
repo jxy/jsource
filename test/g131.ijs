@@ -9,12 +9,20 @@ X    =: +/ . *
 en   =: 1&{@(,&1 1)@$
 norm =: (%:@X +)@,
 
+NB. given n, find m, the recursion split value
+splitm =: 3 : 0
+rawm =. <. -: y
+xferamt =. (7 (17 b.) y) { 0 0 1 2 2 2 1 0
+if. y>rawm+xferamt do. rawm =. rawm+xferamt end.
+rawm
+)
+
 qr =: 3 : 0
  n  =. en y
  if. 1>:n do.
-  ((% ;&,. ,~@en@[ $ ]) norm) y
+  (((* %) ;&,. ,~@en@[ $ ]) norm) y
  else.
-  m  =. >.-: n
+  m  =. splitm n
   a0 =. m{."1 y
   a1 =. m}."1 y
   t0 =. qr a0
@@ -28,7 +36,7 @@ qr =: 3 : 0
  end.
 )
 
-em   =: >.@-:@#                    NB.  m  =. >.-:#y.
+em   =:splitm@#                    NB.  m  =. >.-:#y.
 mm   =: ,~@em                      NB.  mm =: m,m
 ai   =: rinv@(mm {. ])             NB.  ai =: rinv mm{.y.
 di   =: rinv@(mm }. ])             NB.  di =: rinv mm}.y.
@@ -57,9 +65,14 @@ id=: =&i.&#
 (%. -: minv) (+ 0&=)o.?1721
 (%. -: minv) j./1+?100 2001
 
-(b-:minv a) *. 1e_8>>./|,(id a)-a X b=:%.a=:_50000+?10 10$10000
-(b-:minv a) *. 1e_8>>./|,(id a)-a X b=:%.a=:0.01*_4000+?7 7$10000
+(1e_11 > >./ | , b-minv a) *. 1e_8>>./|,(id a)-a X b=:%.a=:_50000+?10 10$10000
+(1e_11 > >./ | , b-minv a) *. 1e_8>>./|,(id a)-a X b=:%.a=:0.01*_4000+?7 7$10000
+(1e_11 > >./ | , b-minv a) *. 1e_8>>./|,(id a)-a X b=:%.a=:0.01*_4000+?35 35$10000
+(1e_11 > >./ | , b-minv a) *. 1e_8>>./|,(id a)-a X b=:%.a=:0.01*_4000+?71 71$10000
+(1e_11 > >./ | , b-minv a) *. 1e_8>>./|,(id a)-a X b=:%.a=:0.01*_4000+?237 237$10000
 (b-:minv a) *. 1e_8>>./|,(id a)-a X b=:%.a=:j./?2 8 8$1300
+test =: 3 : '(1e_11 > >./ | , b-minv y) *. 1e_8>>./|,(id y)-y X b=:%.y'
+test@> (0.01 * _4000 + 100000 ?@$~ ,~)&.> 35 + i. 64
 
 (b-:minv a) *. (1=+/a*b) *. (+/a*+a)-:%+/b*+b =:%.a=:1=?36$2
 (b-:minv a) *. (1=+/a*b) *. (+/a*+a)-:%+/b*+b =:%.a=:_10+?17$20
@@ -129,6 +142,6 @@ _13.9    f =i.9
 
 4!:55 ;:'X a a0 a1 ai b bee bx c ct di '
 4!:55 ;:'em en f id m mdiv minv mm n norm '
-4!:55 ;:'q0 q1 q2 qr r0 r1 r4 rinv x '
+4!:55 ;:'q0 q1 q2 qr r0 r1 r4 rinv splitm test x '
 
 
