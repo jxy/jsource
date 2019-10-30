@@ -44,6 +44,7 @@ if. notdef 'FHS' do.
   FHS=: IFUNIX>'/'e.LIBFILE
 end.
 'libc.so.6 setlocale > x i *c'&(15!:0) ::0:@(15!:10)@(''"_)^:(UNAME-:'Linux') 1;,'C'
+'libc.so.7 setlocale > x i *c'&(15!:0) ::0:@(15!:10)@(''"_)^:(UNAME-:'FreeBSD') 1;,'C'
 if. notdef 'IFRASPI' do.
   if. UNAME -: 'Linux' do.
     cpu=. 2!:0 ::(''"_) 'cat /proc/cpuinfo'
@@ -132,14 +133,14 @@ end.
 18!:4 <'z'
 18!:4 <'z'
 UNXLIB=: ([: <;._1 ' ',]);._2 (0 : 0)
-libc.so.6 libc.so libc.dylib libc.so
-libz.so.1 libz.so libz.dylib libz.so
-libsqlite3.so.0 libsqlite.so libsqlite3.dylib libsqlite3.so
-libxml2.so.2 libxml2.so libxml2.dylib libxml2.so
+libc.so.7 libc.so.6 libc.so libc.dylib libc.so
+libz.so.6 libz.so.1 libz.so libz.dylib libz.so
+libsqlite3.so.0 libsqlite3.so.0 libsqlite.so libsqlite3.dylib libsqlite3.so
+libxml2.so.2 libxml2.so.2 libxml2.so libxml2.dylib libxml2.so
 )
 unxlib=: 3 : 0
 r=. (;: 'c z sqlite3 libxml2') i. <,y
-c=. (;: 'Linux Android Darwin') i. <UNAME_z_
+c=. (;: 'FreeBSD Linux Android Darwin') i. <UNAME_z_
 (<r,c) {:: UNXLIB_z_
 )
 18!:4 <'z'
