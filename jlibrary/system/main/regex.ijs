@@ -35,7 +35,6 @@ lastpattern=: y
 msg=. ,2
 off=. ,2
 flg=. PCRE2_MULTILINE*RX_OPTIONS_MULTILINE
-flg=. flg+PCRE2_UTF*RX_OPTIONS_UTF8
 lastcomp=: 0 pick rc=. jpcre2_compile (,y);(#y);flg;msg;off;<<0
 'msg off'=. 4 5{rc
 if. 0=lastcomp do. regerror msg,off end.
@@ -170,7 +169,6 @@ NB. compile flags:
 PCRE2_NOTBOL=: 16b1
 PCRE2_NOTEOL=: 16b2
 PCRE2_MULTILINE=: 16b400
-PCRE2_UTF=: 16b80000
 
 NB. info types:
 PCRE2_INFO_SIZE=: 22
@@ -183,7 +181,6 @@ case. 'Win' do. t=. 'jpcre2.dll'
 case. 'Darwin' do. t=. 'libjpcre2.dylib'
 case. 'Linux' do. t=. 'libjpcre2.so'
 case. 'Android' do. t=. 'libjpcre2.so'
-case. 'FreeBSD' do. t=. 'libpcre2-posix.so'
 end.
 
 f=. BINPATH,'/',t

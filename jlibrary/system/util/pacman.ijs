@@ -1253,7 +1253,7 @@ OLD=. hostpathsep jpath bname,'.old'
 NEW=. hostpathsep jpath bname,'.new'
 if. 1~:ftype bname do. 'update not supported for this type of install' return. end.
 
-if. IF64 do.
+if. IF64 > IFRASPI do.
  t=. httpget path,plat,'/j64'
  if. 1=;{.t do. 'update - read jengine folder failed' return end.
  a=. fread '~temp/j64'   
@@ -1266,6 +1266,8 @@ if. IF64 do.
  a=. 'j',;{:(a e. ;:t7)#a
  i=. name i.'.'
  name=. <(}:i{.name),a,i}.name
+else.
+ name=. <name
 end. 
 
 arg=. (<jxxx),(<br),(<platform),(<3{.jbithw),name
@@ -1284,11 +1286,11 @@ if. UNAME-:'Win' do.
  if. -.OLD frename DLL do. 'update failed - rename j.dll to j.dll.old' return. end.
  if. -.DLL frename NEW do. 'update failed - rename j.dll.new to j.dll' return. end.
 else.
-  ferase DLL
-  DLL frename NEW
+  if. -.ferase DLL do. 'update failed - ferase libj.so.old - exit all J sessions and try again' return. end.
+  if. -.DLL frename NEW do. 'update failed - rename libj.so.new to libj.so' return. end.
   if. FHS*.UNAME-:'Linux' do.
-    2!:0 'chmod 644 "',OLD,'"'
-    2!:0 'chown root:root "',OLD,'"'
+    2!:0 'chmod 644 "',DLL,'"'
+    2!:0 'chown root:root "',DLL,'"'
     2!:0 'ldconfig'
   end.
 end.

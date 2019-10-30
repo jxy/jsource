@@ -1,7 +1,7 @@
 18!:4 <'z'
 3 : 0 ''
 
-JLIB=: '9.01.08'
+JLIB=: '9.01.11'
 
 notdef=. 0: ~: 4!:0 @ <
 hostpathsep=: ('/\'{~6=9!:12'')&(I. @ (e.&'/\')@] })
@@ -13,7 +13,7 @@ IF64=: 16={:$3!:3[2
 IFBE=: 'a'~:{.2 (3!:4) a.i.'a'
 'IFUNIX IFWIN IFWINCE'=: 5 6 7 = 9!:12''
 IFJHS=: 0
-IFWINE=: (0 ~: 'ntdll wine_get_version >+ x'&(15!:0)) ::0:`0:@.IFUNIX ''
+IFWINE=: (0 ~: 'ntdll wine_get_version >+ x'&(15!:0)) ::0:@(15!:10)`0:@.IFUNIX ''
 if. notdef 'IFIOS' do.
   IFIOS=: 0
 end.
@@ -43,12 +43,11 @@ end.
 if. notdef 'FHS' do.
   FHS=: IFUNIX>'/'e.LIBFILE
 end.
-'libc.so.6 setlocale > x i *c'&(15!:0) ::0:^:(UNAME-:'Linux') 1;,'C'
-'libc.so.7 setlocale > x i *c'&(15!:0) ::0:^:(UNAME-:'FreeBSD') 1;,'C'
+'libc.so.6 setlocale > x i *c'&(15!:0) ::0:@(15!:10)@(''"_)^:(UNAME-:'Linux') 1;,'C'
 if. notdef 'IFRASPI' do.
   if. UNAME -: 'Linux' do.
     cpu=. 2!:0 ::(''"_) 'cat /proc/cpuinfo'
-    IFRASPI=: (1 e. 'BCM2708' E. cpu) +. (1 e. 'BCM2709' E. cpu) +. 1 e. 'BCM2710' E. cpu
+    IFRASPI=: (1 e. 'BCM2708' E. cpu) +. (1 e. 'BCM2709' E. cpu) +. (1 e. 'BCM2710' E. cpu) +. 1 e. 'BCM2711' E. cpu
   else.
     IFRASPI=: 0
   end.
@@ -133,14 +132,14 @@ end.
 18!:4 <'z'
 18!:4 <'z'
 UNXLIB=: ([: <;._1 ' ',]);._2 (0 : 0)
-libc.so.7 libc.so.6 libc.so libc.dylib libc.so
-libz.so.6 libz.so.1 libz.so libz.dylib libz.so
-libsqlite3.so.0 libsqlite3.so.0 libsqlite.so libsqlite3.dylib libsqlite3.so
-libxml2.so.2 libxml2.so.2 libxml2.so libxml2.dylib libxml2.so
+libc.so.6 libc.so libc.dylib libc.so
+libz.so.1 libz.so libz.dylib libz.so
+libsqlite3.so.0 libsqlite.so libsqlite3.dylib libsqlite3.so
+libxml2.so.2 libxml2.so libxml2.dylib libxml2.so
 )
 unxlib=: 3 : 0
 r=. (;: 'c z sqlite3 libxml2') i. <,y
-c=. (;: 'FreeBSD Linux Android Darwin') i. <UNAME_z_
+c=. (;: 'Linux Android Darwin') i. <UNAME_z_
 (<r,c) {:: UNXLIB_z_
 )
 18!:4 <'z'
@@ -527,26 +526,25 @@ AND=: $:/ : (17 b.)
 OR=: $:/ : (23 b.)
 XOR=: $:/ : (22 b.)
 cocurrent'z'
-
 break=: 3 : 0
 if. y-:0 do. breakhelp_j_ return. end.
 breakclean_j_''
 p=. jpath'~break/'
-fs=.  ((<p),each{."1[1!:0 p,'*')-.<9!:46''
+fs=. ((<p),each{."1[1!:0 p,'*')-.<9!:46''
 pc=. (>:;fs i:each'/')}.each fs
 i=. ;pc i.each'.'
 pids=. _1".each i{.each pc
 classes=. (>:i)}.each pc
-if. y-:1 do. /:~(>":each pids),.>' ',each classes  return. end.
+if. y-:1 do. /:~(>":each pids),.>' ',each classes return. end.
 'no task to break'assert #fs
 if. 2=3!:0 y do.
- b=. classes=    (''-:y){y;'default'
- 'bad class'assert +/b
- fs=. (<p),each (":each b#pids),each '.',each b#classes
+  b=. classes= (''-:y){y;'default'
+  'bad class'assert +/b
+  fs=. (<p),each (":each b#pids),each '.',each b#classes
 else.
- i=. pids i.<y
- 'bad pid'assert i~:#pids
- fs=. <p,(":;i{pids),'.',;i{classes
+  i=. pids i.<y
+  'bad pid'assert i~:#pids
+  fs=. <p,(":;i{pids),'.',;i{classes
 end.
 for_f. fs do.
   v=. 2<.>:a.i.1!:11 f,<0 1
@@ -557,30 +555,29 @@ i.0 0
 setbreak=: 3 : 0
 if. (-.IFQT)*.y-:'default' do. i.0 0 return. end.
 try.
- assert #y
- q=. jpath '~break/'
- 1!:5 ::] <q
- f=. q,(":2!:6''),'.',y
- ({.a.) 1!:12 f;0
- 9!:47 f
- breakclean_j_''
- f
+  assert #y
+  q=. jpath '~break/'
+  1!:5 ::] <q
+  f=. q,(":2!:6''),'.',y
+  ({.a.) 1!:12 f;0
+  9!:47 f
+  breakclean_j_''
+  f
 catch. 13!:12'' end.
 )
 breakclean_j_=: 3 : 0
 q=. jpath '~break/'
 fs=. ((<q),each{."1[1!:0 q,'*')-.9!:46''
 if. UNAME-:'Win' do.
- ferase fs
+  ferase fs
 else.
- d=.  dltb each}.<;._2 spawn_jtask_'ps -e'
- allpids=. ;0".each (d i.each ' '){.each d
- pc=. (>:;fs i:each'/')}.each fs
- pids=. ;_1".each (;pc i.each'.'){.each pc
- ferase (-.pids e. allpids)#fs
+  d=. dltb each}.<;._2 spawn_jtask_'ps -e'
+  allpids=. ;0".each (d i.each ' '){.each d
+  pc=. (>:;fs i:each'/')}.each fs
+  pids=. ;_1".each (;pc i.each'.'){.each pc
+  ferase (-.pids e. allpids)#fs
 end.
 )
-
 breakhelp_j_=: 0 : 0
    break 0
    break 1
