@@ -505,6 +505,7 @@ extern F2(jtpdtsp);
 extern F2(jtpmarea2);
 extern F2(jtpoly2);
 extern F2(jtqco2);
+extern F2(jtqhash12);
 extern F2(jtqq);
 extern F2(jtrdot2);
 extern F2(jtreaxis);
@@ -815,7 +816,7 @@ extern L*       jtsyrdfromloc(J,A,A);
 extern L*       jtsyrdnobuckets(J,A);
 extern A        jttaker(J,I,A);
 extern D        jttceil(J,D);
-extern B        jtteq(J,D,D);
+// obsolete extern B        jtteq(J,D,D);
 extern D        jttfloor(J,D);
 extern I        jtthv(J,A,I,C*);
 extern A        jttoc1(J,B,A);
@@ -914,11 +915,11 @@ extern D        jnan;           /* "nan" name conflict under Solaris       */
 extern I        liln;
 extern A        mark;
 extern C        minus0[];
-extern A        mnam;
+extern A        mnuvxynam[6];
 extern void     moveparseinfotosi(J);
 extern A        mtm;
 extern A        mtv;
-extern A        nnam;
+// obsolete extern A        nnam;
 extern A        numv[];
 extern A        numvr[3];
 extern A        onehalf;
@@ -927,12 +928,12 @@ extern A        pie;            /* "pi" name conflict                      */
 extern I        prokey;
 extern A        pst[];
 extern UI4      shortrange[3][4];
-extern A        unam;           /* "uname" name conflict in Unix           */
-extern A        vnam;
+// obsolete extern A        unam;           /* "uname" name conflict in Unix           */
+// obsolete extern A        vnam;
 extern I        v00[2];
 extern C        wtype[];
-extern A        xnam;
-extern A        ynam;
+// obsolete extern A        xnam;
+// obsolete extern A        ynam;
 extern A        zeroionei[2];
 extern Z        zeroZ;
 extern dcomplex zone;
@@ -944,9 +945,4 @@ extern UC       hwfma;
 extern int      memcmp();       /* C library fn                            */
 extern D        strtod();       /* C library fn                            */
 extern I        strtol();       /* C library fn                            */
-#endif
-#ifdef LOCALFOREIGNS
-// declare new entry points here
-extern F2(jtpartitiongrades);
-extern F1(jtfindsplit);
 #endif

@@ -234,8 +234,8 @@ static ZF1(jtzarc){D x,y;Z t,z;
 ZF2(jtzcir){D r;I x;Z z;
  z=zeroZ;
  r=u.re;
- x=(I)jfloor(0.5+r);
- ZASSERT(-12<=r&&r<=12&&FEQ(x,r)&&!u.im,EVDOMAIN);
+ x=(I)jround(r);
+ ZASSERT(-12<=r&&r<=12&&FFEQ(x,r)&&!u.im,EVDOMAIN);
  switch(x){
   default: ZASSERT(0,EVDOMAIN);
   case  0: R zsqrt(ztymes(zplus(z1,v),zminus(z1,v)));

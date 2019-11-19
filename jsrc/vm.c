@@ -76,7 +76,7 @@ static void jtcirx(J jt,I n,I k,D*z,D*y){D p,t;
 AHDR2(cirBD,D,B,D){ASSERTW(n<=1&&1==m,EWIMAG); n^=n>>(BW-1); cirx(n,   (I)*x,z,y);}
 AHDR2(cirID,D,I,D){ASSERTW(n<=1&&1==m,EWIMAG); n^=n>>(BW-1); cirx(n,   *x,z,y);}
 
-AHDR2(cirDD,D,D,D){I k=(I)jfloor(0.5+*x);
+AHDR2(cirDD,D,D,D){I k=(I)jround(*x);
  ASSERTW(k==*x,EVDOMAIN); 
  ASSERTW(n<=1&&1==m,EWIMAG); // if more than one value, 
  n^=n>>(BW-1);   // convert complementary n to nonneg
@@ -123,7 +123,7 @@ F1(jtrect){A e,z;B b;I r,t;P*wp,*zp;Z c;
   b=1&&t&SCMPX;
   GASPARSE(z,b?SFL:t,1,1+r,AS(w)); AS(z)[r]=2;
   wp=PAV(w); zp=PAV(z);
-  if(b){e=SPA(wp,e); c=*ZAV(e); ASSERT(FEQ(c.re,c.im),EVSPARSE); SPB(zp,e,scf(c.re));}
+  if(b){e=SPA(wp,e); c=*ZAV(e); ASSERT(FFEQ(c.re,c.im),EVSPARSE); SPB(zp,e,scf(c.re));}
   else SPB(zp,e,ca(SPA(wp,e)));
   SPB(zp,a,ca(SPA(wp,a)));
   SPB(zp,i,ca(SPA(wp,i)));

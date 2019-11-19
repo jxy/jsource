@@ -33,12 +33,20 @@
 
 // Return int version of d, with error if loss of significance
 static I intforD(J jt, D d){D q;I z;
+#if 1
+ q=jround(d); z=(I)q;
+ ASSERT(d==q || FFIEQ(d,q),EVDOMAIN);  /* obsolete  || (++e,FEQ(d,e))*/
+ // too-large values don't convert, handle separately
+ if(d<(D)IMIN){ASSERT(d>=IMIN*(1+FUZZ),EVDOMAIN); z=IMIN;}  // if tolerantly < IMIN, error; else take IMIN
+ else if(d>=-(D)IMIN){ASSERT(d<=IMAX*(1+FUZZ),EVDOMAIN); z=IMAX;}  // if tolerantly > IMAX, error; else take IMAX
+#else // obsolete
  q=jfloor(d);
  if(!FEQ(q,d)){++q;
   // see if >: <.a is tolerantly equal to (I)a
   ASSERT(FEQ((D)q,d),EVDOMAIN);
  }
  z=(I)q; if((z<0)!=(q<0))z=0>q?IMIN:IMAX;
+#endif
  R z;
 }
 
@@ -48,7 +56,7 @@ A jtssingleton(J jt, A a,A w,A self,RANK2T awr,RANK2T ranks){A z;
  I aiv=FAV(self)->lc;   // temp, but start as function #
  // Allocate the result area
  {
-  // Calculate inplaceability for a and w.
+  // Calculate inplaceability for a and w.  Result must be 0 or 1
   // Inplaceable if: count=1 and zombieval, or count<0, PROVIDED the arg is inplaceable and the block is not UNINCORPABLE
   I aipok = ((((AC(a)-1)|((I)a^(I)jt->zombieval))==0)|((UI)AC(a)>>(BW-1))) & ((UI)jtinplace>>JTINPLACEAX) & ~(AFLAG(a)>>AFUNINCORPABLEX);
   I wipok = ((((AC(w)-1)|((I)w^(I)jt->zombieval))==0)|((UI)AC(w)>>(BW-1))) & ((UI)jtinplace>>JTINPLACEWX) & ~(AFLAG(w)>>AFUNINCORPABLEX);
@@ -80,15 +88,15 @@ A jtssingleton(J jt, A a,A w,A self,RANK2T awr,RANK2T ranks){A z;
  case SSINGCASE(VA2PLUS-VA2BF,SSINGDI): SSSTORE(SSRDD(a)+SSRDI(w),z,FL,D) R z;
  case SSINGCASE(VA2PLUS-VA2BF,SSINGBI): 
   {B av = SSRDB(a); I wv = SSRDI(w); I zv = av+wv;
-  if(zv<wv)SSSTORE((D)av+(D)wv,z,FL,D) else SSSTORENV(zv,z,INT,I)
+  if(zv>=wv)SSSTORENV(zv,z,INT,I) else SSSTORE((D)av+(D)wv,z,FL,D)
   R z;}
  case SSINGCASE(VA2PLUS-VA2BF,SSINGIB):
   {I av = SSRDI(a); B wv = SSRDB(w); I zv = av + wv;
-  if (zv<av)SSSTORE((D)av+(D)wv,z,FL,D) else SSSTORENV(zv,z,INT,I)
+  if (zv>=av)SSSTORENV(zv,z,INT,I) else SSSTORE((D)av+(D)wv,z,FL,D)
   R z;}
  case SSINGCASE(VA2PLUS-VA2BF,SSINGII):
   {I av = SSRDI(a); I wv = SSRDI(w); I zv = av + wv;
-  if (XANDY((zv^av),(zv^wv))<0)SSSTORE((D)av+(D)wv,z,FL,D) else SSSTORENV(zv,z,INT,I)
+  if (XANDY((zv^av),(zv^wv))>=0)SSSTORENV(zv,z,INT,I) else SSSTORE((D)av+(D)wv,z,FL,D)
   R z;}
  case SSINGCASE(VA2PLUS-VA2BF,SSINGDD):
   {NAN0; SSSTORENVFL(SSRDD(a)+SSRDD(w),z,FL,D) NAN1; R z;}
@@ -101,15 +109,15 @@ A jtssingleton(J jt, A a,A w,A self,RANK2T awr,RANK2T ranks){A z;
  case SSINGCASE(VA2MINUS-VA2BF,SSINGDI): SSSTORE(SSRDD(a)-SSRDI(w),z,FL,D) R z;
  case SSINGCASE(VA2MINUS-VA2BF,SSINGBI): 
   {B av = SSRDB(a); I wv = SSRDI(w); I zv = av-wv;
-  if(wv<0&&zv<=av)SSSTORE((D)av-(D)wv,z,FL,D) else SSSTORENV(zv,z,INT,I)
+  if((wv&zv)>=0)SSSTORENV(zv,z,INT,I) else SSSTORE((D)av-(D)wv,z,FL,D)
   R z;}
  case SSINGCASE(VA2MINUS-VA2BF,SSINGIB):
   {I av = SSRDI(a); I wv = (I)SSRDB(w); I zv = av - wv;   
-  if (zv>av)SSSTORE((D)av-(D)wv,z,FL,D) else SSSTORENV(zv,z,INT,I)
+  if (zv<=av)SSSTORENV(zv,z,INT,I) else SSSTORE((D)av-(D)wv,z,FL,D)
   R z;}
  case SSINGCASE(VA2MINUS-VA2BF,SSINGII):
   {I av = SSRDI(a); I wv = SSRDI(w); I zv = av - wv;
-  if (XANDY((zv^av),~(zv^wv))<0)SSSTORE((D)av-(D)wv,z,FL,D) else SSSTORENV(zv,z,INT,I)
+  if (XANDY((zv^av),~(zv^wv))>=0)SSSTORENV(zv,z,INT,I) else SSSTORE((D)av-(D)wv,z,FL,D)
   R z;}
  case SSINGCASE(VA2MINUS-VA2BF,SSINGDD):
   {NAN0; SSSTORENVFL(SSRDD(a)-SSRDD(w),z,FL,D) NAN1;  R z;}
@@ -187,25 +195,25 @@ A jtssingleton(J jt, A a,A w,A self,RANK2T awr,RANK2T ranks){A z;
 
 
  case SSINGCASE(VA2NAND-VA2BF,SSINGBB): aiv = SSRDB(a); wiv = SSRDB(w); goto nandresult;
- case SSINGCASE(VA2NAND-VA2BF,SSINGBD): wdv=SSRDD(w); aiv = SSRDB(a); ASSERT(wdv==0.0 || teq(wdv,1.0),EVDOMAIN); wiv=(I)wdv; goto nandresult;
- case SSINGCASE(VA2NAND-VA2BF,SSINGDB): adv=SSRDD(a); wiv = SSRDB(w); ASSERT(adv==0.0 || teq(adv,1.0),EVDOMAIN); aiv=(I)adv; goto nandresult;
- case SSINGCASE(VA2NAND-VA2BF,SSINGID): wdv=SSRDD(w); aiv = SSRDI(a); ASSERT(!(aiv&-2) && (wdv==0.0 || teq(wdv,1.0)),EVDOMAIN); wiv=(I)wdv; goto nandresult;
- case SSINGCASE(VA2NAND-VA2BF,SSINGDI): adv=SSRDD(a); wiv = SSRDI(w); ASSERT(!(wiv&-2) && (adv==0.0 || teq(adv,1.0)),EVDOMAIN); aiv=(I)adv; goto nandresult;
+ case SSINGCASE(VA2NAND-VA2BF,SSINGBD): wdv=SSRDD(w); aiv = SSRDB(a); ASSERT(wdv==0.0 || TEQ(wdv,1.0),EVDOMAIN); wiv=(I)wdv; goto nandresult;
+ case SSINGCASE(VA2NAND-VA2BF,SSINGDB): adv=SSRDD(a); wiv = SSRDB(w); ASSERT(adv==0.0 || TEQ(adv,1.0),EVDOMAIN); aiv=(I)adv; goto nandresult;
+ case SSINGCASE(VA2NAND-VA2BF,SSINGID): wdv=SSRDD(w); aiv = SSRDI(a); ASSERT(!(aiv&-2) && (wdv==0.0 || TEQ(wdv,1.0)),EVDOMAIN); wiv=(I)wdv; goto nandresult;
+ case SSINGCASE(VA2NAND-VA2BF,SSINGDI): adv=SSRDD(a); wiv = SSRDI(w); ASSERT(!(wiv&-2) && (adv==0.0 || TEQ(adv,1.0)),EVDOMAIN); aiv=(I)adv; goto nandresult;
  case SSINGCASE(VA2NAND-VA2BF,SSINGBI): aiv = SSRDB(a); wiv = SSRDI(w); ASSERT(!(wiv&-2),EVDOMAIN); goto nandresult;
  case SSINGCASE(VA2NAND-VA2BF,SSINGIB): aiv=SSRDI(a); wiv=SSRDB(w); ASSERT(!(aiv&-2),EVDOMAIN); goto nandresult;
  case SSINGCASE(VA2NAND-VA2BF,SSINGII): aiv=SSRDI(a); wiv=SSRDI(w); ASSERT(!((aiv|wiv)&-2),EVDOMAIN); goto nandresult;
- case SSINGCASE(VA2NAND-VA2BF,SSINGDD): adv=SSRDD(a); wdv=SSRDD(w); ASSERT((adv==0.0 || teq(adv,1.0)) && (wdv==0.0 || teq(wdv,1.0)),EVDOMAIN); wiv=(I)wdv; aiv=(I)adv; goto nandresult;
+ case SSINGCASE(VA2NAND-VA2BF,SSINGDD): adv=SSRDD(a); wdv=SSRDD(w); ASSERT((adv==0.0 || TEQ(adv,1.0)) && (wdv==0.0 || TEQ(wdv,1.0)),EVDOMAIN); wiv=(I)wdv; aiv=(I)adv; goto nandresult;
 
 
  case SSINGCASE(VA2NOR-VA2BF,SSINGBB): aiv = SSRDB(a); wiv = SSRDB(w); goto norresult;
- case SSINGCASE(VA2NOR-VA2BF,SSINGBD): wdv=SSRDD(w); aiv = SSRDB(a); ASSERT(wdv==0.0 || teq(wdv,1.0),EVDOMAIN); wiv=(I)wdv; goto norresult;
- case SSINGCASE(VA2NOR-VA2BF,SSINGDB): adv=SSRDD(a); wiv = SSRDB(w); ASSERT(adv==0.0 || teq(adv,1.0),EVDOMAIN); aiv=(I)adv; goto norresult;
- case SSINGCASE(VA2NOR-VA2BF,SSINGID): wdv=SSRDD(w); aiv = SSRDI(a); ASSERT(!(aiv&-2) && (wdv==0.0 || teq(wdv,1.0)),EVDOMAIN); wiv=(I)wdv; goto norresult;
- case SSINGCASE(VA2NOR-VA2BF,SSINGDI): adv=SSRDD(a); wiv = SSRDI(w); ASSERT(!(wiv&-2) && (adv==0.0 || teq(adv,1.0)),EVDOMAIN); aiv=(I)adv; goto norresult;
+ case SSINGCASE(VA2NOR-VA2BF,SSINGBD): wdv=SSRDD(w); aiv = SSRDB(a); ASSERT(wdv==0.0 || TEQ(wdv,1.0),EVDOMAIN); wiv=(I)wdv; goto norresult;
+ case SSINGCASE(VA2NOR-VA2BF,SSINGDB): adv=SSRDD(a); wiv = SSRDB(w); ASSERT(adv==0.0 || TEQ(adv,1.0),EVDOMAIN); aiv=(I)adv; goto norresult;
+ case SSINGCASE(VA2NOR-VA2BF,SSINGID): wdv=SSRDD(w); aiv = SSRDI(a); ASSERT(!(aiv&-2) && (wdv==0.0 || TEQ(wdv,1.0)),EVDOMAIN); wiv=(I)wdv; goto norresult;
+ case SSINGCASE(VA2NOR-VA2BF,SSINGDI): adv=SSRDD(a); wiv = SSRDI(w); ASSERT(!(wiv&-2) && (adv==0.0 || TEQ(adv,1.0)),EVDOMAIN); aiv=(I)adv; goto norresult;
  case SSINGCASE(VA2NOR-VA2BF,SSINGBI): aiv = SSRDB(a); wiv = SSRDI(w); ASSERT(!(wiv&-2),EVDOMAIN); goto norresult;
  case SSINGCASE(VA2NOR-VA2BF,SSINGIB): aiv=SSRDI(a); wiv=SSRDB(w); ASSERT(!(aiv&-2),EVDOMAIN); goto norresult;
  case SSINGCASE(VA2NOR-VA2BF,SSINGII): aiv=SSRDI(a); wiv=SSRDI(w); ASSERT(!((aiv|wiv)&-2),EVDOMAIN); goto norresult;
- case SSINGCASE(VA2NOR-VA2BF,SSINGDD): adv=SSRDD(a); wdv=SSRDD(w); ASSERT((adv==0.0 || teq(adv,1.0)) && (wdv==0.0 || teq(wdv,1.0)),EVDOMAIN); wiv=(I)wdv; aiv=(I)adv; goto norresult;
+ case SSINGCASE(VA2NOR-VA2BF,SSINGDD): adv=SSRDD(a); wdv=SSRDD(w); ASSERT((adv==0.0 || TEQ(adv,1.0)) && (wdv==0.0 || TEQ(wdv,1.0)),EVDOMAIN); wiv=(I)wdv; aiv=(I)adv; goto norresult;
 
 
  case SSINGCASE(VA2OUTOF-VA2BF,SSINGBB): SSSTORENV(SSRDB(a)<=SSRDB(w),z,B01,B) R z;
@@ -213,9 +221,9 @@ A jtssingleton(J jt, A a,A w,A self,RANK2T awr,RANK2T ranks){A z;
  case SSINGCASE(VA2OUTOF-VA2BF,SSINGDB): adv=SSRDD(a); wdv=SSRDB(w);  goto outofresult;
  case SSINGCASE(VA2OUTOF-VA2BF,SSINGID): adv=(D)SSRDI(a); wdv=SSRDD(w);  goto outofresult;
  case SSINGCASE(VA2OUTOF-VA2BF,SSINGDI): adv=SSRDD(a); wdv=(D)SSRDI(w);  goto outofresult;
- case SSINGCASE(VA2OUTOF-VA2BF,SSINGBI): adv=(D)SSRDB(a); wdv=(D)SSRDI(w); goto outofresult;
- case SSINGCASE(VA2OUTOF-VA2BF,SSINGIB): adv=(D)SSRDI(a); wdv=(D)SSRDB(w); goto outofresult;
- case SSINGCASE(VA2OUTOF-VA2BF,SSINGII): adv=(D)SSRDI(a); wdv=(D)SSRDI(w); goto outofresult;
+ case SSINGCASE(VA2OUTOF-VA2BF,SSINGBI): adv=(D)SSRDB(a); wdv=(D)SSRDI(w); goto outofresultcvti;
+ case SSINGCASE(VA2OUTOF-VA2BF,SSINGIB): adv=(D)SSRDI(a); wdv=(D)SSRDB(w); goto outofresultcvti;
+ case SSINGCASE(VA2OUTOF-VA2BF,SSINGII): adv=(D)SSRDI(a); wdv=(D)SSRDI(w); goto outofresultcvti;
  case SSINGCASE(VA2OUTOF-VA2BF,SSINGDD): adv=SSRDD(a); wdv=SSRDD(w);  goto outofresult;
 
 
@@ -362,6 +370,10 @@ A jtssingleton(J jt, A a,A w,A self,RANK2T awr,RANK2T ranks){A z;
  outofresult:
  NAN0; zdv=bindd(adv,wdv); NAN1;
  SSSTORE(zdv,z,FL,D) R z;  // Return the value if valid
+
+ outofresultcvti:
+ NAN0; zdv=bindd(adv,wdv); NAN1;
+ if(zdv>=(D)IMIN&&zdv<=(D)IMAX){SSSTORE((I)zdv,z,INT,I)}else{SSSTORE(zdv,z,FL,D)} R z;  // Return the value if valid, as integer if possible
 
  bitwiseresult:
  RE(0);  // if error on D arg, make sure we abort

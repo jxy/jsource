@@ -4,6 +4,7 @@
 /* Conversions Amongst Internal Types                                      */
 
 #include "j.h"
+#include "vcomp.h"
 
 #define KF1(f)          B f(J jt,A w,void*yv)
 #define CVCASE(a,b)     (((a)<<3)+(b))   // The main cases fit in low 8 bits of mask
@@ -74,24 +75,40 @@ static KF1(jtBfromI){B*x;I n,p,*v;
 static KF1(jtBfromD){B*x;D p,*v;I n;
  n=AN(w); v=DAV(w); x=(B*)yv;
  DQ(n, p=*v++; if(p<-2||2<p)R 0;   // handle infinities
-  if(!p)*x++=0; else if(FEQ(1.0,p))*x++=1; else R 0;);
+  if(!p)*x++=0; else if(FIEQ(p,1.0))*x++=1; else R 0;);
  R 1;
 }
 
-static KF1(jtIfromD){D p,q,r,*v;I i,k=0,n,*x;
+static KF1(jtIfromD){D p,q,*v;I i,k=0,n,*x;
  n=AN(w); v=DAV(w); x=(I*)yv;
- q=IMIN*(1+jt->fuzz); r=IMAX*(1+jt->fuzz);
+#if SY_64
+#if 1
+ for(i=0;i<n;++i){
+  p=v[i]; q=jround(p); I rq=(I)q;
+  if(!(p==q || FIEQ(p,q)))R 0;  // must equal int, possibly out of range
+  // out-of-range values don't convert, handle separately
+  if(p<(D)IMIN){if(!(p>=IMIN*(1+jt->fuzz)))R 0; rq=IMIN;}  // if tolerantly < IMIN, error; else take IMIN
+  else if(p>=-(D)IMIN){if(!(p<=IMAX*(1+jt->fuzz)))R 0; rq=IMAX;}  // if tolerantly > IMAX, error; else take IMAX
+  *x++=rq;
+ }
+#else // obsolete
+ q=IMIN*(1+jt->fuzz); D r=IMAX*(1+jt->fuzz);
  DO(n, p=v[i]; if(p<q||r<p)R 0;);
  for(i=0;i<n;++i){
   p=v[i]; q=jfloor(p);
-#if SY_64
   if         (FEQ(p,q)){k=(I)q; *x++=SGN(k)==SGN(q)?k:0>q?IMIN:IMAX;}
   else if(++q,FEQ(p,q)){k=(I)q; *x++=SGN(k)==SGN(q)?k:0>q?IMIN:IMAX;}
   else R 0;
-#else
-  if(FEQ(p,q))*x++=(I)q; else if(FEQ(p,1+q))*x++=(I)(1+q); else R 0;
-#endif
  }
+#endif
+#else
+ q=IMIN*(1+jt->fuzz); D r=IMAX*(1+jt->fuzz);
+ DO(n, p=v[i]; if(p<q||r<p)R 0;);
+ for(i=0;i<n;++i){
+  p=v[i]; q=jfloor(p);
+  if(FIEQ(p,q))*x++=(I)q; else if(FIEQ(p,1+q))*x++=(I)(1+q); else R 0;
+ }
+#endif
  R 1;
 }
 
@@ -123,9 +140,9 @@ static KF1(jtXfromI){B b;I c,d,i,j,n,r,u[XIDIG],*v;X*x;
 static X jtxd1(J jt,D p){PROLOG(0052);A t;D d,e=tfloor(p),q,r;I m,*u;
  switch(jt->xmode){
   case XMFLR:   p=e;                            break;
-  case XMCEIL:  p=ceil(p);                      break;
-  case XMEXACT: ASSERT(teq(p,e),EVDOMAIN); p=e; break;
-  case XMEXMT:  if(!teq(p,e))R vec(INT,0L,&m);
+  case XMCEIL:  p=jceil(p);                      break;
+  case XMEXACT: ASSERT(TEQ(p,e),EVDOMAIN); p=e; break;
+  case XMEXMT:  if(!TEQ(p,e))R vec(INT,0L,&m);
  }
  if(p== inf)R vci(XPINF);
  if(p==-inf)R vci(XNINF);
@@ -184,7 +201,7 @@ static KF1(jtQfromD){B neg,recip;D c,d,t,*wv;I e,i,n,*v;Q q,*x;S*tv;
   if     (t==inf)q.n=vci(XPINF);
   else if(t==0.0)q.n=iv0;
   else if(1.1102230246251565e-16<t&&t<9.007199254740992e15){
-   d=jfloor(0.5+1/dgcd(1.0,t)); c=jfloor(0.5+d*t); 
+   d=jround(1/dgcd(1.0,t)); c=jround(d*t); 
    q.n=xd1(c); q.d=xd1(d); q=qstd(q);
   }else{
    if(recip=1>t)t=1.0/t;
@@ -413,13 +430,13 @@ A jtbcvt(J jt,C mode,A w){FPREFIP; A y,z=w;D ofuzz;
  RNE(z);
 }    /* convert to lowest type. 0=mode: don't convert XNUM/RAT to other types */
 
-F1(jticvt){A z;D*v,x;I i,k=0,n,*u;
+F1(jticvt){A z;D*v,x;I i,n,*u;
  RZ(w);
  n=AN(w); v=DAV(w);
  GATV(z,INT,n,AR(w),AS(w)); u=AV(z);
  for(i=0;i<n;++i){
-  x=*v++; if(x<IMIN||IMAX<x)R w;
-#if SY_64
+  x=*v++; if(x<IMIN||IMAX<x)R w;  // if conversion will fail, skip it
+#if 0 && SY_64  // obsolete
   k=(I)x; *u++=SGN(k)==SGN(x)?k:0>x?IMIN:IMAX;
 #else
   *u++=(I)x;
@@ -470,8 +487,9 @@ F2(jtxco2){A z;B b;I j,n,r,*s,t,*wv,*zu,*zv;
    R z;
   case  3:
    ASSERT(t&XD+XZ,EVDOMAIN);
-   b=1&&t&XD;
-   GATV0(z,INT,b?n:2*n,b?r:1+r); s=AS(z); if(!b)*s++=2; MCISH(s,AS(w),r);
+   b=(~t>>XDX)&1;   // b=NOT XD
+// obsolete    GATV0(z,INT,b?n:2*n,b?r:1+r); s=AS(z); if(!b)*s++=2; MCISH(s,AS(w),r);
+   GATV0(z,INT,n<<b,r+b); s=AS(z); if(b)*s++ =2; MCISH(s,AS(w),r);
    zv=AV(z); zu=n+zv; wv=AV(w);
    if(t&XD){DX*v=(DX*)wv;   DQ(n,         *zv++=v->p;);}
    else    {ZX*v=(ZX*)wv,y; DQ(n, y=*v++; *zv++=y.re.p; *zu++=y.im.p;);}

@@ -103,13 +103,14 @@ static F2(jtovs){A ae,ax,ay,q,we,wx,wy,x,y,z,za,ze;B*ab,*wb,*zb;I acr,ar,*as,at,
 
 
 static C*jtovgmove(J jt,I k,I c,I m,A s,A w,C*x,A z){I d,n,p=c*m;
-   // z may not be boxed; but if it is, w must be also.  zrel=relocation offset, 0 if not relative
+   // z may not be boxed; but if it is, w must be also.
  if(AR(w)){
   n=AN(w); d=AN(s)-AR(w);
-  if((!n||d))mvc(k*p,x,k,jt->fillv);
-  if(n&&n<p){I *v=AV(s); *v=m; RZ(w=take(d?vec(INT,AR(w),d+v):s,w));}
-  if(n){
-   MC(x,AV(w),k*AN(w));
+// obsolete   if((!n||d))mvc(k*p,x,k,jt->fillv);  // fill required: w empty or shape short
+  if((-n&(d-1))>=0)mvc(k*p,x,k,jt->fillv);  // fill required: w empty or shape short (d>0)
+  if(n){  // nonempty cell, must copy in the data
+   if(n<p){I *v=AV(s); *v=m; RZ(w=take(d?vec(INT,AR(w),d+v):s,w));}  // incoming cell smaller than result area: take to result-cell size
+   MC(x,AV(w),k*AN(w));  // copy in the data, now the right cell shape but possibly shorter than the fill  kludge could avoid double copy
   }
  }else{  // scalar replication
   mvc(k*p,x,k,AV(w));
@@ -129,13 +130,14 @@ static F2(jtovg){A s,z;C*x;I ar,*as,c,k,m,n,r,*sv,t,wr,*ws,zn;
   DQ(m, --as; --ws; sv[--k]=MAX(*as,*ws);); 
   DO(r-m, sv[i]=MAX(1,sv[i]););
  }
- RE(c=prod(r-1,1+sv)); m=r>ar?1:IC(a); n=r>wr?1:IC(w); // verify composite item not too big
+// obsolete RE(c=prod(r-1,1+sv)); m=r>ar?1:IC(a); n=r>wr?1:IC(w); // verify composite item not too big
+ RE(c=prod(r-1,1+sv)); m=AS(a)[0]; m=r>ar?1:m; n=AS(w)[0]; n=r>wr?1:n; // verify composite item not too big
  RE(zn=mult(c,m+n)); ASSERT(0<=m+n,EVLIMIT);
  GA(z,AT(a),zn,r,sv); AS(z)[0]=m+n; x=CAV(z); k=bpnoun(AT(a));
  RZ(x=ovgmove(k,c,m,s,a,x,z));
  RZ(x=ovgmove(k,c,n,s,w,x,z));
  RETF(z);
-}    /* a,w general case for dense array with the same type; jt->ranks=0 */
+}    /* a,w general case for dense array with the same type; jt->ranks=~0 */
 
 #if 0
 static F2(jtovv){A z;I m,t;
@@ -192,7 +194,7 @@ F2(jtover){A z;C*zv;I replct,framect,acr,af,ar,*as,k,ma,mw,p,q,r,t,wcr,wf,wr,*ws
  RZ(a&&w);
  UI jtr=jt->ranks;//  fetch early
  if(SPARSE&(AT(a)|AT(w))){R ovs(a,w);}  // if either arg is sparse, switch to sparse code
- if(AT(a)!=(t=AT(w))){t=maxtypedne(AT(a)|(AN(a)==0),t|(AN(w)==0)); t&=-t; if(!TYPESEQ(t,AT(a))){RZ(a=cvt(t,a));} else {RZ(w=cvt(t,w));}}  // convert args to compatible precisions, changing a and w if needed
+ if(AT(a)!=(t=AT(w))){t=maxtypedne(AT(a)|(AN(a)==0),t|(AN(w)==0)); t&=-t; if(!TYPESEQ(t,AT(a))){RZ(a=cvt(t,a));} else {RZ(w=cvt(t,w));}}  // convert args to compatible precisions, changing a and w if needed.  Treat empty arg as boolean
  ar=AR(a); wr=AR(w);
  acr=jtr>>RANKTX; acr=ar<acr?ar:acr; af=ar-acr;  // acr=rank of cell, af=len of frame, as->shape
  wcr=(RANKT)jtr; wcr=wr<wcr?wr:wcr; wf=wr-wcr;  // wcr=rank of cell, wf=len of frame, ws->shape
@@ -205,7 +207,7 @@ F2(jtover){A z;C*zv;I replct,framect,acr,af,ar,*as,k,ma,mw,p,q,r,t,wcr,wf,wr,*ws
   I lr=ar;  // rank of arg with long shape
   A l=a; l=wr>ar?w:l; lr=wr>ar?wr:lr;  // arg with long shape.  Not needed till later but we usually go through the fast path
   if(2*lr-1<=ar+wr){  // if ranks differ by at most 1
-   // items have the same rank or one argument is an item of the other (we don't bother with cases where the ranks differ by more than 1)
+   // items have the same rank or one argument is an item of the other (cases where the ranks differ by more than 1 follow the general path below)
    // see if the shapes agree up to the shape of an item of the longer argument
    I mismatch=0; I *ase=as+ar-1, *wse=ws+wr-1; DQ(lr-1, mismatch|=*ase--^*wse--;);
    if(!mismatch){
@@ -254,7 +256,8 @@ F2(jtstitch){B sp2;I ar,wr; A z;
 // obsolete  ar=AR(a); wr=AR(w); sp2=(SPARSE&AT(a)||SPARSE&AT(w))&&2>=ar&&2>=wr;
  ar=AR(a); wr=AR(w); sp2=(SPARSE&(AT(a)|AT(w)))&&2>=ar&&2>=wr;
  ASSERT(!ar||!wr||*AS(a)==*AS(w),EVLENGTH);
- R sp2 ? stitchsp2(a,w) : IRS2(a,w,0L,(ar-1)&RMAX,(wr-1)&RMAX,jtover,z);
+ if((((SPARSE&(AT(a)|AT(w)))-1)&(2-ar)&(2-wr))>=0)R IRS2(a,w,0L,(ar-1)&RMAX,(wr-1)&RMAX,jtover,z);  // not sparse or rank>2
+ R stitchsp2(a,w);  // sparse rank <=2 separately
 }
 
 F1(jtlamin1){A x;I* RESTRICT s,* RESTRICT v,wcr,wf,wr; 
@@ -344,7 +347,8 @@ A jtapip(J jt, A a, A w){F2PREFIP;A h;C*av,*wv;I ak,k,p,*u,*v,wk,wm,wn;
      // If an item of a is higher-rank than the entire w (except when w is an atom, which gets replicated),
      // copy fill to the output area.  Start the copy after the area that will be filled in by w
      I wlen = k*AN(w); // the length in bytes of the data in w
-     if(AR(w)&&AR(a)>1+AR(w)){RZ(setfv(a,w)); mvc(wk-wlen,av+wlen,k,jt->fillv);}
+// obsolete      if(AR(w)&&AR(a)>1+AR(w)){RZ(setfv(a,w)); mvc(wk-wlen,av+wlen,k,jt->fillv);}
+     if((-AR(w)&(1+AR(w)-AR(a)))<0){RZ(setfv(a,w)); mvc(wk-wlen,av+wlen,k,jt->fillv);}
      // Copy in the actual data, replicating if w is atomic
      if(AR(w))MC(av,wv,wlen); else mvc(wk,av,k,wv);
      // The data has been copied.  Now adjust the result block to match.  If the operation is virtual extension we have to allocate a new block for the result

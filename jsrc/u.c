@@ -180,7 +180,19 @@ A jtcstr(J jt,C*s){A z; RZ(z=rifvs(str((I)strlen(s),s))); CAV(z)[AN(z)]=0; R z;}
 B evoke(A w){V*v=FAV(w); R CTILDE==v->id&&v->fgh[0]&&NAME&AT(v->fgh[0]);}
 
 // Extract the integer value from w, return it.  Set error if non-integral or non-atomic
-I jti0(J jt,A w){RZ(w); if(AT(w)&INT+B01){ASSERT(!AR(w),EVRANK); R BIV0(w);} if(!(w=vi(w)))R 0; ASSERT(!AR(w),EVRANK); R IAV(w)[0];}  // can't move the ASSERT earlier without breaking a lot of tests
+I jti0(J jt,A w){RZ(w);
+ if(AT(w)&INT+B01){ASSERT(!AR(w),EVRANK); R BIV0(w);}  // INT/B01 quickly
+ if(AT(w)&FL){D d=DAV(w)[0]; D e=jround(d); I cval=(I)e;  // FL without call to cvt
+  // if an atom is tolerantly equal to integer,  there's a good chance it is exactly equal.
+  // infinities will always round to themselves
+  ASSERT(d==e || FFIEQ(d,e),EVDOMAIN);  /* obsolete  || (++e,FEQ(d,e))*/
+  cval=d<(D)-IMAX?-IMAX:cval; cval=d>=-(D)-IMIN?IMAX:cval;
+  ASSERT(!AR(w),EVRANK);
+  R cval;  // too-large values don't convert, handle separately
+ }
+ if(!(w=vi(w)))R 0; ASSERT(!AR(w),EVRANK);
+ R IAV(w)[0];
+}  // can't move the ASSERT earlier without breaking a lot of tests
 
 A jtifb(J jt,I n,B* RESTRICT b){A z;I p,* RESTRICT zv; 
  p=bsum(n,b); 
@@ -204,7 +216,7 @@ A jtifb(J jt,I n,B* RESTRICT b){A z;I p,* RESTRICT zv;
 }    /* integer vector from boolean mask */
 
 // i. # w
-static F1(jtii){RZ(w); RETF(IX(IC(w)));}
+static F1(jtii){RZ(w); I j; RETF(IX(SETIC(w,j)));}
 
 // Return the higher-priority of the types s and t.  s and t are known to be not equal.
 // If either is sparse, convert the result to sparse.
@@ -280,7 +292,8 @@ A jtv2(J jt,I a,I b){A z;I*x; GAT0(z,INT,2,1); x=AV(z); *x++=a; *x=b; RETF(z);}
 // return A-block for singleton integer list whose value is k
 A jtvci(J jt,I k){A z; GAT0(z,INT,1,1); *IAV(z)=k; RETF(z);}
 
-// return A-block for list of type t, length n, and values *v 
+// return A-block for list of type t, length n, and values *v
+// MUST NOT return virtual or fixed block, because we often modify the returned area
 A jtvec(J jt,I t,I n,void*v){A z; GA(z,t,n,1,0); MC(AV(z),v,n<<bplg(t)); RETF(z);}
 
 // return A-block for list of type t, length n, and values *v
@@ -376,13 +389,21 @@ F1(jtvib){A z;D d,e,*wv;I i,n,*zv;
    n=AN(w); wv=DAV(w);
    GATV(z,INT,n,AR(w),AS(w)); zv=AV(z);
    for(i=0;i<n;++i){
-    d=wv[i]; e=jfloor(d);
+    d=wv[i]; e=jround(d); I cval=(I)e;
+    // if an atom is tolerantly equal to integer,  there's a good chance it is exactly equal.
+    // infinities will always round to themselves
+#if 1
+    ASSERT(d==e || FFIEQ(d,e),EVDOMAIN);  /* obsolete  || (++e,FEQ(d,e))*/
+    cval=d<(D)-IMAX?-IMAX:cval; cval=d>=-(D)-IMIN?IMAX:cval; zv[i]=cval;  // too-large values don't convert, handle separately
+#else  // obsolete
     if     (d==inf )     zv[i]=q;
     else if(d==infm)     zv[i]=p;
     else if(    FEQ(d,e))zv[i]=d<p?p:q<d?q:(I)e;
     else if(++e,FEQ(d,e))zv[i]=d<p?p:q<d?q:(I)e;
     else ASSERT(0,EVDOMAIN);
- }}
+#endif
+  }
+ }
  jt->ranks=oqr; RETF(z);
 }
 

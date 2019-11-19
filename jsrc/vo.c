@@ -7,7 +7,8 @@
 #include "result.h"
 
 I level(A w){A*wv;I d,j;
- if(!(AN(w)&&AT(w)&BOX+SBOX))R 0;
+// obsolete  if(!(AN(w)&&AT(w)&BOX+SBOX))R 0;
+ if((-AN(w)&-(AT(w)&BOX+SBOX))>=0)R 0;
  d=0; wv=AAV(w);
  DO(AN(w), j=level(wv[i]); d=d<j?j:d;);
  R 1+d;
@@ -16,7 +17,8 @@ I level(A w){A*wv;I d,j;
 // return 0 if the level of w is greater than l, 1 if <=
 // terminates early if possible
 I levelle(A w,I l){
- if(!(AN(w)&&AT(w)&BOX+SBOX))R ((UI)~l)>>(BW-1);  // if arg is unboxed, its level is 0, so return 1 if l>=0
+// obsolete  if(!(AN(w)&&AT(w)&BOX+SBOX))R ((UI)~l)>>(BW-1);  // if arg is unboxed, its level is 0, so return 1 if l>=0
+ if((-AN(w)&-(AT(w)&BOX+SBOX))>=0)R ((UI)~l)>>(BW-1);  // if arg is unboxed, its level is 0, so return 1 if l>=0
  if(l<=0)R 0;  // (arg is boxed) if l is <=0, arglevel is  > l
  --l; A *wv=AAV(w);
  DO(AN(w), if(!levelle(wv[i],l))R 0;);  // stop as soon as we see level big enough
@@ -64,7 +66,7 @@ F1(jtbox){A y,z,*zv;C*wv;I f,k,m,n,r,wr,*ws;
  RETF(z);
 }    /* <"r w */
 
-F1(jtboxopen){RZ(w); if(!(AN(w)&&BOX&AT(w))){w = box(w);} R w;}
+F1(jtboxopen){RZ(w); if((-AN(w)&-(AT(w)&BOX+SBOX))>=0){w = box(w);} R w;}
 
 F2(jtlink){
 RZ(a&&w);
@@ -82,7 +84,9 @@ RZ(a&&w);
   I i; for(i=AR(a)-1; i>=0&&AS(a)[i]==AS(ABACK(a))[i];--i); if(i<0)a = ABACK(a);
  }
 #endif
-if(!(AN(w)&&AT(w)&BOX)){w = box(w);} R over(box(a),w);}
+// obsolete if(!(AN(w)&&AT(w)&BOX)){w = box(w);} R over(box(a),w);}
+ if((-AN(w)&SGNIF(AT(w),BOXX))>=0){w = box(w);} R over(box(a),w);  // box empty or unboxed w, join to boxed a
+}
 
 // Calculate the value to use for r arg of copyresultcell: bit 0=ra() flag, next 15=rank requiring fill, higher=-(#leading axes of 1)
 // zs, zr = address/length of shape of result cell   s,r = address/length of shape of cell to copy
@@ -464,7 +468,7 @@ static A jtrazeg(J jt,A w,I t,I n,I r,A*v,I nonempt){A h,h1,y,z;C*zu;I c=0,d,i,j
    // nonatomic contents: rank extension+fill rather than replication
    // if IC(y)==0 this all does nothing, but perhaps not worth checking
    if(j=r-yr){DO(j,v1[i]=1;); MCISH(j+v1,ys,yr); RZ(y=reshape(h1,y)); }  // if rank extension needed, create rank 1 1...,yr and reshape to that shape
-   if(memcmp(1+s,1+AS(y),d)){*s=IC(y); RZ(y=take(h,y));}  // if cell of y has different shape from cell of result, install the
+   if(memcmp(1+s,1+AS(y),d)){SETIC(y,*s); RZ(y=take(h,y));}  // if cell of y has different shape from cell of result, install the
      // #items into s (giving #cell,result-cell shape) and fill to that shape.  This destroys *s (#result items) buts leaves the rest of s
    {j=k*AN(y); MC(zu,AV(y),j); zu+=j;}
   }
@@ -542,8 +546,8 @@ F1(jtrazeh){A*wv,y,z;C*xv,*yv,*zv;I c=0,ck,dk,i,k,n,p,r,*s,t;
  RZ(w);
  ASSERT(BOX&AT(w),EVDOMAIN);
  if(!AR(w))R ope(w);
- n=AN(w); wv=AAV(w);  y=wv[0]; p=IC(y); t=AT(y); k=bpnoun(t);
- DO(n, y=wv[i]; r=AR(y); ASSERT(p==IC(y),EVLENGTH); ASSERT(r&&r<=2&&TYPESEQ(t,AT(y)),EVNONCE); c+=1==r?1:*(1+AS(y)););
+ n=AN(w); wv=AAV(w);  y=wv[0]; SETIC(y,p); t=AT(y); k=bpnoun(t);
+ DO(n, I l; y=wv[i]; r=AR(y); ASSERT(p==SETIC(y,l),EVLENGTH); ASSERT(r&&r<=2&&TYPESEQ(t,AT(y)),EVNONCE); c+=1==r?1:*(1+AS(y)););
  GA(z,t,p*c,2,0); s=AS(z); *s=p; *(1+s)=c; 
  zv=CAV(z); ck=c*k;
  for(i=0;i<n;++i){

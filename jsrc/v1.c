@@ -10,7 +10,7 @@
 static B jtmatchsub(J,I,I,I,I,A,A,B* RESTRICT,B);
 static F2(jtmatchs);
 
-#define MCS(q,af,wf)  ((1<q?8:q?4:0)+(af?2:0)+(wf?1:0))
+#define MCS(q,af,wf)  ((((q>1)+(q>0))<<2)+(af?2:0)+(wf?1:0))
 // set *x++ to b1 if *u=*v, b0 otherwise
 #define QLOOP         b=b1; DO(q, if(u[i]!=v[i]){b^=1; break;}); *x++=b;
 // comparison, with special cases for 1/more than 1, and looping over repeated cells
@@ -72,10 +72,10 @@ B jtequ0(J jt,A a,A w){
 
 // Test for equality of functions, 1 if they match.  To match, the functions must have the same pseudocharacter and fgh
 static B jteqf(J jt,A a,A w){A p,q;V*u=FAV(a),*v=FAV(w);
- if(!(TYPESEQ(AT(a),AT(w))&&u->id==v->id))R 0;
- p=u->fgh[0]; q=v->fgh[0]; if(!(!p&&!q||p&&q&&(p==q||matchsub(0L,0L,1L,1L,p,q,0,C1))))R 0;
- p=u->fgh[1]; q=v->fgh[1]; if(!(!p&&!q||p&&q&&(p==q||matchsub(0L,0L,1L,1L,p,q,0,C1))))R 0;
- p=u->fgh[2]; q=v->fgh[2];    R !p&&!q||p&&q&&(p==q||matchsub(0L,0L,1L,1L,p,q,0,C1));
+ if(TYPESXOR(AT(a),AT(w))+(u->id^v->id))R 0;   // must match on type and id
+ p=u->fgh[0]; q=v->fgh[0]; if(!((p==q||p&&q&&matchsub(0L,0L,1L,1L,p,q,0,C1))))R 0;
+ p=u->fgh[1]; q=v->fgh[1]; if(!((p==q||p&&q&&matchsub(0L,0L,1L,1L,p,q,0,C1))))R 0;
+ p=u->fgh[2]; q=v->fgh[2];    R (p==q||p&&q&&matchsub(0L,0L,1L,1L,p,q,0,C1));
 }
 
 // compare function for boxes.  Do a test on the single contents of the box.  Reset comparison direction to normal.
@@ -105,15 +105,17 @@ static B jteqf(J jt,A a,A w){A p,q;V*u=FAV(a),*v=FAV(w);
 // m=#cells of shorter frame, n=#times a cell of shorter frame must be repeated
 // the comparands may not be sparse
 static B jtmatchsub(J jt,I af,I wf,I m,I n,A a,A w,B* RESTRICT x,B b1){B b;C*av,*wv;I at,c,j=0,p,q,t,wt;
- // we tested for a==w before the call, to save on call overhead
+ // we tested for a==w before the call, to save on call overhead (usually)
  // m*n cannot be 0.  If this is a recursive call, m=n=1; while if it is the first call, empty m/n were handled at the top level
+// obsolete  // Very fastest path: different numbers of atoms (when there is no frame)
+// obsolete  if(((af-1)&(wf-1)&(-(AN(a)^AN(w))))<0){b=1; if(x)memset(x,b^b1,m*n); R b^b1;}  // af==0, wf==0, AN(a)!=AN(w).  Set b to try to use common code
  p=AR(a)-af; at=UNSAFE(AT(a));
  q=AR(w)-wf; wt=UNSAFE(AT(w)); 
  // p=cell-rank of a; q=cell-rank of w; ?t=type;
  // c=#atoms in a cell, b is 1 if rank or cell-shape mismatches, or if cells are not empty and types are incompatible
  // We know that either there is no frame or both arguments are nonempty (Empty arguments with frame can happen only at the top level
  // and were handled there).
- PROD(c,p,af+AS(a)); b=p!=q||ICMP(af+AS(a),wf+AS(w),p)||c&&!HOMO(at,wt);
+ if(!(b=p!=q)){if(!(b=!!ICMP(af+AS(a),wf+AS(w),p))){PROD(c,p,af+AS(a)); b=c&&!HOMO(at,wt);}}  // b='mismatch'
  // If we know the result - either they mismatch, or the cell is empty, or the buffers are identical - return all success/failure
  if(b||!c||a==w){if(x)memset(x,b^b1,m*n); R b^b1;}
  // If we're comparing functions, return that result
@@ -174,7 +176,7 @@ F2(jtmatch){A z;I af,f,m,n,mn,*s,wf;
  af=AR(a)-(I)(jt->ranks>>RANKTX); af=af<0?0:af; wf=AR(w)-(I)((RANKT)jt->ranks); wf=wf<0?0:wf; RESETRANK;
  // If either operand is empty return without any comparisons.  In this case we have to worry that the
  // number of cells may overflow, even if there are no atoms
- if(!AN(a)||!AN(w)){B b; I p;
+ if(((-AN(a))&(-AN(w)))>=0){B b; I p;  // AN(a) is 0 or AN(w) is 0
   // no atoms.  The shape of the result is the length of the longer frame.  See how many cells that is
   if(af>wf){f=af; s=AS(a); RE(mn = prod(af,AS(a)));}else{f=wf; s=AS(w); RE(mn = prod(wf,AS(w)));}
   // The result for each cell is 1 if the cell-shapes are the same
@@ -197,7 +199,8 @@ F2(jtnotmatch){A z;I af,f,m,n,mn,*s,wf;
  af=AR(a)-(I)(jt->ranks>>RANKTX); af=af<0?0:af; wf=AR(w)-(I)((RANKT)jt->ranks); wf=wf<0?0:wf; RESETRANK;
  // If either operand is empty return without any comparisons.  In this case we have to worry that the
  // number of cells may overflow, even if there are no atoms
- if(!AN(a)||!AN(w)){B b; I p;
+ if(((-AN(a))&(-AN(w)))>=0){B b; I p;  // AN(a) is 0 or AN(w) is 0
+// obsolete if(!AN(a)||!AN(w)){B b; I p;
   // no atoms.  The shape of the result is the length of the longer frame.  See how many cells that is
   if(af>wf){f=af; s=AS(a); RE(mn = prod(af,AS(a)));}else{f=wf; s=AS(w); RE(mn = prod(wf,AS(w)));}
   // The result for each cell is 1 if the cell-shapes are the same

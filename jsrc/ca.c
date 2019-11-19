@@ -20,7 +20,7 @@ static DF2(jtuponf2){PROLOG(0022);DECLFG;A z;I flag=sv->flag,m=jt->xmode;
  if(primitive(gs))if(flag&VFLR)jt->xmode=XMFLR; else if(flag&VCEIL)jt->xmode=XMCEIL;
  if(RAT&AT(a))RZ(a=pcvt(XNUM,a));
  if(RAT&AT(w))RZ(w=pcvt(XNUM,w));
- RZ(z=INT&AT(a)&&INT&AT(w)&&CDIV==ID(gs)?intdiv(a,w):CALL1(f1,CALL2(g2,a,w,gs),fs));
+ RZ(z=INT&AT(a)&AT(w)&&CDIV==ID(gs)?intdiv(a,w):CALL1(f1,CALL2(g2,a,w,gs),fs));
  jt->xmode=m;
  EPILOG(z);
 }
@@ -217,8 +217,8 @@ F2(jtatop){A f,g,h=0,x;AF f1=on1,f2=jtupon2;B b=0,j;C c,d,e;I flag, flag2=0,m=-1
  // special cases of v
  if(d==CEBAR||d==CEPS||(b=FIT0(CEPS,wv))){
   f=av->fgh[0]; g=av->fgh[1]; e=ID(f); if(b)d=ID(wv->fgh[0]);
-  if(c==CSLASH)m=e==CPLUS?4:e==CPLUSDOT?5:e==CSTARDOT?6:-1;
-  else if(c==CAMP&&(g==num[0]||g==num[1])){j=*BAV(g); m=e==CIOTA?j:e==CICO?2+j:-1;}
+  if(c==CSLASH){m=-1; m=e==CPLUS?4:m; m=e==CPLUSDOT?5:m; m=e==CSTARDOT?6:m;}
+  else if(c==CAMP&&(g==num[0]||g==num[1])){j=*BAV(g); m=-1; m=e==CIOTA?j:m; m=e==CICO?2+j:m;}
   switch(0<=m?d:-1){
    case CEBAR: f2=b?atcomp0:atcomp; flag+=6+8*m; flag&=~VJTFLGOK2; break;
    case CEPS:  f2=b?atcomp0:atcomp; flag+=7+8*m; flag&=~VJTFLGOK2; break;
@@ -258,10 +258,10 @@ F2(jtatco){A f,g;AF f1=on1cell,f2=jtupon2cell;B b=0;C c,d,e;I flag, flag2=0,j,m=
   case CQUERY:  if(d==CDOLLAR||d==CPOUND){f2=jtrollk; flag&=~VJTFLGOK2;}  break;
   case CQRYDOT: if(d==CDOLLAR||d==CPOUND){f2=jtrollkx; flag&=~VJTFLGOK2;} break;
   case CICAP:   if(d==CNE){f1=jtnubind; flag&=~VJTFLGOK1;} else if(FIT0(CNE,wv)){f1=jtnubind0; flag&=~VJTFLGOK1;} break;
-  case CAMP:    if(g==num[0]||g==num[1]){j=*BAV(g); m=e==CIOTA?j:e==CICO?2+j:-1;} break;
+  case CAMP:    if(g==num[0]||g==num[1]){j=*BAV(g); m=-1; m=e==CIOTA?j:m; m=e==CICO?2+j:m;} break;
   case CSLASH:  
    if(vaid(f)&&vaid(w)){f2=jtfslashatg; flag&=~VJTFLGOK2;}
-   if(d==CCOMMA){f1=jtredravel; } else if(d==CDOLLAR&&FAV(av->fgh[0])->id==CSTAR){f1=jtnatoms;} else m=e==CPLUS?4:e==CPLUSDOT?5:e==CSTARDOT?6:-1;
+   if(d==CCOMMA){f1=jtredravel; } else if(d==CDOLLAR&&FAV(av->fgh[0])->id==CSTAR){f1=jtnatoms;} else {m=-1; m=e==CPLUS?4:m; m=e==CPLUSDOT?5:m; m=e==CSTARDOT?6:m;}
    break;
   case CPOUND:  if(d==CCOMMA)f1=jtnatoms; if(d==CDOLLAR)f1=jtrank; break;
   case CSTAR:   if(d==CPOUND)f1=jtisitems; break;
@@ -379,11 +379,11 @@ F2(jtamp){A h=0;AF f1,f2;B b;C c,d=0;I flag,flag2=0,mode=-1,p,r;V*u,*v;
   // assigned to a name, which will protect values inside it.
   if(AC(a)>=0){flag &= ~VASGSAFE;}else{ACIPNO(a);}
   
-  if(AN(a)&&AR(a)){
+  if((-AN(a)&-AR(a))<0){
     // c holds the pseudochar for the v op.  If v is u!.n, replace c with the pseudochar for n
     // Also set b if the fit is !.0
    if(b=c==CFIT&&equ(num[0],v->fgh[1]))c=ID(v->fgh[0]); 
-   mode=c==CIOTA?IIDOT:c==CICO?IICO:-1;
+   mode=-1; mode=c==CIOTA?IIDOT:mode; mode=c==CICO?IICO:mode;
   }
   if(0<=mode){
    if(b){PUSHCCT(1.0) h=indexofsub(mode,a,mark); POPCCT f1=ixfixedleft0; flag&=~VJTFLGOK1;}
@@ -403,7 +403,7 @@ F2(jtamp){A h=0;AF f1,f2;B b;C c,d=0;I flag,flag2=0,mode=-1,p,r;V*u,*v;
   // Otherwise, mark the noun as non-inplaceable (so it will not be modified during use).  If the derived verb is used in another sentence, it must first be
   // assigned to a name, which will protect values inside it.
   if(AC(w)>=0){flag &= ~VASGSAFE;}else{ACIPNO(w);}
-  if(AN(w)&&AR(w)){
+  if((-AN(w)&-AR(w))<0){
     // c holds the pseudochar for the v op.  If v is u!.n, replace c with the pseudochar for n
     // Also set b if the fit is !.0
    c=v->id; p=v->flag&255; if(b=c==CFIT&&equ(num[0],v->fgh[1]))c=ID(v->fgh[0]);

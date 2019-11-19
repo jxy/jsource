@@ -11,9 +11,14 @@
   switch((4*descend)+(0<=p?2:0)+(I )(0<=q)){                             \
    case 1: DQ(m, *zv++=n*(1<*wv++););              break; /*   q */  \
    case 2: DQ(m, *zv++=n*(0<*wv++););              break; /* p   */  \
+   case 3: DQ(m, x=*wv++; I t=n; t=x<=1?q:t; t=x<=0?0:t; *zv++=t;); break; /* p q */  \
+   case 7: DQ(m, x=*wv++; I t=n; t=x>=0?p:t; t=x>=1?0:t; *zv++=t;);        /* p q */  \
+ }}
+#if 0 // obsolete 
    case 3: DQ(m, x=*wv++; *zv++=x<=0?0:x<=1?q:n;); break; /* p q */  \
    case 7: DQ(m, x=*wv++; *zv++=x>=1?0:x>=0?p:n;);        /* p q */  \
- }}
+
+#endif
 
 static B jtiixBX(J jt,I n,I m,A a,A w,I*zv){B*av,*b,descend;I p,q;
  av=BAV(a); descend=av[0]>av[n-1];
@@ -45,8 +50,7 @@ static B jtiixI(J jt,I n,I m,A a,A w,I*zv){A t;B ascend;I*av,j,p,q,*tv,*u,*v,*vv
  R 1;
 }    /* a I. w where a is a list of small range integers */
 
-#define SBCOMP(x,y)       \
- ((SBLT((x),(y)))?-1:(SBGT((x),(y)))?1:0)
+#define SBCOMP(x,y) (SBGT((x),(y))-SBLT((x),(y)))
 #define COMPVLOOP(T,c)       \
  {T*u=(T*)uu,*v=(T*)vv; DQ(c, if(*u!=*v){cc=*u<*v?-1:1; break;} ++u; ++v;);}
 #define COMPVLOOF(T,c,COMP)  \
@@ -101,11 +105,11 @@ static B jtiixI(J jt,I n,I m,A a,A w,I*zv){A t;B ascend;I*av,j,p,q,*tv,*u,*v,*vv
 
 F2(jticap2){A*av,*wv,z;C*uu,*vv;I ar,*as,at,c,ck,cm,ge,gt,j,k,m,n,p,q,r,t,wr,*ws,wt,* RESTRICT zv;I cc;
  RZ(a&&w);
- ar=AR(a); at=AT(a); as=AS(a); n=ar?*as:1; r=ar-1<0?0:ar-1;  // n=length of 1-cell of a, r=frame of a
+ ar=AR(a); at=AT(a); as=AS(a); SETIC(a,n); r=ar-1<0?0:ar-1;  // n=length of 1-cell of a, r=frame of a
  wr=AR(w); wt=AT(w); ws=AS(w); I b=(AN(a)-1)|(AN(w)-1);  // b<0 if something is empty
  ASSERT(r<=wr,EVRANK);
  ASSERTAGREE(as+ar-r,ws+wr-r,r)
- if(b>=0){ASSERT(HOMO(at,wt),EVDOMAIN); ASSERT(at&DENSE&&wt&DENSE,EVNONCE); } // if no empties, verify agreement & non-sparse
+ if(b>=0){ASSERT(HOMO(at,wt),EVDOMAIN); ASSERT(!((at|wt)&SPARSE),EVNONCE); } // if no empties, verify agreement & non-sparse
  CPROD(AN(w),m,wr-r,ws); CPROD(AN(w),c,r,ws+wr-r);  // m=#atoms in result   c=# atoms in a cell of w
  GATV(z,INT,m,wr-r,ws); zv=AV(z);
  if(((m-1)|(n-1)|(c-1))<0){DQ(m, *zv++=0;); R z;}  // exit with zeros for empty args

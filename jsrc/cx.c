@@ -29,7 +29,7 @@
 
 // Parse/execute a line, result in z.  If locked, reveal nothing.  Save current line number in case we reexecute
 // Before each sentence we snapshot the implied locale in the local symbol table.  If the sentence passes a u/v into an operator, the current symbol table will become the prev and will have the u/v environment info
-#define parseline(z) {C attnval=*jt->adbreakr; A *queue=line+ci->i; I m=ci->n; /* obsolete AKGST(locsym)=jt->global;*/ if(!attnval){if(!(gsfctdl&2))z=parsea(queue,m);else {thisframe->dclnk->dcix=i; z=parsex(queue,m,ci,callframe);}}else{jsignal(EVATTN); z=0;} }
+#define parseline(z) {C attnval=*jt->adbreakr; A *queue=line+ci->i; I m=ci->n; /* obsolete AKGST(locsym)=jt->global;*/ if(!attnval){if(!(gsfctdl&16))z=parsea(queue,m);else {thisframe->dclnk->dcix=i; z=parsex(queue,m,ci,callframe);}}else{jsignal(EVATTN); z=0;} }
 typedef struct{A t,x,line;C*iv,*xv;I j,n; I4 k,w;} CDATA;
 /* for_xyz. t do. control data   */
 /* line  'for_xyz.'              */
@@ -52,7 +52,7 @@ typedef struct{I4 d,t,e,b;} TD;  // line numbers of catchd., catcht., end. and t
 static B jtforinit(J jt,CDATA*cv,A t){A x;C*s,*v;I k;
  ASSERT(t,EVCTRL);
  RZ(ras(t)); cv->t=t;                            /* iteration array     */
- cv->n=IC(t);                            /* # of items in t     */
+ SETIC(t,cv->n);                            /* # of items in t     */
  cv->j=-1;                               /* iteration index     */
  cv->x=0;
  k=AN(cv->line)-5; cv->k=(I4)k;                 /* length of item name */
@@ -120,7 +120,7 @@ DF2(jtxdefn){PROLOG(0048);
  A *line;   // pointer to the words of the definition.  Filled in by LINE
  I n;  // number of lines in the definition.  Filled in by LINE
  CW *cw;  // pointer to control-word info for the definition.  Filled in by LINE
- I gsfctdl;  // flags: 1=locked 2=debug(& not locked) 4=tdi!=0 8=cd!=0 16=thisframe!=0 32=symtable was the original (i. e. AR(symtab)&LSYMINUSE) 256=original debug flag (must be highest bit)
+ I gsfctdl=0;  // flags: 1=locked 2=debug(& not locked) 4=tdi!=0 8=cd!=0 16=thisframe!=0 32=symtable was the original (i. e. AR(symtab)&LSYMINUSE) 256=original debug flag (must be highest bit)
 // obsolete I lk;  // lock/debug flag: 1=locked function; 0=normal operation; -1=this function is being debugged
  DC callframe=0;  // pointer to the debug frame of the caller to this function (only if it's named), but 0 if we are not debugging
 
@@ -140,7 +140,7 @@ DF2(jtxdefn){PROLOG(0048);
   u=AT(self)&ADV+CONJ?a:0; v=AT(self)&ADV+CONJ?w:0;
   if(!(jt->uflags.us.cx.cx_us | (sflg&(VLOCK|VXOP|VTRY1|VTRY2)))){
    // Normal case of verbs. Read the info for the parsed definition, including control table and number of lines
-   gsfctdl=0; LINE(sv);
+   LINE(sv);
    // Create symbol table for this execution.  If the original symbol table is not in use (rank unflagged), use it;
    // otherwise clone a copy of it.  We have to do this before we create the debug frame
    // This code duplicated below
@@ -159,13 +159,13 @@ DF2(jtxdefn){PROLOG(0048);
    else{RZ(locsym=clonelocalsyms(locsym));}
 
 // obsolete    // lk: 0=normal, 1=this definition is locked, -1=debug mode
-   gsfctdl=jt->uflags.us.cx.cx_c.glock||sv->flag&VLOCK;
+   gsfctdl|=jt->uflags.us.cx.cx_c.glock||sv->flag&VLOCK;  // 1=lock bit
    // if we are in debug mode, the call to this defn should be on the stack (unless debug was entered under program control).  If it is, point to its
    // stack frame, which functions as a flag to indicate that we are debugging.  If the function is locked we ignore debug mode
-   if(!gsfctdl&&jt->uflags.us.cx.cx_c.db){
+   if(!(gsfctdl&1)&&jt->uflags.us.cx.cx_c.db){
     if(jt->sitop&&jt->sitop->dctype==DCCALL){   // if current stack frame is a call
 // obsolete      lk=-1;    // indicate we are debugging
-     gsfctdl=2;   // set debug flag
+     gsfctdl|=2;   // set debug flag if debug requested and not locked (no longer used)
      if(sv->flag&VNAMED){
       callframe=jt->sitop;  // if this is a named (rather than anonymous call like 3 : 0"1), there is a tight link with the caller.  Indicate that
      }
@@ -211,8 +211,8 @@ DF2(jtxdefn){PROLOG(0048);
   if(a){ if(!ras(a)&&w){ybuckptr->val=0; fa(w); R0;} if(!C_CRC32C&&xbuckptr==ybuckptr)xbuckptr=xbuckptr->next+jt->sympv; xbuckptr->val=a; xbuckptr->sn=jt->slisti;}
   // Do the other assignments, which occur less frequently, with IS
   if((I)u|(I)v){
-   if(u){(IS(unam,u)); if(NOUN&AT(u))IS(mnam,u); }  // assign u, and m if u is a noun
-   if(v){(IS(vnam,v)); if(NOUN&AT(v))IS(nnam,v); }  // bug errors here must be detected
+   if(u){(IS(mnuvxynam[2],u)); if(NOUN&AT(u))IS(mnuvxynam[0],u); }  // assign u, and m if u is a noun
+   if(v){(IS(mnuvxynam[3],v)); if(NOUN&AT(v))IS(mnuvxynam[1],v); }  // bug errors here must be detected
   }
  }
 
@@ -240,9 +240,13 @@ DF2(jtxdefn){PROLOG(0048);
     // We have to have 1 debug frame to hold parse-error information in, but it is allocated earlier if debug is off
     // We check before every sentence in case the user turns on debug in the middle of this definition
     // NOTE: this stack frame could be put on the C stack, but that would reduce the recursion limit because the frame is pretty big
-    BZ(thisframe=deba(DCPARSE,0L,0L,0L));  // if deba fails it will be before it modifies sitop.  Remember our stack frame
-    old=jt->tnextpushp;  // protect the stack frame against free
-    gsfctdl|=16;  // indicate we have a debug frame
+    // If there is no calling stack frame we can't turn on debug mode because we can't suspend
+    DC d; for(d=jt->sitop;d&&DCCALL!=d->dctype;d=d->dclnk);  /* find bottommost call                 */
+    if(d){  // if there is a call and thus we can suspend
+     BZ(thisframe=deba(DCPARSE,0L,0L,0L));  // if deba fails it will be before it modifies sitop.  Remember our stack frame
+     old=jt->tnextpushp;  // protect the stack frame against free
+     gsfctdl|=16+2;  // indicate we have a debug frame and are in debug mode
+    }
    }
 
    i=debugnewi(i,thisframe,self);  // get possibly-changed execution line
@@ -689,9 +693,9 @@ A jtcrelocalsyms(J jt, A l, A c,I type, I dyad, I flags){A actst,*lv,pfst,t,wds;
  // Do a probe-for-assignment for every name that is locally assigned in this definition.  This will
  // create a symbol-table entry for each such name
  // Start with the argument names.  We always assign y, and x EXCEPT when there is a monadic guaranteed-verb
- RZ(probeis(ynam,pfst));if(!(!dyad&&(type>=3||(flags&VXOPR)))){RZ(probeis(xnam,pfst));}
- if(type<3){RZ(probeis(unam,pfst)); RZ(probeis(mnam,pfst));}
- if(type==2){RZ(probeis(vnam,pfst)); RZ(probeis(nnam,pfst));}
+ RZ(probeis(mnuvxynam[5],pfst));if(!(!dyad&&(type>=3||(flags&VXOPR)))){RZ(probeis(mnuvxynam[4],pfst));}
+ if(type<3){RZ(probeis(mnuvxynam[2],pfst)); RZ(probeis(mnuvxynam[0],pfst));}
+ if(type==2){RZ(probeis(mnuvxynam[3],pfst)); RZ(probeis(mnuvxynam[1],pfst));}
  // Go through the definition, looking for local assignment.  If the previous token is a simplename, add it
  // to the table.  If it is a literal constant, break it into words, convert each to a name, and process.
  ln=AN(l); lv=AAV(l);  // Get # words, address of first box
@@ -755,12 +759,12 @@ A jtcrelocalsyms(J jt, A l, A c,I type, I dyad, I flags){A actst,*lv,pfst,t,wds;
 
  asgct = asgct + (asgct>>1); // leave 33% empty space, since we will have resolved most names here
  RZ(actst=stcreate(2,asgct,0L,0L));  // Allocate the symbol table we will use
- *(UI4*)LXAV0(actst)=(UI4)((SYMHASH(NAV(xnam)->hash,AN(actst)-SYMLINFOSIZE)<<16)+SYMHASH(NAV(ynam)->hash,AN(actst)-SYMLINFOSIZE));  // get the yx bucket indexes for a table of this size, save in first hashchain
+ *(UI4*)LXAV0(actst)=(UI4)((SYMHASH(NAV(mnuvxynam[4])->hash,AN(actst)-SYMLINFOSIZE)<<16)+SYMHASH(NAV(mnuvxynam[5])->hash,AN(actst)-SYMLINFOSIZE));  // get the yx bucket indexes for a table of this size, save in first hashchain
 
  // Transfer the symbols from the pro-forma table to the result table, hashing using the table size
  // For fast argument assignment, we insist that the arguments be the first symbols added to the table.
  // So we add them by hand - just y and possibly x.
- RZ(probeis(ynam,actst));if(!(!dyad&&(type>=3||(flags&VXOPR)))){RZ(probeis(xnam,actst));}
+ RZ(probeis(mnuvxynam[5],actst));if(!(!dyad&&(type>=3||(flags&VXOPR)))){RZ(probeis(mnuvxynam[4],actst));}
  for(j=1;j<pfstn;++j){  // for each hashchain
   for(pfx=pfstv[j];pfx;pfx=(jt->sympv)[pfx].next){L *newsym;
    A nm=(jt->sympv)[pfx].name;
@@ -825,7 +829,8 @@ F2(jtcolon){A d,h,*hv,m;B b;C*s;I flag=VFLAGNONE,n,p;
  if(10<n){s=CAV(w); p=AN(w); if(p&&CLF==s[p-1])RZ(w=str(p-1,s));}
  else{
   RZ(BOX&AT(w)?sent12b(w,&m,&d):sent12c(w,&m,&d)); INCORP(m); INCORP(d);  // get monad & dyad parts; we are incorporating them into hv[]
-  if(4==n){if(AN(m)&&!AN(d))d=m; m=mtv;}  //  for 4 :, make the single def given the monadic one
+// obsolete   if(4==n){if(AN(m)&&!AN(d))d=m; m=mtv;}  //  for 4 :, make the single def given the monadic one
+  if(4==n){if((-AN(m)&(AN(d)-1))<0)d=m; m=mtv;}  //  for 4 :, make the single def given the dyadic one
   GAT0(h,BOX,2*HN,1); hv=AAV(h);
   if(n){  // if not noun, audit the valences as valid sentences
    RE(b=preparse(m,hv,hv+1)); if(b)flag|=VTRY1; hv[2   ]=jt->retcomm?m:mtv;
