@@ -32,9 +32,6 @@ NB. black list
 NB. gmbx.ijs is not an independent test
 NB. gfft and glapack - run separately with additional addons
 blacklist=: ((<testpath),each 'gmbx.ijs';'gfft.ijs';'glapack.ijs'),testfiles 'gmbx'  NB. mapped boxed arrays no longer supported
-NB. blacklist=: blacklist, (IFRASPI+.UNAME-:'Android')#(<testpath),each <'g600ip.ijs'
-blacklist=: blacklist, (IFRASPI)#(<testpath),each <'g600ip.ijs'
-blacklist=: blacklist, (IFRASPI)#(<testpath),each 'gsco1u.ijs';'gsco1w.ijs'
 blacklist=: blacklist, (<testpath),each <'gregex.ijs' NB. require libjpcre2 binary
 blacklist=: blacklist, (-.IF64)#(<testpath),each <'g6x14.ijs' NB. require 64-bit
 
@@ -194,10 +191,12 @@ NB. bill extensions
 
 ECHOFILENAME=: 0   NB. echo file name
 Debug=: 0
+QKTEST=: IFIOS+.IFRASPI+.UNAME-:'Android'  NB. run quick test
 
 RUNN=: 4 : 0
-x123=. x>.1
+x123=. (0=x){x,1
 y123=. y
+d123=. Debug
 4!:55 'x';'y'
 while. x123~:0 do.
  echo 'countdown ',":x123
@@ -214,6 +213,7 @@ while. x123~:0 do.
 NB.  11 s: ''    NB. reset symbol
  echo (+/ % #) 0 s: 12
 end.
+Debug=: d123
 echo 'Finish'
 ''
 )
@@ -221,6 +221,7 @@ echo 'Finish'
 RUND1=: 4 : 0
 x123=. x>.1
 y123=. y
+d123=. Debug
 4!:55 'x';'y'
 oldnl=: (nl'')-.;:'x y'
 for_y234. y123 do.
@@ -244,15 +245,16 @@ NB.  11 s: ''    NB. reset symbol
   echo (+/ % #) 0 s: 12
  end.
 end.
+Debug=: d123
 echo 'Finish'
 ''
 )
 
 RUND2=: 4 : 0
-x123=. x>.1
+x123=. (0=x){x,1
 y123=. y
+d123=. Debug
 4!:55 'x';'y'
-save_ran_RUND2=:9!:44''
 oldnl=: (nl'')-.;:'x y'
 while. x123~:0 do.
  for_y234. y123{~?~#y123 do.
@@ -275,15 +277,49 @@ while. x123~:0 do.
 NB.   11 s: ''    NB. reset symbol
   echo (+/ % #) 0 s: 12
  end.
-x123=. <:x123
+ x123=. <:x123
 end.
+Debug=: d123
+echo 'Finish'
+''
+)
+
+RUND3=: 4 : 0
+x123=. x>.1
+y123=. y
+d123=. Debug
+4!:55 'x';'y'
+oldnl=: (nl'')-.;:'x y'
+for_y234. y123{~?~#y123 do.
+ echo RLAST=: >y234
+ for. i.x123 do.
+  Debug=: 0
+  0!:2 y234
+  assert. 0 s: 11  NB. can cause segfault in subsequent scripts if not caught early
+  assert. _1 = 4!:0 <"0 a.{~,|:(i.26)+/ a.i.'Aa'
+  4!:55 (nl'')-.oldnl,'oldnl';'y234';'x123';'RLAST'
+  4!:55 (nl'')-.oldnl,'oldnl';'y234';'x123';'RLAST'
+  Debug=: 1
+  0!:2 y234
+  Debug=: 0
+  assert. 0 s: 11  NB. can cause segfault in subsequent scripts if not caught early
+  assert. _1 = 4!:0 <"0 a.{~,|:(i.26)+/ a.i.'Aa'
+  4!:55 (nl'')-.oldnl,'oldnl';'y234';'x123';'RLAST'
+  4!:55 (nl'')-.oldnl,'oldnl';'y234';'x123';'RLAST'
+  assert. 0=#(nl'')-.oldnl,'oldnl';'y234';'x123';'RLAST'   NB. no memory leak
+NB.  11 s: ''    NB. reset symbol
+  echo (+/ % #) 0 s: 12
+ end.
+end.
+Debug=: d123
 echo 'Finish'
 ''
 )
 
 RUN2=: 4 : 0
-x123=. x
+x123=. (0=x){x,1
 y123=. y
+d123=. Debug
 4!:55 'x';'y'
 oldnl=: (nl'')-.;:'x y'
 while. x123~:0 do.
@@ -305,6 +341,7 @@ while. x123~:0 do.
 NB.  11 s: ''    NB. reset symbol
  echo (+/ % #) 0 s: 12
 end.
+Debug=: d123
 echo 'Finish'
 ''
 )
@@ -335,9 +372,11 @@ tsu_usage=: 0 : 0
                NB. run infinite times until failure if n<0
    
  n RUND1 ddall NB. run script with display for n times and stop on failure
-               NB. RLAST is the last script
- n RUND2 ddall NB. same as RUND1 but run in random order
+               NB. n>0, RLAST is the last script
+ n RUND2 ddall NB. same as RUND1 but run all scripts in random order for n times
                NB. run infinite times until failure if n<0
+ n RUND3 ddall NB. same as RUND1 but run each script for n times in random order
+               NB. n>0
 
    RBAD ''     NB. report scripts that failed
    RB          NB. 0!:3 result (0 for failure)
@@ -382,3 +421,4 @@ see: tsu_notes, tsu_usage, tsu_pacman, and tsu_jd
 )
 
 echo 9!:14''
+
