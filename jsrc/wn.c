@@ -58,7 +58,7 @@ static NUMH(jtnumi){I neg;I j;
  for(;*s=='0'&&n>1;--n,++s);  // skip leading zeros, as long as there is more than one character
  if(!(19>=n))R 0;   // 2^63 is 9223372036854775808.  So a 20-digit input must overflow, and the most a
   // 19-digit number can be is a little way into the negative; so testing for negative will be a valid test for overflow
- j=0; DQ(n, I dig=*s++; if((UI)(dig-'0')>(UI)('9'-'0'))R 0; j=10*j+(dig-'0'););
+ j=0; DQ(n, I dig=*s++; if(!BETWEENC(dig,'0','9')/* obsolete (UI)(dig-'0')>(UI)('9'-'0')*/)R 0; j=10*j+(dig-'0'););
  if(j<0&&j!=(neg<<(BW-1)))R 0;  // overflow if negative AND not the case of -2^63, which shows as IMIN with a negative flag
  *(I*)vv=(j^(-neg))+neg;   // if - was coded, take 2's comp, which will leave IMIN unchanged
  R 1;
@@ -70,7 +70,7 @@ static NUMH(jtnumx){A y;B b,c;C d;I j,k,m,*yv;X*v;
  if('-'==d){if(!(2>=n))R 0; if(!(*v=rifvs(vci(1==n?XPINF:XNINF))))R 0; R 1;}
  n-=b+c; if(!(m=(n+XBASEN-1)/XBASEN))R 0; k=n-XBASEN*(m-1);
  GATV0(y,INT,m,1); yv=m+AV(y);
- DQ(m, j=0; DQ(k, I dig=*s++; if((UI)(dig-'0')>(UI)('9'-'0'))R 0; j=10*j+(dig-'0');); *--yv=b?-j:j; k=XBASEN;);
+ DQ(m, j=0; DQ(k, I dig=*s++; if(!BETWEENC(dig,'0','9')/* obsolete (UI)(dig-'0')>(UI)('9'-'0')*/)R 0; j=10*j+(dig-'0');); *--yv=b?-j:j; k=XBASEN;);
  if(!(*v=yv[m-1]?y:rifvs(xstd(y))))R 0;  // this stores into the extended result
  R 1;
 }
@@ -214,6 +214,7 @@ A jtconnum(J jt,I n,C*s){PROLOG(0101);A y,z;B b,(*f)(J,I,C*,void*),ii,j,p=1,q,x;
    // if we encounter '.', make sure the result is at least FL; if we encounter two non-whitespace in a row, make sure result is at least INT
  yv[d++]=n; m=d>>1;  // append end for last field in case it is missing; m=#fields.  If end was not missing the extra store is harmless
  numcase(n,s,&b,&j,&x,&q,&ii);   // analyze contents of values
+ bcvtmask|=j>b?8:0; // flag we have complex
  f=jtnumd; t=FL;  f=ii?jtnumi:f; t=ii?INT:t;  f=b|j?jtnumbpx:f; t=b|j?CMPX:t;  f=x?jtnumx:f; t=x?XNUM:t;  f=q?jtnumq:f; t=q?RAT:t;  // routine to use, and type of result
  k=bpnoun(t);   // size in bytes of 1 result value
  GA(z,t,m,1!=m,0); v=CAV(z);

@@ -37,7 +37,7 @@ static B booltab[64]={
  1,0,0,0, 1,0,0,1, 1,0,1,0, 1,0,1,1,  1,1,0,0, 1,1,0,1, 1,1,1,0, 1,1,1,1,
 };
 
-static DF2(jtbdot2){R from(plusA(duble(cvt(B01,a)),cvt(B01,w)),FAV(self)->fgh[2]);}
+static DF2(jtbdot2){R from(plusA(duble(cvt(B01,a)),cvt(B01,w)),FAV(self)->fgh[2]);}  // dyad b. (2*a + w) { h
 
 static DF1(jtbdot1){R bdot2(num[0],w,self);}
 
@@ -56,16 +56,16 @@ static DF1(jtbasis1){DECLF;A z;D*x;I j;V*v;
   default: ASSERT(0,EVDOMAIN);
 }}
 
-F1(jtbdot){A b,h=0;I j,n,*v;
+F1(jtbdot){A b,h=0;I j=0,n,*v;
  RZ(w);
  if(VERB&AT(w))R ADERIV(CBDOT, jtbasis1,0L, 0L,0,0,0);
  RZ(w=vi(w));
  n=AN(w); v=AV(w);
- if(1==n){j=*v; ASSERT((UI)(j-(-16))<=(UI)(34-(-16)),EVINDEX);}
- else DQ(n, j=*v++; ASSERT((UI)(j-(-16))<=(UI)(16-(-16)),EVINDEX););
- if(1!=n||j<16){
+ if(1==n){j=*v; ASSERT(BETWEENC(j,-16,34),EVINDEX);}
+ else DQ(n, j=*v++; ASSERT(BETWEENC(j,-16,15),EVINDEX););
+ if(/* obsolete 1!=n||*/j<16){
   GAT0(b,B01,64,2); AS(b)[0]=16; AS(b)[1]=4; MC(AV(b),booltab,64L);
-  RZ(h=cant2(IX(AR(w)),from(w,b)));
+  RZ(h=cant2(IX(AR(w)),from(w,b)));  // h is an array representing b.  One cell for each atom of b; cell is 4 values
   R fdef(0,CBDOT,VERB, jtbdot1,jtbdot2, 0L,w,h, VFLAGNONE, RMAX,0L,0L);
  }else switch(j){
   case 32: R fdef(0,CBDOT,VERB, jtbitwise1,jtbitwiserotate, 0L,w,0L, VASGSAFE|VJTFLGOK2, 0L,0L,0L);
