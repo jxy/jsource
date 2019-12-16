@@ -99,11 +99,6 @@ F2(jtifrom){A z;C*wv,*zv;I acr,an,ar,*av,j,k,m,p,pq,q,wcr,wf,wk,wn,wr,*ws,zn;
  wk=k*p;   // stride between cells of w
  wv=CAV(w); zv=CAV(z); SETJ(*av);
   switch(k){
-  case sizeof(C): IFROMLOOP(C); break; 
-  case sizeof(S): IFROMLOOP(S); break;  
-#if SY_64
-  case sizeof(int):IFROMLOOP(int); break;
-#endif
   case sizeof(I):
 #if C_AVX2
   {__m256i endmask; /* length mask for the last word */ 
@@ -145,13 +140,18 @@ F2(jtifrom){A z;C*wv,*zv;I acr,an,ar,*av,j,k,m,p,pq,q,wcr,wf,wk,wn,wr,*ws,zn;
    IFROMLOOP(I);
 #endif
    break;
+  case sizeof(C): IFROMLOOP(C); break; 
+  case sizeof(S): IFROMLOOP(S); break;  
+#if SY_64
+  case sizeof(int):IFROMLOOP(int); break;
+#endif
   default:
   // cells are not simple items.  We can safely move full words, since there is always extra buffer space at the end of any type that is not a word-multiple
    if(k<MEMCPYTUNELOOP)IFROMLOOP2((k+SZI-1)>>LGSZI,MVLOOP)
    else IFROMLOOP2((k+SZI-1)>>LGSZI,MVMC)
    break;
   }
- RETF(z);  // todo kludge should inherit norel
+ RETF(z);
 }    /* a{"r w for numeric a */
 
 #define BSET(x,y0,y1,y2,y3)     *x++=y0; *x++=y1; *x++=y2; *x++=y3;
@@ -264,7 +264,7 @@ static F2(jtbfrom){A z;B*av,*b;C*wv,*zv;I acr,an,ar,k,m,p,q,r,*u=0,wcr,wf,wk,wn,
    else DQ(m, b=av; DQ(an, MC(zv,wv+k**b++,k); zv+=k;); wv+=wk;);
 #endif
  }
- RETF(z);  // todo kludge should inherit norel
+ RETF(z);
 }    /* a{"r w for boolean a */
 
 // a is array whose 1-cells are index lists, w is array
@@ -276,7 +276,7 @@ A jtfrombu(J jt,A a,A w,I wf){F1PREFIP;A p,q,z;I ar,*as,h,m,r,*u,*v,wcr,wr,*ws;
  wr=AR(w); ws=AS(w); wcr=wr-wf;
 // obsolete  DO(ar, if(!as[i]){b=1; break;});
 // obsolete  DO(wr, if(!ws[i]){b=1; break;});
- if(!AN(a)&&!AN(w)){  // empty array, either a or w
+ if((-AN(a)&-AN(w))>=0){  // empty array, either a or w
   // allocate empty result, move in shape: frame of w, frame of a, shape of item
   GA(z,AT(w),0,wf+(wcr-h)+(ar-1),0); MCISH(AS(z),AS(w),wf) MCISH(AS(z)+wf,AS(a),ar-1)  MCISH(AS(z)+wf+ar-1,AS(w)+wf+h,wcr-h)
 // obsolete   u=AS(z);

@@ -402,11 +402,11 @@ extern unsigned int __cdecl _clearfp (void);
 
 // Tuning options for cip.c
 #if C_AVX2
-#define IGEMM_THRES  (-1)     // when m*n*p less than this use cached; when higher, use BLAS   scaf must TUNE this
+#define IGEMM_THRES  (-1)     // when m*n*p less than this use cached; when higher, use BLAS
 #define DGEMM_THRES  (-1)     // when m*n*p less than this use cached; when higher, use BLAS   _1 means 'never'
 #else
 #define DGEMM_THRES  5000000     // when m*n*p less than this use cached; when higher, use BLAS   _1 means 'never'
-#define IGEMM_THRES  5000000     // when m*n*p less than this use cached; when higher, use BLAS   scaf must TUNE this
+#define IGEMM_THRES  5000000     // when m*n*p less than this use cached; when higher, use BLAS
 #endif
 #define DCACHED_THRES  (64*64*64)    // when m*n*p less than this use blocked; when higher, use cached
 #define ZGEMM_THRES  2000000     // when m*n*p less than this use cached; when higher, use BLAS  
@@ -463,6 +463,7 @@ extern unsigned int __cdecl _clearfp (void);
 #define ASSERTAGREE(x,y,l) {I *aaa=(x), *aab=(y), aai=(l)-1; do{aab=aai<0?aaa:aab; ASSERT(aaa[aai]==aab[aai],EVLENGTH); --aai; aab=aai<0?aaa:aab; ASSERT(aaa[aai]==aab[aai],EVLENGTH); --aai;}while(aai>=0); }
 #endif
 #define ASSERTAGREESEGFAULT(x,y,l) {I *aaa=(x), *aab=(y), aai=(l)-1; do{aab=aai<0?aaa:aab; if(aaa[aai]!=aab[aai])SEGFAULT --aai; aab=aai<0?aaa:aab; if(aaa[aai]!=aab[aai])SEGFAULT --aai;}while(aai>=0); }
+// BETWEENx requires that lo be <= hi
 #define BETWEENC(x,lo,hi) ((UI)((x)-(lo))<=(UI)((hi)-(lo)))   // x is in [lo,hi]
 #define BETWEENO(x,lo,hi) ((UI)((x)-(lo))<(UI)((hi)-(lo)))   // x is in [lo,hi)
 #define CALL1(f,w,fs)   ((f)(jt,    (w),(A)(fs)))
@@ -488,6 +489,8 @@ extern unsigned int __cdecl _clearfp (void);
 #define DPUC(n,stm)      {I i=(n)+1;    do{stm}while(++i<0);}   // i runs from -n to -1 (faster than DO), always at least once
 #define DQUC(n,stm)      {I i=-2-(I)(n);  do{stm}while(--i>=0);}  // i runs from n-1 downto 0, always at least once
 #define ds(c)           pst[(UC)(c)]
+// see if value of x is the atom v.  Do INT/B01/FL here, subroutine for exotic cases
+#define EQINTATOM(x,v)  ( (AR(x)==0) && ((AT(x)&(INT+B01)) ? (((*IAV0(x))&(((AT(x)&B01)<<8)-1))==(v)) : (AT(x)&FL) ? *DAV0(x)==(D)(v) : 0!=equ(num[v],x))  )
 #if USECSTACK
 #define FDEPDEC(d)
 #define FDEPINC(d)
@@ -1067,7 +1070,7 @@ extern J gjt; // global for JPF (procs without jt)
 #endif
 
 /* workaround clang branch prediction side effect */
-#if defined(__clang__) && ( (__clang_major__ > 3) || ((__clang_major__ == 3) && (__clang_minor__ > 5)))
+#if defined(__clang__) && ( (__clang_major__ > 3) || ((__clang_major__ == 3) && (__clang_minor__ > 3)))
 #define dmul2(u,v) ({__asm__("" ::: "cc");(u)*(v);})
 #define ddiv2(u,v) ({__asm__("" ::: "cc");(u)/(v);})
 #else

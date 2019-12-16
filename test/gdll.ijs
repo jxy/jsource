@@ -76,7 +76,7 @@ add=: mema 2*IF64{4 8
 0=memf add
 
 NB. memr/memw boolean
-add=: mema n=: 127+1e4*1024
+add=: mema n=: 127+1e4*(IF64<IFRASPI){1024 256
 (a=: n$a.) memw add,0,n,JCHAR
 a -: memr add,0,n,JCHAR
 NB. noise margin for memr
@@ -152,9 +152,9 @@ NB. test utf8 in proc name - windows FIXWINUFT8
 NB. ugh - windows ignores trailing blanks in file names
 f=: 3 : 0
 i=. LIBTSDLL i:'.'
-t=. dtb (i{.LIBTSDLL),'ê',i}.LIBTSDLL
-if. -.fexist t do. (fread dtb LIBTSDLL)fwrite t end. NB. no write if exists - could be in use
-try. (t,' fubar x')cd '' catch. end.
+t=. dltb jpath '~temp',(}.~ i:&'/') jpathsep (i{.LIBTSDLL),(":2!:6''),(8 u: 16b1f601),'ê',i}.LIBTSDLL
+if. -.fexist t do. (fread dltb LIBTSDLL)fwrite t end. NB. no write if exists - could be in use
+try. ((dquote t),' fubar x')cd '' catch. end.
 cder''
 )
 
