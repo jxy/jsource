@@ -1,19 +1,45 @@
+ifdef DEBUG
+
 ifdef x64
 ifdef JAVX2
-CFLAGS= /D _JDLL /DC_AVX=1 /D C_AVX2=1 /arch:AVX2 /DC_NA=0 /WX /W3 /O2 /Ot /Ob1 /GS /Zc:strictStrings /D _USING_V110_SDK71_ /D _CRT_SECURE_NO_WARNINGS /MT /D NDEBUG /D WIN32 /D _WINDOWS
+CFLAGS= /FS /Zi /D _JDLL /DC_AVX=1 /D C_AVX2=1 /arch:AVX2 /DC_NA=0 /WX /W3 /O2 /GS /Zc:strictStrings /D _USING_V110_SDK71_ /D _CRT_SECURE_NO_WARNINGS /MT
 else
 ifdef JAVX
-CFLAGS= /D _JDLL /DC_AVX=1 /arch:AVX /DC_NA=0 /WX /W3 /O2 /Ot /Ob1 /GS /Zc:strictStrings /D _USING_V110_SDK71_ /D _CRT_SECURE_NO_WARNINGS /MT /D NDEBUG /D WIN32 /D _WINDOWS
+CFLAGS= /FS /Zi /D _JDLL /DC_AVX=1 /arch:AVX /DC_NA=0 /WX /W3 /O2 /GS /Zc:strictStrings /D _USING_V110_SDK71_ /D _CRT_SECURE_NO_WARNINGS /MT
 else
-CFLAGS= /D _JDLL /DC_NA=0 /WX /W3 /O2 /Ot /Ob1 /GS /Zc:strictStrings /D _USING_V110_SDK71_ /D _CRT_SECURE_NO_WARNINGS /MT /D NDEBUG /D WIN32 /D _WINDOWS
+CFLAGS= /FS /Zi /D _JDLL /DC_NA=0 /WX /W3 /O2 /GS /Zc:strictStrings /D _USING_V110_SDK71_ /D _CRT_SECURE_NO_WARNINGS /MT
+endif
+endif
+FLAGS= /DEBUG /DLL /NOLOGO /MACHINE:X64 /SUBSYSTEM:WINDOWS,5.02
+ASMFLAGS= /Cx
+else
+CFLAGS= /FS /Zi /D _JDLL /WX /W3 /Ot /Oy- /GS /Zc:strictStrings /D _USING_V110_SDK71_ /D _CRT_SECURE_NO_WARNINGS /MT
+FLAGS= /DEBUG /DLL /NOLOGO /MACHINE:X86 /SUBSYSTEM:WINDOWS,5.01
+ASMFLAGS= /Cx /coff
+endif
+
+else
+
+ifdef x64
+ifdef JAVX2
+CFLAGS= /D _JDLL /DC_AVX=1 /D C_AVX2=1 /arch:AVX2 /DC_NA=0 /WX /W3 /O2 /GS /Zc:strictStrings /D _USING_V110_SDK71_ /D _CRT_SECURE_NO_WARNINGS /MT
+else
+ifdef JAVX
+CFLAGS= /D _JDLL /DC_AVX=1 /arch:AVX /DC_NA=0 /WX /W3 /O2 /GS /Zc:strictStrings /D _USING_V110_SDK71_ /D _CRT_SECURE_NO_WARNINGS /MT
+else
+CFLAGS= /D _JDLL /DC_NA=0 /WX /W3 /O2 /GS /Zc:strictStrings /D _USING_V110_SDK71_ /D _CRT_SECURE_NO_WARNINGS /MT
 endif
 endif
 FLAGS= /DLL /NOLOGO /MACHINE:X64 /SUBSYSTEM:WINDOWS,5.02
 ASMFLAGS= /Cx
 else
-CFLAGS= /D _JDLL /WX /W3 /O2 /Ot /Ob1 /GS /Zc:strictStrings /D _USING_V110_SDK71_ /D _CRT_SECURE_NO_WARNINGS /MT /D NDEBUG /D WIN32 /D _WINDOWS
+# /Og fail g310r
+# /Oy crash ]^:_"1[0
+CFLAGS= /D _JDLL /WX /W3 /Ot /Oy- /GS /Zc:strictStrings /D _USING_V110_SDK71_ /D _CRT_SECURE_NO_WARNINGS /MT
 FLAGS= /DLL /NOLOGO /MACHINE:X86 /SUBSYSTEM:WINDOWS,5.01
 ASMFLAGS= /Cx /coff
+endif
+
 endif
 
 .SUFFIXES: .o
@@ -170,6 +196,9 @@ OBJS=  \
  ../../jsrc/openssl/sha/sha3.o \
  ../../jsrc/openssl/sha/sha512.o
 
+ifdef NO_SHA_ASM
+CFLAGS1= /D NO_SHA_ASM
+else
 ifdef x64
 OBJS_ASM= \
  ../../openssl-asm/keccak1600-x86_64-nasm.o \
@@ -182,6 +211,7 @@ OBJS_ASM= \
  ../../openssl-asm/sha1-586-nasm.o \
  ../../openssl-asm/sha256-586-nasm.o \
  ../../openssl-asm/sha512-586-nasm.o
+endif
 endif
 
 DEF= ../../dllsrc/jdll.def
@@ -197,7 +227,7 @@ LD=link
 endif
 
 %.o: %.c
-	$(CC) $(CFLAGS) /Fo$@ /c $<
+	$(CC) $(CFLAGS) $(CFLAGS1) /Fo$@ /c $<
 
 %.o: %.cpp
 	$(CC) $(CFLAGS) /Fo$@ /c $<
@@ -223,11 +253,11 @@ $(TARGET) : $(OBJS) $(SRC_ASM) $(OBJS_ASM) $(ASM) jdll.res
 	$(LD) /NOLOGO /DEF:$(DEF) $(FLAGS) /out:$@ $(OBJS) $(SRC_ASM) $(OBJS_ASM) $(ASM) jdll.res ole32.lib advapi32.lib oleaut32.lib
 
 jdll.res : $(RCS)
-	$(RC) /L 0x409 /D NDEBUG /D _USING_V110_SDK71_ -R -FO$@ $(RCS)
+	$(RC) /L 0x409 /D _USING_V110_SDK71_ -R -FO$@ $(RCS)
 
 all: $(TARGET)
 
 clean:
-	rm -f *.lib *.exp *.res $(OBJS) $(SRC_ASM)
+	rm -f *.lib *.exp *.res *.ilk *.pdb $(OBJS) $(SRC_ASM)
 
 .PHONY: all clean

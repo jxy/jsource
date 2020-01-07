@@ -753,10 +753,10 @@ static A jtva2(J jt,AD * RESTRICT a,AD * RESTRICT w,AD * RESTRICT self,RANK2T ra
 // LIT is set in it if it is OK to use 2x2 operations (viz a has no inner frame & w has no outer frame)
 #define SUMATLOOP2(ti,to,oneprod2,oneprod1) \
   {ti * RESTRICT av=avp,* RESTRICT wv=wvp; to * RESTRICT zv=zvp; \
+   _mm256_zeroupper(VOIDARG); \
    __m256i endmask = _mm256_loadu_si256((__m256i*)(jt->validitymask+((-dplen)&(NPAR-1))));  /* mask for 00=1111, 01=1000, 10=1100, 11=1110 */ \
    __m256d acc000; __m256d acc010; __m256d acc100; __m256d acc110; \
    __m256d acc001; __m256d acc011; __m256d acc101; __m256d acc111; \
-   _mm256_zeroupper(VOIDARG); \
    DQ(nfro, I jj=nfri; ti *ov0=it&BOX?av:wv; \
     while(1){  \
      DQ(ndpo, I j=ndpi; ti *av0=av; /* i is how many a's are left, j is how many w's*/ \
@@ -800,9 +800,9 @@ static A jtva2(J jt,AD * RESTRICT a,AD * RESTRICT w,AD * RESTRICT self,RANK2T ra
 // av, wv, wv1 are set up
 #define ONEPRODAVXD2(label,mid2x2,last2x2) {\
    acc000=_mm256_set1_pd(0.0); acc010=acc000; acc100=acc000; acc110=acc000; \
+   if(dplen<=NPAR)goto label##9; \
    acc001=acc000; acc011=acc000; acc101=acc000; acc111=acc000; \
-   I rem=dplen; \
-   if(rem>8*NPAR)goto label##8; \
+   I rem=dplen; if(rem>8*NPAR)goto label##8; \
    while(rem>NPAR){ \
     if(rem>4*NPAR) \
      {if(rem>6*NPAR){if(rem>7*NPAR)goto label##7;else goto label##6;}else {if(rem>5*NPAR)goto label##5;else goto label##4;}} \
@@ -813,8 +813,8 @@ static A jtva2(J jt,AD * RESTRICT a,AD * RESTRICT w,AD * RESTRICT self,RANK2T ra
     if((rem-=8*NPAR)>8*NPAR)goto label##8;  \
    } \
    av-=(NPAR-rem)&-NPAR; wv-=(NPAR-rem)&-NPAR; wv1-=(NPAR-rem)&-NPAR; \
-   last2x2  \
    acc000=_mm256_add_pd(acc000,acc001); acc010=_mm256_add_pd(acc010,acc011); acc100=_mm256_add_pd(acc100,acc101); acc110=_mm256_add_pd(acc110,acc111);  \
+   label##9: last2x2  \
    acc000=_mm256_add_pd(acc000,_mm256_permute2f128_pd(acc000,acc000,0x01)); acc010=_mm256_add_pd(acc010,_mm256_permute2f128_pd(acc010,acc010,0x01)); \
     acc100=_mm256_add_pd(acc100,_mm256_permute2f128_pd(acc100,acc100,0x01)); acc110=_mm256_add_pd(acc110,_mm256_permute2f128_pd(acc110,acc110,0x01)); \
    acc000=_mm256_add_pd(acc000,_mm256_permute_pd (acc000,0xf)); acc010=_mm256_add_pd(acc010,_mm256_permute_pd (acc010,0x0));  \
@@ -841,10 +841,10 @@ static A jtva2(J jt,AD * RESTRICT a,AD * RESTRICT w,AD * RESTRICT self,RANK2T ra
 // Do one 1x1 product of length dplen.  Leave results in acc000.  dplen must be >0
 // av,  wv, are set up
 #define ONEPRODAVXD1(label,mid1x1,last1x1) {\
-   acc000=_mm256_set1_pd(0.0); acc010=acc000; acc100=acc000; acc110=acc000; \
+   acc000=_mm256_set1_pd(0.0); if(dplen<=NPAR)goto label##9; \
+   acc010=acc000; acc100=acc000; acc110=acc000; \
    acc001=acc000; acc011=acc000; acc101=acc000; acc111=acc000; \
-   I rem=dplen; \
-   if(rem>8*NPAR)goto label##8; \
+   I rem=dplen; if(rem>8*NPAR)goto label##8; \
    while(rem>NPAR){ \
     if(rem>4*NPAR) \
      {if(rem>6*NPAR){if(rem>7*NPAR)goto label##7;else goto label##6;}else {if(rem>5*NPAR)goto label##5;else goto label##4;}} \
@@ -854,11 +854,11 @@ static A jtva2(J jt,AD * RESTRICT a,AD * RESTRICT w,AD * RESTRICT self,RANK2T ra
     av+=8*NPAR; wv+=8*NPAR;  \
     if((rem-=8*NPAR)>8*NPAR)goto label##8;  \
    } \
-   av-=(NPAR-rem)&-NPAR; wv-=(NPAR-rem)&-NPAR; \
-   last1x1  \
    acc000=_mm256_add_pd(acc000,acc001); acc010=_mm256_add_pd(acc010,acc011); acc100=_mm256_add_pd(acc100,acc101); acc110=_mm256_add_pd(acc110,acc111);  \
    acc000=_mm256_add_pd(acc000,acc010); acc100=_mm256_add_pd(acc100,acc110); \
    acc000=_mm256_add_pd(acc000,acc100);  \
+   av-=(NPAR-rem)&-NPAR; wv-=(NPAR-rem)&-NPAR; \
+   label##9: last1x1  \
    acc000=_mm256_add_pd(acc000,_mm256_permute2f128_pd(acc000,acc000,0x01)); \
    acc000=_mm256_add_pd(acc000,_mm256_permute_pd (acc000,0xf)); \
    av+=((dplen-1)&(NPAR-1))+1;  wv+=((dplen-1)&(NPAR-1))+1; \
@@ -919,10 +919,10 @@ I jtsumattymesprods(J jt,I it,void *avp, void *wvp,I dplen,I nfro,I nfri,I ndpo,
 #if C_AVX
 #if 0 // obsolete 
   {D * RESTRICT av=DAV(a),* RESTRICT wv=DAV(w); D * RESTRICT zv=DAV(z); 
+   _mm256_zeroupper(VOIDARG); 
    __m256i endmask = _mm256_loadu_si256((__m256i*)(jt->validitymask+((-dplen)&(NPAR-1))));  /* mask for 00=1111, 01=1000, 10=1100, 11=1110 */ 
    __m256d acc000; __m256d acc010; __m256d acc100; __m256d acc110; 
    __m256d acc001; __m256d acc011; __m256d acc101; __m256d acc111; 
-   _mm256_zeroupper(VOIDARG); 
    {I i=(I)(nfro)-1;    for(;i>=0;--i){ I jj=nfri; D *ov0=repeata?av:wv; 
     while(1){  
      {I i=(I)(ndpo)-1;    for(;i>=0;--i){I j=ndpi; D *av0=av; /* i is how many a's are left, j is how many w's*/ 

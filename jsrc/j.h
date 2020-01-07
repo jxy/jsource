@@ -60,6 +60,12 @@
 #define TARGET_IOS 1
 #endif
 
+#if defined(__aarch32__)||defined(__arm__)||defined(_M_ARM)||defined(__aarch64__)||defined(_M_ARM64)
+#ifndef __ARM_FEATURE_UNALIGNED
+#define ALIGNEDMEM
+#endif
+#endif
+
 #if SY_WIN32
 #if defined(_MSC_VER) && !defined(OLECOM)
 #define OLECOM
@@ -395,10 +401,15 @@ extern unsigned int __cdecl _clearfp (void);
 #define L2CACHESIZE (((I)1)<<18)
 #define L3CACHESIZE (((I)1)<<22)
 
-#define TOOMANYATOMS 0xFFFFFFFFLL  // more atoms than this is considered overflow (64-bit).  i.-family can't handle more than 2G cells in array
+#define TOOMANYATOMS 0xFFFFFFFFFFFFLL  // more atoms than this is considered overflow (64-bit).  i.-family can't handle more than 2G cells in array.
 
+#ifdef ALIGNEDMEM
+#define MEMCPYTUNE 0     // (bytes) unpredictable blocks shorter than this should just use MCISxx.  Keep as power of 2
+#define MEMCPYTUNELOOP 0    // (bytes) predictable blocks shorter than this should just use MCISxx.
+#else
 #define MEMCPYTUNE 4096  // (bytes) unpredictable blocks shorter than this should just use MCISxx.  Keep as power of 2
 #define MEMCPYTUNELOOP 350  // (bytes) predictable blocks shorter than this should just use MCISxx.
+#endif
 
 // Tuning options for cip.c
 #if C_AVX2
@@ -539,7 +550,7 @@ extern unsigned int __cdecl _clearfp (void);
 // SHAPE0 is used when the shape is 0 - write shape only if rank==1
 #define GACOPYSHAPE0(name,type,atoms,rank,shaape) if((rank)==1)AS(name)[0]=(atoms);
 // General shape copy, branchless when rank<3  AS[0] is always written: #atoms if rank=1, 0 if rank=0.  Used in jtga(), which uses the 0 in AS[0] as a pun for nullptr
-#define GACOPYSHAPEG(name,type,atoms,rank,shaape)  {I *_d=AS(name); I *_s=(shaape); _s=_s?_s:_d; I cp=*_s; I _r=1-(rank); cp&=_r>>(BW-1); cp=_r==0?(atoms):cp; *_d=cp; do{_s+=(UI)_r>>(BW-1); _d+=(UI)_r>>(BW-1); *_d=*_s;}while(++_r<0);}
+#define GACOPYSHAPEG(name,type,atoms,rank,shaape)  {I *_d=AS(name); I *_s=(shaape); _s=_s?_s:_d; I cp=*_s; I _r=1-(rank); cp&=_r>>(BW-1); cp=_r==0?(atoms):cp; _s=_r==0?_d:_s; *_d=cp; do{_s+=(UI)_r>>(BW-1); _d+=(UI)_r>>(BW-1); *_d=*_s;}while(++_r<0);}
 // Use when shape is known to be present but rank is not SDT.  One value is always written to shape
 #if C_AVX&SY_64
 #define GACOPYSHAPE(name,type,atoms,rank,shaape) MCISH(AS(name),shaape,rank)
@@ -574,8 +585,8 @@ extern unsigned int __cdecl _clearfp (void);
 // Note: assigns name before assigning the components of the array, so the components had better not depend on name, i. e. no GATV(z,BOX,AN(z),AR(z),AS(z))
 #define GATVS(name,type,atoms,rank,shaape,size,shapecopier,erraction) \
 { I bytes = ALLOBYTES(atoms,rank,size,(type)&LAST0,(type)&NAME); \
- ASSERT(SY_64?((unsigned long long)(atoms))<TOOMANYATOMS:(I)bytes>(I)(atoms)&&(I)(atoms)>=(I)0,EVLIMIT); \
- ASSERT(!((rank)&~RMAX),EVLIMIT); \
+ if(SY_64){ASSERT(!((((unsigned long long)(atoms))&~TOOMANYATOMS)+((rank)&~RMAX)),EVLIMIT)} \
+ else{ASSERT(((I)bytes>(I)(atoms)&&(I)(atoms)>=(I)0)&&!((rank)&~RMAX),EVLIMIT)} \
  name = jtgafv(jt, bytes);   \
  I akx=AKXR(rank);   \
  if(name){   \

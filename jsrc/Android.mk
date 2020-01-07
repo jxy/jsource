@@ -14,7 +14,7 @@ ifeq ($(TARGET_ARCH_ABI),armeabi-v7a)
 endif
 ifeq ($(TARGET_ARCH_ABI),armeabi)
   LOCAL_CFLAGS := -fPIC -Os -fwrapv -Werror -Wno-string-plus-int -Wno-empty-body -Wno-unsequenced -Wno-parentheses -Wno-empty-body -Wno-unsequenced -Wno-parentheses -Wno-pointer-sign -Wno-logical-op-parentheses -Wno-unused-value -Wno-null-dereference -Wno-type-limits -fno-strict-aliasing -mfloat-abi=softfp -march=armv5te
-  LOCAL_ARM_MODE := thumb
+  LOCAL_ARM_MODE := arm
 endif
 ifeq ($(TARGET_ARCH),x86_64)
   LOCAL_CFLAGS := -DC_CRC32C=1 -fPIC -O2 -ftree-vectorize -fwrapv -Werror -Wno-string-plus-int -Wno-empty-body -Wno-unsequenced -Wno-parentheses -Wno-empty-body -Wno-unsequenced -Wno-parentheses -Wno-pointer-sign -Wno-logical-op-parentheses -Wno-unused-value -Wno-null-dereference -Wno-type-limits -fno-strict-aliasing -march=x86-64 -mtune=intel -msse4.2 -mpopcnt -fno-stack-protector
