@@ -672,15 +672,17 @@ if. 0=#p do. p=. jpath '~temp/',n end.
 q=. jpath '~temp/httpget.log'
 t=. ":{.t,3
 ferase p;q
-fail=. 0
+retry=. fail=. 0
 cmd=. HTTPCMD rplc '%O';(dquote p);'%L';(dquote q);'%t';t;'%T';(":TIMEOUT);'%U';f
-if. UNAME-:'Android' do.
+if. IFJA do.
   try.
     (<p) 1!:2~ (11!:4000) f
   catch.
-    fail=. 1 [ (<q) 1!:2~ (11!:0) 'qer'
+    retry=. fail=. 1 [ (<q) 1!:2~ (11!:0) 'qer'
   end.
-elseif. ''-:HTTPCMD do.
+end.
+if. (IFJA < ''-:HTTPCMD) +. (IFJA *. retry *. ''-:HTTPCMD) do.
+  fail=. 0
   require 'socket'
   1!:55 ::0: <p
   rc=. 0 [ e=. pp=. ''
@@ -708,7 +710,7 @@ elseif. ''-:HTTPCMD do.
   else.
     if. 0~:rc do. e=. sderror_jsocket_ rc end.
   end.
-elseif. do.
+elseif. (UNAME-.@-:'Android') do.
   try.
     fail=. _1-: e=. shellcmd cmd
   catch. fail=. 1 end.
@@ -849,6 +851,11 @@ echo '*** next step updates addons and base library'
 'update'jpkg''
 'upgrade'jpkg'all'
 'install'jpkg {."1'shownotinstalled'jpkg''
+if. IFIOS +. UNAME-:'Android' do.
+ echo LF,'ALL DONE!',LF,'exit this J session and start new session'
+ i.0 0
+ return.
+end.
 echo '*** next step updates Jqt ide'
 do_install'qtide'
 echo '*** next step updates JE'
