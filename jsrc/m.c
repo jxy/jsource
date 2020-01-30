@@ -602,7 +602,7 @@ A jtgc (J jt,A w,A* old){
   R w;  // if realize() failed, this could be returning 0
  }
  // non-VIRTUAL path
- ra(w);  // protect w and its descendants from tpop; also converts w to recursive usecount.
+ ra(w);  // protect w and its descendants from tpop; also converts w to recursive usecount (unless sparse).
   // if we are turning w to recursive, this is the last pass through all of w incrementing usecounts.  All currently-on-stack pointers to blocks are compatible with the increment
  tpop(old);  // delete everything allocated on the stack, except for w which was protected
  // Now we need to undo the effect of the initial ra and get the usecount back to its original value, with a matching tpush on the stack.
@@ -618,11 +618,17 @@ A jtgc (J jt,A w,A* old){
  // NOTE: certain functions (ex: rational determinant) perform operations 'in place' on non-direct names and then protect those names using gc().  The protection is
  // ineffective if the code goes through the fa() path here, because components that were modified will be freed immediately rather than later.  In those places we
  // must either use gc3() which always does the tpush, or do ACIPNO to force us through the tpush path here.  We generally use gc3().
+#if 0  // obsolete
  if((c&(1-AC(w)))<0){fa(w);} else {tpush(w);}  // test is c<0 and AC(w)>1
  // The usecount of w is now back to where it started, or possibly lower, if the block was popped multiple times.
  // But we know for sure that if the block was inplaceable to begin with, its usecount is 1 now, and we should make it inplaceable on exit
  // Note: a block that was originally VIRTUAL cannot have been inplaceable
  if(c<0)AC(w) = c;  // restore inplaceability.  Could use AC(w)=(c<0)?c:AC(w) to avoid conditional jump
+#else
+ // Since w now has recursive usecounts (except for sparse, which is never inplaceable), we don't have to do a full fa() on a block that is returning
+ // inplaceable - we just reset the usecount in the block.
+ I cafter=AC(w); if((c&(1-cafter))>=0){tpush(w);} cafter=c<0?c:cafter; AC(w)=cafter;  // push unless was inplaceable and was not on stack; make inplaceable if it was originally
+#endif
  R w;
 }
 
@@ -642,6 +648,7 @@ I jtra(J jt,AD* RESTRICT wd,I t){I n=AN(wd);
  if(t&BOX){AD* np;
   // boxed.  Loop through each box, recurring if called for.  Two passes are intertwined in the loop
   A* RESTRICT wv=AAV(wd);  // pointer to box pointers
+#if 0 // obsolete
   if(n==0)R 0;  // Can't be mapped boxed; skip prefetch if no boxes
   np=*wv++;  // prefetch first box
   while(1){AD* np0;  // n is always > 0 to start
@@ -656,6 +663,20 @@ I jtra(J jt,AD* RESTRICT wd,I t){I n=AN(wd);
    }
    np=np0;  // advance to next box
   }
+#else
+  n=1-n;  // convert count to complementary count: 0 for last, <0 before last
+  if(n>0)R 0;  // Can't be mapped boxed; skip everything if no boxes
+  np=*wv;  // prefetch first box
+  do{AD* np0;  // n is always <=0 to start.  n here is complementary count, 0 on the last item
+   wv+=SGNTO0(n);   // advance to pointer to next, unless this is the last
+   np0=*wv;  // fetch next box if it exists, otherwise harmless value.  This fetch settles while the ra() is running
+#ifdef PREFETCH
+   PREFETCH((C*)np0);   // prefetch the next box while ra() is running
+#endif
+   if(np)ra(np);  // increment the box, possibly turning it to recursive
+   np=np0;  // advance to next box
+  }while(++n<=0);
+#endif
  } else if(t&(VERB|ADV|CONJ)){V* RESTRICT v=FAV(wd);
   // ACV.  Recur on each component
   ras(v->fgh[0]); ras(v->fgh[1]); ras(v->fgh[2]);
@@ -674,6 +695,7 @@ I jtfa(J jt,AD* RESTRICT wd,I t){I n=AN(wd);
  if(t&BOX){AD* np;
   // boxed.  Loop through each box, recurring if called for.
   A* RESTRICT wv=AAV(wd);  // pointer to box pointers
+#if 0   // obsolete
   if(n==0)R 0;  // Can't be mapped boxed; skip prefetch if no boxes
   np=*wv++;  // prefetch first box
   while(1){AD* np0;  // n is always > 0 to start
@@ -686,6 +708,20 @@ I jtfa(J jt,AD* RESTRICT wd,I t){I n=AN(wd);
    fana(np);  // free the contents, but don't audit
    np = np0;  // advance to next box
   }
+#else
+  n=1-n;  // convert count to complementary count: 0 for last, <0 before last
+  if(n>0)R 0;  // Can't be mapped boxed; skip everything if no boxes
+  np=*wv;  // prefetch first box
+  do{AD* np0;  // n is always <=0 to start.  n here is complementary count, 0 on the last item
+   wv+=SGNTO0(n);   // advance to pointer to next, unless this is the last
+   np0=*wv;  // fetch next box if it exists, otherwise harmless value.  This fetch settles while the ra() is running
+#ifdef PREFETCH
+   PREFETCH((C*)np0);   // prefetch the next box while ra() is running
+#endif
+   fana(np);  // increment the box, possibly turning it to recursive
+   np=np0;  // advance to next box
+  }while(++n<=0);
+#endif
  } else if(t&(VERB|ADV|CONJ)){V* RESTRICT v=FAV(wd);
   // ACV.
   fana(v->fgh[0]); fana(v->fgh[1]); fana(v->fgh[2]);
@@ -706,7 +742,6 @@ A *jttpush(J jt,AD* RESTRICT wd,I t,A *pushp){I af=AFLAG(wd); I n=AN(wd);
  if(t&BOX){
   // boxed.  Loop through each box, recurring if called for.
   A* RESTRICT wv=AAV(wd);  // pointer to box pointers
-// obsolete   if((af&AFNJA))R pushp;  // no processing if not J-managed memory (rare)   no longer supported for boxed arrays
   while(n--){
    A np=*wv; ++wv;   // point to block for box
    if(np){     // it can be 0 if there was error
@@ -796,14 +831,23 @@ void jttpop(J jt,A *old){A *endingtpushp;
    // to the previous free block (or 0 at end), all of which is OK to read and then prefetch from
    np0=*pushp;   // point to block for next pass through loop
    I c=AC(np);  // fetch usecount
+   I flg=AFLAG(np);  // fetch flags
 #ifdef PREFETCH
    PREFETCH((C*)np0);   // prefetch the next box
 #endif
-   // We never tpush a PERMANENT block so we needn't check for it
-   if(--c<=0){if(AFLAG(np)&AFVIRTUAL){A b=ABACK(np); fana(b);} if(UCISRECUR(np)){fana(np);}else{mf(np);}}else AC(np)=c;  // decrement usecount and either store it back or free the block
+   // We never tpush a PERMANENT block so we needn't check for it.
+   // If count goes to 0: if the usercount is marked recursive, do the recursive fa(), otherwise just free using mf().  If virtual, the backer must be recursive, so fa() it
+   // Otherwise just decrement the count
+// obsolete   if(--c<=0){if(AFLAG(np)&AFVIRTUAL){A b=ABACK(np); fana(b);} if(UCISRECUR(np)){fana(np);}else{mf(np);}}else AC(np)=c;  // decrement usecount and either store it back or free the block
+   AC(np)=--c;  // update count & store...
+   if(c<=0){
+    // The block is going to be destroyed.  See if there are further ramifications
+    if(flg&AFVIRTUAL){A b=ABACK(np); fanano0(b);}  // if virtual block going away, reduce usecount in backer.  NOTE that ALL non-faux virtual blocks, even self-virtual ones, are on the tpop stack & get handled here
+    fanapop(np,flg);  // do the recursive POP only if RECURSIBLE block; then free np
+   }
    np=np0;  // Advance to next block
   }
-  // np has the pointer before the last one we processed in this block.  pushp points to thatSee if there are more blocks to do
+  // np has the pointer before the last one we processed in this block.  pushp points to that.  See if there are more blocks to do
   if(endingtpushp!=old){      // If we haven't done them all, we must have hit start-of-block.  Move back to previous block
    // end-of-block.  np=*pushp is the chain to the end of the previous block.  We will go there, but first see if we have finished the current allocation
    // There is no way two allocations could back up so as to make the end of one exactly the beginning of the other
@@ -819,7 +863,7 @@ void jttpop(J jt,A *old){A *endingtpushp;
 #if MEMAUDIT&2
    audittstack(jt);   // one audit for each tpop.  Mustn't audit inside tpop loop, because that's inconsistent state
 #endif
-   R;  // On last time through, update starting pointer for next push, and return that value.  Undo the decr of old
+   R;
   }
  }
 }
@@ -937,7 +981,6 @@ if((I)jt&3)SEGFAULT
 
 // bytes is total #bytes needed including headers, -1
 RESTRICTF A jtgafv(J jt, I bytes){UI4 j;
-// obsolete  CTLZI((UI)((bytes-1)|((I)1<<(PMINL-1))),j);  // 3 or 4 should return 2; 5 should return 3
 #if NORMAH*(SY_64?8:4)<(1LL<<(PMINL-1))
  bytes|=(I)1<<(PMINL-1);  // if the memory header itself doesn't meet the minimum buffer length, insert a minimum
 #endif
@@ -952,11 +995,9 @@ RESTRICTF A jtga(J jt,I type,I atoms,I rank,I* shaape){A z;
  // trailing NUL (because boolean-op code needs it)
  I bytes = ALLOBYTESVSZ(atoms,rank,bp(type),type&LAST0,0);  // We never use GA for NAME types, so we don't need to check for it
 #if SY_64
- if(!((((unsigned long long)(atoms))&~TOOMANYATOMS)+((rank)&~RMAX))){ \
-// obsolete  if((UI)atoms<TOOMANYATOMS && !(rank&~RMAX)){ // check for too many atoms, to preempt overflow
+ if(!((((unsigned long long)(atoms))&~TOOMANYATOMS)+((rank)&~RMAX))){
 #else
- if(((I)bytes>(I)(atoms)&&(I)(atoms)>=(I)0)&&!((rank)&~RMAX)){ \
-// obsolete  if(bytes>atoms&&atoms>=0){ // beware integer overflow
+ if(((I)bytes>(I)(atoms)&&(I)(atoms)>=(I)0)&&!((rank)&~RMAX)){
 #endif
   RZ(z = jtgafv(jt, bytes));   // allocate the block, filling in AC and AFLAG
   I akx=AKXR(rank);   // Get offset to data
@@ -967,8 +1008,6 @@ RESTRICTF A jtga(J jt,I type,I atoms,I rank,I* shaape){A z;
   if(!(type&DIRECT)){if(SY_64){memset((C*)(AS(z)+1),C0,(bytes-32)&-32);}else{memset((C*)z+akx,C0,bytes+1-akx);}}  // bytes=63=>0 bytes cleared.  bytes=64=>32 bytes cleared.  bytes=64 means the block is 65 bytes long
   GACOPYSHAPEG(z,type,atoms,rank,shaape)  /* 1==atoms always if t&SPARSE  */  // copy shape by hand since short
    // Tricky point: if rank=0, GACOPYSHAPEG stores 0 in AS[0] so we don't have to do that in the DIRECT path
-// obsolete   // because COPYSHAPE will always write one shape value, we have to delay the memset to handle the case of rank 0 with atoms (used internally only)
-// obsolete   if(!(type&DIRECT))memset((C*)z+akx,C0,bytes+1-akx);  // For indirect types, zero the data area.  Needed in case an indirect array has an error before it is valid
     // All non-DIRECT types have items that are multiples of I, so no need to round the length
   R z;
  }else{jsignal(EVLIMIT); R 0;}  // do it this way for branch-prediction

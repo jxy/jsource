@@ -78,13 +78,13 @@ static void jtcirx(J jt,I n,I k,D*z,D*y){D p,t;
  NAN1V;
 }
 
-AHDR2(cirBD,D,B,D){ASSERTW(n<=1&&1==m,EWIMAG); n^=n>>(BW-1); cirx(n,   (I)*x,z,y);}
-AHDR2(cirID,D,I,D){ASSERTW(n<=1&&1==m,EWIMAG); n^=n>>(BW-1); cirx(n,   *x,z,y);}
+AHDR2(cirBD,D,B,D){ASSERTW(n<=1&&1==m,EWIMAG); n^=REPSGN(n); cirx(n,   (I)*x,z,y);}
+AHDR2(cirID,D,I,D){ASSERTW(n<=1&&1==m,EWIMAG); n^=REPSGN(n); cirx(n,   *x,z,y);}
 
 AHDR2(cirDD,D,D,D){I k=(I)jround(*x);
  ASSERTW(k==*x,EVDOMAIN); 
  ASSERTW(n<=1&&1==m,EWIMAG); // if more than one value, 
- n^=n>>(BW-1);   // convert complementary n to nonneg
+ n^=REPSGN(n);   // convert complementary n to nonneg
  cirx(n,k,z,y);
 }
 
@@ -117,7 +117,7 @@ F1(jtrdot1){R expn1(jdot1(w));}
 F2(jtrdot2){R tymes(a,rdot1(w));}
 
 
-F1(jtpolar){RZ(w); R cvt(SPARSE&AT(w)?SFL:FL,df2(v2(10L,12L),w,qq(ds(CCIRCLE),v2(1L,0L))));}
+F1(jtpolar){RZ(w); A z; R cvt(SPARSE&AT(w)?SFL:FL,df2(z,v2(10L,12L),w,qq(ds(CCIRCLE),v2(1L,0L))));}
 
 F1(jtrect){A e,z;B b;I r,t;P*wp,*zp;Z c;
  RZ(w); 
@@ -134,5 +134,5 @@ F1(jtrect){A e,z;B b;I r,t;P*wp,*zp;Z c;
   SPB(zp,i,ca(SPA(wp,i)));
   SPB(zp,x,rect(SPA(wp,x)));
   R z;
- }else R df2(w,num[0],qq(ds(CCOMMA),zeroionei[0]));
+ }else R df2(z,w,num[0],qq(ds(CCOMMA),zeroionei[0]));
 }

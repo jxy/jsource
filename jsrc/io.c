@@ -160,9 +160,6 @@ I jdo(J jt, C* lp){I e;A x;
  // but we don't bother.  Another possibility would be to reset the callstack only if it was 0, so that a recursive immex will have its deletes handled by
  // the resumption of the name that was interrupted.
  I4 savcallstack = jt->callstacknext;
-#if USECSTACK
- if(0x8&jt->smoption)jt->cstackmin=0;
-#endif
  if(jt->capture){
   if(jt->capturemax>capturesize){FREE(jt->capture); jt->capture=0; jt->capturemax=0;} // dealloc large capture buffer
   else jt->capture[0]=0; // clear capture buffer
@@ -192,7 +189,7 @@ DF1(jtwd){A z=0;C*p=0;D*pd;I e,*pi,t;V*sv;
   ASSERT(2>AR(w),EVRANK);
   sv=VAV(self);
   t=i0(sv->fgh[1]);  // the n arg from the original 11!:n
-  if(BETWEENO(t,2000,3000)/* obsolete (UI)(t-2000)<(UI)(3000-2000)*/ && AN(w) && !(LIT+C2T+C4T+INT&AT(w))) {  // 2000<=t<3000
+  if(BETWEENO(t,2000,3000) && AN(w) && !(LIT+C2T+C4T+INT&AT(w))) {  // 2000<=t<3000
     switch(UNSAFE(AT(w))) {
     case B01:
       RZ(w=vi(w));
@@ -214,17 +211,17 @@ DF1(jtwd){A z=0;C*p=0;D*pd;I e,*pi,t;V*sv;
 //   2=result not allocated by jga
 //   4=use smpoll to get last result
 //   8=multithreaded
-  if(0x1&jt->smoption) {
+  if(SMOPTLOCALE&jt->smoption) {
     e=jt->smdowd ? ((dowdtype2)(jt->smdowd))(jt, (int)t, w, &z, getlocale(jt)) : EVDOMAIN;
   } else {
     e=jt->smdowd ? ((dowdtype)(jt->smdowd))(jt, (int)t, w, &z) : EVDOMAIN;
   }
   if(!e) R mtm;   // e==0 is MTM
   ASSERT(e<=0,e); // e>=0 is EVDOMAIN etc
-  if(0x4&jt->smoption) RZ(z=(A)((polltype)(jt->smpoll))(jt, (int)t, (int)e));
-  if(0x2&jt->smoption) z=ca(z);
+  if(SMOPTPOLL&jt->smoption) RZ(z=(A)((polltype)(jt->smpoll))(jt, (int)t, (int)e));
+  if(SMOPTNOJGA&jt->smoption) z=ca(z);
   if(e==-2){      // e==-2 is lit pairs
-    RZ(z=df1(z,cut(ds(CBOX),num[-2])));
+    A x=z; RZ(df1(z,x,cut(ds(CBOX),num[-2])));
     RETF(reshape(v2(AN(z)>>1,2L),z));
   } else {RETF(z);}
 }
@@ -234,10 +231,18 @@ static char breaknone=0;
 B jtsesminit(J jt){jt->adbreakr=jt->adbreak=&breakdata; R 1;}
 
 int _stdcall JDo(J jt, C* lp){int r;
+ MTXLOCK("JDo")
+#if USECSTACK
+ if(jt->cstacktype==2){
+  jt->qtstackinit = (uintptr_t)&jt;
+  if(jt->cstackmin)jt->cstackmin=(jt->cstackinit=jt->qtstackinit)-(CSTACKSIZE-CSTACKRESERVE);
+ }
+#endif
  r=(int)jdo(jt,lp);
  while(jt->nfe){
   A *old=jt->tnextpushp; r=(int)jdo(jt,nfeinput(jt,"input_jfe_'   '")); tpop(old);
  }
+ MTXUNLOCK("JDo")
  R r;
 } 
 
@@ -246,20 +251,25 @@ C* _stdcall JGetR(J jt){
 }
 
 /* socket protocol CMDGET name */
-A _stdcall JGetA(J jt, I n, C* name){A x;
+A _stdcall JGetA(J jt, I n, C* name){A x,z;
+ MTXLOCK("JGetA")
  jt->jerr=0;
- RZ(x=symbrdlock(nfs(n,name)));
- ASSERT(!(FUNC&AT(x)),EVDOMAIN);
- R binrep1(x);
+ if(!(x=symbrdlock(nfs(n,name)))){ jsignal(EVILNAME); MTXUNLOCK("JGetA"); R 0;}
+ if(FUNC&AT(x)){ jsignal(EVDOMAIN); MTXUNLOCK("JGetA"); R 0;}
+ z=binrep1(x);
+ MTXUNLOCK("JGetA")
+ R z;
 }
 
 /* socket protocol CMDSET */
 I _stdcall JSetA(J jt,I n,C* name,I dlen,C* d){
+ MTXLOCK("JSetA")
  jt->jerr=0;
- if(!vnm(n,name)) R EVILNAME;
+ if(!vnm(n,name)){ jsignal(EVILNAME); MTXUNLOCK("JSetA"); R EVILNAME;}
  A *old=jt->tnextpushp;
  symbisdel(nfs(n,name),jtunbin(jt,str(dlen,d)),jt->global);
  tpop(old);
+ MTXUNLOCK("JSetA")
  R jt->jerr;
 }
 
@@ -271,11 +281,17 @@ void _stdcall JSM(J jt, void* callbacks[])
  jt->sminput = (inputtype)callbacks[2];
  jt->smpoll = (polltype)callbacks[3];
  jt->sm = 0xff & (I)callbacks[4];
- jt->qtstackinit = (SMQT==jt->sm) ? (uintptr_t)callbacks[3] : 0;
  jt->smoption = ((~0xff) & (UI)callbacks[4]) >> 8;
- if(jt->sm==SMJAVA) jt->smoption |= 0x8;  /* assume java is multithreaded */
- if(SMQT==jt->sm){
-  jt->smoption = (~0x4) & jt->smoption;  /* smpoll not used */
+ if(jt->sm==SMJAVA) jt->smoption |= SMOPTMTH;  /* assume java is multithreaded */
+ if(SMOPTMTH&jt->smoption){
+  jt->cstacktype = 2;
+  jt->qtstackinit = (uintptr_t)&jt;
+  if(jt->cstackmin)jt->cstackmin=(jt->cstackinit=jt->qtstackinit)-(CSTACKSIZE-CSTACKRESERVE);
+ }else if(SMQT==jt->sm){
+  jt->cstacktype = 1;
+  jt->qtstackinit = (uintptr_t)callbacks[3];
+  jt->smpoll = 0;
+  jt->smoption = (~SMOPTPOLL) & jt->smoption;  /* smpoll not used */
   // If the user is giving us a better view of the stack through jt->qtstackinit, use it.  We get just the top-of-stack
   // address so we have to guess about the bottom, using our view of the minimum possible stack we have.
   // if cstackmin is 0, the user has turned off stack checking and we honor that decision
@@ -293,17 +309,27 @@ void _stdcall JSMX(J jt, void* out, void* wd, void* in, void* poll, I opts)
  jt->sm = 0xff & opts;
  jt->qtstackinit = (SMQT==jt->sm) ? (uintptr_t)poll : 0;
  jt->smoption = ((~0xff) & (UI)opts) >> 8;
- if(jt->sm==SMJAVA) jt->smoption |= 0x8;  /* assume java is multithreaded */
- if(SMQT==jt->sm){
-  jt->smoption = (~0x4) & jt->smoption;  /* smpoll not used */
+ if(jt->sm==SMJAVA) jt->smoption |= SMOPTMTH;  /* assume java is multithreaded */
+ if(SMOPTMTH&jt->smoption){
+  jt->cstacktype = 2;
+  jt->qtstackinit = (uintptr_t)&jt;
+  if(jt->cstackmin)jt->cstackmin=(jt->cstackinit=jt->qtstackinit)-(CSTACKSIZE-CSTACKRESERVE);
+ }else if(SMQT==jt->sm){
+  jt->cstacktype = 1;
+  jt->qtstackinit = (uintptr_t)poll;
+  jt->smpoll = 0;
+  jt->smoption = (~SMOPTPOLL) & jt->smoption;  /* smpoll not used */
   if(jt->qtstackinit&&jt->cstackinit)jt->cstackmin=(jt->cstackinit=jt->qtstackinit)-(CSTACKSIZE-CSTACKRESERVE);
  }
 }
 
 C* _stdcall JGetLocale(J jt){return getlocale(jt);}
 
-A _stdcall Jga(J jt, I t, I n, I r, I*s){
- return ga(t, n, r, s);
+A _stdcall Jga(J jt, I t, I n, I r, I*s){A z;
+ MTXLOCK("Jga")
+ z=ga(t, n, r, s);
+ MTXUNLOCK("Jga")
+ return z;
 }
 
 void oleoutput(J jt, I n, char* s); /* SY_WIN32 only */
@@ -394,6 +420,16 @@ int JFree(J jt){
   jt->jerr=0; jt->etxn=0; /* clear old errors */
   if(jt->xep&&AN(jt->xep)){A *old=jt->tnextpushp; immex(jt->xep); fa(jt->xep); jt->xep=0; jt->jerr=0; jt->etxn=0; tpop(old); }
   dllquit(jt);  // clean up call dll
+#if defined(USE_THREAD)
+#ifdef _WIN32
+  if((jt->ptid!=-1)&&jt->plocked){ ReleaseMutex((HANDLE)jt->plock); VLOGFD("%p %s mutex unlock\n",jt,"JFree"); }
+  if(!CloseHandle((HANDLE)jt->plock)){ VLOGFD("%p mutex destroy failed rc %u\n",jt,GetLastError()); }
+#else
+  int rc;
+  if((jt->ptid!=-1)&&jt->plocked){ pthread_mutex_unlock(&jt->plock); VLOGFD("%p %s mutex unlock\n",jt,"JFree"); }
+  if((rc=pthread_mutex_destroy(&jt->plock))){ VLOGFD("%p mutex destroy failed rc %d\n",jt,rc); }
+#endif
+#endif
   free(jt->heap);  // free the initial allocation
   R 0;
 }
@@ -446,14 +482,16 @@ int valid(C* psrc, C* psnk)
 int _stdcall JGetM(J jt, C* name, I* jtype, I* jrank, I* jshape, I* jdata)
 {
  A a; char gn[256];
- if(strlen(name) >= sizeof(gn)) return EVILNAME;
- if(valid(name, gn)) return EVILNAME;
- RZ(a=symbrdlock(nfs(strlen(gn),gn)));
-    if(FUNC&AT(a))R EVDOMAIN;
+ MTXLOCK("JGetM");
+ if(strlen(name) >= sizeof(gn)){ jsignal(EVILNAME); MTXUNLOCK("JGetM"); return EVILNAME;}
+ if(valid(name, gn)){ jsignal(EVILNAME); MTXUNLOCK("JGetM"); return EVILNAME;}
+ if(!(a=symbrdlock(nfs(strlen(gn),gn)))){ jsignal(EVDOMAIN); MTXUNLOCK("JGetM"); R EVDOMAIN;}
+ if(FUNC&AT(a)){ jsignal(EVDOMAIN); MTXUNLOCK("JGetM"); R EVDOMAIN;}
  *jtype = AT(a);
  *jrank = AR(a);
  *jshape = (I)AS(a);
  *jdata = (I)AV(a);
+ MTXUNLOCK("JGetM");
  return 0;
 }
 
@@ -511,8 +549,10 @@ int _stdcall JSetM(J jt, C* name, I* jtype, I* jrank, I* jshape, I* jdata)
  int er;
 
  PROLOG(0051);
+ MTXLOCK("JSetM");
  er = setterm(jt, name, jtype, jrank, jshape, jdata);
  tpop(_ttop);
+ MTXUNLOCK("JSetM");
  return er;
 }
 
@@ -530,7 +570,9 @@ C* esub(J jt, I ec)
 
 int _stdcall JErrorTextM(J jt, I ec, I* p)
 {
+ MTXLOCK("JErrorTextM");
  *p = (I)esub(jt, ec);
+ MTXUNLOCK("JErrorTextM");
  return 0;
 }
 

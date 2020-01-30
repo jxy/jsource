@@ -64,7 +64,7 @@ F1(jtbdot){A b,h=0;I j=0,n,*v;
  n=AN(w); v=AV(w);
  if(1==n){j=*v; ASSERT(BETWEENC(j,-16,34),EVINDEX);}
  else DQ(n, j=*v++; ASSERT(BETWEENC(j,-16,15),EVINDEX););  // j must be initialized because the loop might not run
- if(/* obsolete 1!=n||*/j<16){
+ if(j<16){
   GAT0(b,B01,64,2); AS(b)[0]=16; AS(b)[1]=4; MC(AV(b),booltab,64L);
   RZ(h=cant2(IX(AR(w)),from(w,b)));  // h is an array representing b.  One cell for each atom of b; cell is 4 values
   R fdef(0,CBDOT,VERB, jtbdot1,jtbdot2, 0L,w,h, VFLAGNONE, RMAX,0L,0L);
@@ -98,8 +98,8 @@ F1(jtbdot){A b,h=0;I j=0,n,*v;
 static A jtmemoget(J jt,I x,I y,A self){A h,*hv,q;I*jv,k,m,*v;
  h=FAV(self)->fgh[2]; hv=AAV(h); 
  q=hv[1]; jv=AV(q); m=*AS(q);
- k=HIC(x,y)%m; v=jv+2*k; while(IMIN!=*v&&!(y==*v&&x==v[1])){v+=2; if(v==jv+2*m)v=jv;}
- R*(AAV(hv[2])+((v-jv)>>1));
+ k=HIC(x,y)%m; v=jv+2*k; while(IMIN!=*v&&!(y==*v&&x==v[1])){v+=2; if(v==jv+2*m)v=jv;}  // search hash table, stop on match or end
+ R AAV(hv[2])[((v-jv)>>1)];  // return match if found, 0 if not
 }
 
 static A jtmemoput(J jt,I x,I y,A self,A z){A*cv,h,*hv,q;I *jv,k,m,*mv,*v;
@@ -150,7 +150,7 @@ static DF1(jtmemo1){DECLF;A z;I x,y;
 static DF2(jtmemo2){DECLF;A z;I x,y; 
  RZ(a&&w);
  x=int0(a); y=int0(w);
- if(x==IMIN||y==IMIN)R CALL2(f2,a,w,fs);
+ if(MIN(x,y)==IMIN)R CALL2(f2,a,w,fs);  // IMIN is unmemoable, run fn
  R (z=memoget(x,y,self))?z:memoput(x,y,self,CALL2(f2,a,w,fs));  // if memo lookup returns empty, run the function and remember the result
 }
 

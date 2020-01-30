@@ -241,25 +241,25 @@ AHDR2(tymesDB,D,D,B){
 // *y is the I result of the operation that overflowed
 // *z is the D result area (which might be the same as *y)
 // b is unused for plus
-AHDR2(plusIIO,D,I,I){I u; I absn=n^(n>>(BW-1));
+AHDR2(plusIIO,D,I,I){I u; I absn=n^REPSGN(n);
  DQ(m, u=*x++; DQ(absn, *z=(D)u + (D)(*y-u); ++y; ++z;));
 }
-AHDR2(plusBIO,D,B,I){I u; I absn=n^(n>>(BW-1));
+AHDR2(plusBIO,D,B,I){I u; I absn=n^REPSGN(n);
  DQ(m, u=(I)*x++; DQ(absn, *z=(D)u + (D)(*y-u); ++y; ++z;));
 }
 
 // For subtract repair, b is 1 if x was the subtrahend, 0 if the minuend
-AHDR2(minusIIO,D,I,I){I u; I absn=n^(n>>(BW-1));
+AHDR2(minusIIO,D,I,I){I u; I absn=n^REPSGN(n);
  DQ(m, u=*x++; DQ(absn, *z=n<0?((D)(*y+u)-(D)u):((D)u - (D)(u-*y)); ++y; ++z;));
 }
-AHDR2(minusBIO,D,B,I){I u; I absn=n^(n>>(BW-1));
+AHDR2(minusBIO,D,B,I){I u; I absn=n^REPSGN(n);
  DQ(m, u=(I)*x++; DQ(absn, *z=n<0?((D)(*y+u)-(D)u):((D)u - (D)(u-*y)); ++y; ++z;));
 }
 
 // In multiply repair, z points to result, x and y to inputs
 // Parts of z before mulofloloc have been filled in already
 // We have to track the inputs just as for any other action routine
-AHDR2(tymesIIO,D,I,I){I u,v; I absn=n^(n>>(BW-1));
+AHDR2(tymesIIO,D,I,I){I u,v; I absn=n^REPSGN(n);
  // if all the multiplies are to be skipped, skip them quickly
  I skipct=jt->mulofloloc;
  if(skipct>=m*absn){skipct-=m*absn;
@@ -336,7 +336,7 @@ I jtremid(J jt,I a,D b){D r;I k;
 
 APFX(remID, I,I,D, remid)
 
-I remii(I a,I b){I r; R (a!=(a>>(BW-1)))?(r=b%a,0<a?r+(a&(r>>(BW-1))):r+(a&((-r)>>(BW-1)))):a?0:b;}  // must handle IMIN/-1, which overflows.  If a=0, return b.
+I remii(I a,I b){I r; R (a!=REPSGN(a))?(r=b%a,0<a?r+(a&REPSGN(r)):r+(a&REPSGN(-r))):a?0:b;}  // must handle IMIN/-1, which overflows.  If a=0, return b.
 
 AHDR2(remII,I,I,I){I u,v;
  if(n-1==0){DQ(m,*z++=remii(*x,*y); x++; y++; )
@@ -360,7 +360,7 @@ AHDR2(remII,I,I,I){I u,v;
     DQC(n, I yv=*y;
       // Multiply by recip to get quotient, which is up to 1/2 LSB low; get remainder; adjust remainder if too high; store
       // 2's-complement adjust for negative y; to make the result still always on the low side, subtract an extra 1.
-      DPUMUL(uarecip,(UI)yv,xx,himul); himul-=(uarecip+1)&(yv>>(BW-1)); I rem=yv-himul*ua; rem=(rem-(I)ua)>=0?rem-(I)ua:rem; *z++=rem;
+      DPUMUL(uarecip,(UI)yv,xx,himul); himul-=(uarecip+1)&REPSGN(yv); I rem=yv-himul*ua; rem=(rem-(I)ua)>=0?rem-(I)ua:rem; *z++=rem;
      y++;)
    }
    // if x was negative, move the remainder into the x+1 to 0 range
@@ -447,17 +447,14 @@ F2(jtintdiv){A z;B b,flr;I an,ar,*as,*av,c,d,j,k,m,n,p,p1,r,*s,wn,wr,*ws,*wv,*zv
 }    /* <.@% or >.@% on integers */
 
 
-static F2(jtweight){RZ(a&&w); R df1(behead(over(AR(w)?w:reshape(a,w),num[1])),bsdot(slash(ds(CSTAR))));}  // */\. }. (({:$a)$w),1
+static F2(jtweight){RZ(a&&w); A z; R df1(z,behead(over(AR(w)?w:reshape(a,w),num[1])),bsdot(slash(ds(CSTAR))));}  // */\. }. (({:$a)$w),1
 
 F1(jtbase1){A z;B*v;I c,m,n,p,r,*s,t,*x;
  RZ(w);
  n=AN(w); t=AT(w); r=AR(w); s=AS(w); c=AS(w)[r-1]; c=r?c:1;
  ASSERT(t&DENSE,EVNONCE);
-// obsolete  if(c>(SY_64?63:31)||!(t&B01))R pdt(w,weight(sc(c),t&RAT+XNUM?cvt(XNUM,num[2]):num[2]));
  if(((c-BW)&SGNIF(t,B01X))>=0)R pdt(w,weight(sc(c),t&RAT+XNUM?cvt(XNUM,num[2]):num[2]));  // 
  CPROD1(n,m,r-1,s);
-// obsolete  GATV(z,INT,m,r?r-1:0,s); x=m+AV(z); v=n+BAV(w);
-// obsolete  if(c)DQ(m, p=0; d=1; DQ(c, if(*--v)p+=d; d+=d;); *--x=p;)
  GATV(z,INT,m,r?r-1:0,s); x=AV(z); v=BAV(w);
  if(c)DQ(m, p=0; DQ(c, p=2*p+*v++;); *x++=p;)
  else memset(x,C0,m*SZI);
@@ -482,11 +479,10 @@ F1(jtabase1){A d,z;B*zv;I c,n,p,r,t,*v;UI x;
  ASSERT(t&DENSE,EVNONCE);
  // Result has rank one more than the input.  If there are no atoms,
  // return (($w),0)($,)w; if Boolean, return (($w),1)($,)w
-// obsolete  if(!n||t&B01)R reshape(over(shape(w),num[n!=0]),w);
  if((-n&SGNIFNOT(t,B01X))>=0)R reshape(over(shape(w),num[n!=0]),w);
  if(!(t&INT)){
   // Not integer.  Calculate # digits-1 as d = 2 <.@^. >./ | , w  
-  d=df2(num[2],maximum(zeroionei[1],aslash(CMAX,mag(ravel(w)))),atop(ds(CFLOOR),ds(CLOG)));
+  df2(d,num[2],maximum(zeroionei[1],aslash(CMAX,mag(ravel(w)))),atop(ds(CFLOOR),ds(CLOG)));
   // Calculate z = ((1+d)$2) #: w
   RZ(z=abase2(reshape(increm(d),num[2]),w));
   // If not float, result is exact or complex; either way, keep it
@@ -524,12 +520,11 @@ F2(jtabase2){A z;I an,ar,at,t,wn,wr,wt,zn;
   if(d&&*zv==-1){zv=wv; DQ(wn, if(*--zv==IMIN){d=0; break;}) if(!d){RZ(a=cvt(FL,a)); R abase2(a,w);}}
   RE(zn=mult(an,wn)); GATV(z,INT,zn,1+wr,AS(w)); AS(z)[wr]=an;  // allocate result area
   zv=zn+AV(z);
-// obsolete  if(2==an&&!av[-2]&&0<(d=av[-1])){I d1,k;
   if((((2^an)-1)&(av[-2]-1)&-(d=av[-1]))<0){I d1,k;
    // Special case: a is (0,d) where d is positive
    if(d&(d1=d-1)){I q,r,xs;
     // d is not a power of 2
-    DQ(wn, x=*--wv; xs=(x>>(BW-1)); q=(x-xs)/d+xs; r=x-q*d; *--zv=r; *--zv=q;)  // remainder has same sign as dividend.  If neg, add 1, divide, sub 1 from quotient; then make remainder right
+    DQ(wn, x=*--wv; xs=REPSGN(x); q=(x-xs)/d+xs; r=x-q*d; *--zv=r; *--zv=q;)  // remainder has same sign as dividend.  If neg, add 1, divide, sub 1 from quotient; then make remainder right
    }else{
     // d is a power of 2
     k=CTTZ(d);  // k = #zeros below the 1 in d

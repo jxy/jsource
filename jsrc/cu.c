@@ -55,7 +55,7 @@ A jtevery2(J jt,A a,A w,A fs,AF f2){A*av,*wv,x,z,*zv;
   I cf=ar; A la=w; cf=ar<wr?cf:wr; la=ar<wr?la:a; I lr=ar+wr-cf;  // #common frame, Ablock with long shape, long rank.
   PROD(rpti,lr-cf,AS(la)+cf);
   natoms=MAX(AN(a),AN(w)); natoms=rpti==0?rpti:natoms;  // number of atoms.  Beware of empty arg with surplus frame containing 0; if an arg is empty, so is the result
-  flags=(C)(((1-rpti)>>(BW-1))&((ar<wr)+1));  // if rpti<2, no repeat; otherwise repeat short frame
+  flags=(C)(REPSGN(1-rpti)&((ar<wr)+1));  // if rpti<2, no repeat; otherwise repeat short frame
   // Verify agreement
   ASSERTAGREE(AS(a),AS(w),cf);  // frames must agree
   GATV(z,BOX,natoms,lr,AS(la)); if(!natoms)R z; zv=AAV(z);  // make sure we don't fetch outside empty arg
@@ -109,13 +109,13 @@ static DF2(jtunderh20){R jtrank2ex0(jt,a,w,self,jtunderh2);}  // pass inplaceabi
 static DF1(jtunderai1){DECLF;A x,y,z;B b;I j,n,*u,*v;UC f[256],*wv,*zv;
  RZ(w);
  if(b=LIT&AT(w)&&256<AN(w)){
-        x=df1(iota(v2(128L, 2L)),fs); b=x&&256==AN(x)&&NUMERIC&AT(x);
-  if(b){y=df1(iota(v2(  8L,32L)),fs); b=y&&256==AN(y)&&NUMERIC&AT(y);}
+        df1(x,iota(v2(128L, 2L)),fs); b=x&&256==AN(x)&&NUMERIC&AT(x);
+  if(b){df1(y,iota(v2(  8L,32L)),fs); b=y&&256==AN(y)&&NUMERIC&AT(y);}
   if(b){x=vi(x); y=vi(y); b=x&&y;} 
   if(b){u=AV(x); v=AV(y); DO(256, j=*u++; if(j==*v++&&BETWEENO(j,-256,256))f[i]=(UC)(0<=j?j:j+256); else{b=0; break;});}
   if(jt->jerr)RESETERR;
  }         
- if(!b)R from(df1(indexof(alp,w),fs),alp);
+ if(!b)R from(df1(z,indexof(alp,w),fs),alp);
  n=AN(w);
  GATV(z,LIT,n,AR(w),AS(w)); zv=UAV(z); wv=UAV(w);
  if(!bitwisecharamp(f,n,wv,zv))DQ(n, *zv++=f[*wv++];); 
@@ -137,7 +137,7 @@ F2(jtunder){A x;AF f1,f2;B b,b1;C c,uid;I r;V*u,*v;
   case CAMP:  
    u=FAV(a);  // point to a in a&.w.  w is f1&g1 or (f1 g1 h1)
    if(b1=CSLASH==(uid=u->id)){x=u->fgh[0]; if(AT(x)&VERB){u=FAV(x);uid=u->id;}else uid=0;}   // cases: f&.{f1&g1 or (f1 g1 h1)}  b1=0    f/&.{f1&g1 or (f1 g1 h1)}   b1=1
-   b=CBDOT==uid&&(x=u->fgh[1],(((AR(x)-1)&SGNIF(AT(x),INTX))<0)&&BETWEENC(IAV(x)[0],16,32)/* obsolete (m=*AV(x),(UI)(m-16)<=(UI)(32-16))*/);   // b if f=m b. where m is atomic int 16<=m<=32
+   b=CBDOT==uid&&(x=u->fgh[1],(((AR(x)-1)&SGNIF(AT(x),INTX))<0)&&BETWEENC(IAV(x)[0],16,32));   // b if f=m b. where m is atomic int 16<=m<=32
    if(CIOTA==ID(v->fgh[1])&&(!c|(c==CLEFT)|(c==CRIGHT))&&equ(alp,v->fgh[0])){   // w is  {a.&i.  or  (a. i. ][)}
     f1=b& b1?jtbitwiseinsertchar:jtunderai1;    // m b./ &. {a.&i.  or  (a. i. ][)}   or  f &. {a.&i.  or  (a. i. ][)}
     f2=((uid==CMAX)|(uid==CMIN))>b1?(AF)jtcharfn2:f2; f2=b>b1?(AF)jtbitwisechar:f2;   // m b. &. {a.&i.  or  (a. i. ][)}   or  >. &. {a.&i.  or  (a. i. ][)}   or f &. {a.&i.  or  (a. i. ][)}

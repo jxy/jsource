@@ -12,9 +12,9 @@
 static DF1(jtreduce);
 
 
-#define PARITY2         u=(UC*)&s; b=0; b^=*u++; b^=*u++;
-#define PARITY4         u=(UC*)&s; b=0; b^=*u++; b^=*u++; b^=*u++; b^=*u++; 
-#define PARITY8         u=(UC*)&s; b=0; b^=*u++; b^=*u++; b^=*u++; b^=*u++; b^=*u++; b^=*u++; b^=*u++; b^=*u++;
+#define PARITY2         u=(B*)&s; b=0; b^=*u++; b^=*u++;
+#define PARITY4         u=(B*)&s; b=0; b^=*u++; b^=*u++; b^=*u++; b^=*u++; 
+#define PARITY8         u=(B*)&s; b=0; b^=*u++; b^=*u++; b^=*u++; b^=*u++; b^=*u++; b^=*u++; b^=*u++; b^=*u++;
 
 #if SY_64
 #define PARITYW         PARITY8
@@ -29,7 +29,7 @@ static DF1(jtreduce);
 static void vdone(I m,I n,B*x,B*z,B pc){B b,*u;
  if(1==m){UI s,*xi;
   s=0; b=0;
-  xi=(I*)x; DQ(n>>LGSZI, s^=*xi++;); 
+  xi=(UI*)x; DQ(n>>LGSZI, s^=*xi++;); 
   u=(B*)xi; DQ(n&(SZI-1), b^=*u++;);
   u=(B*)&s; DQ(SZI,   b^=*u++;);
   *z=b==pc;
@@ -221,10 +221,10 @@ REDUCEPFX(  mininsX, X, X, XMIN, minXX, minXX  )
 REDUCEPFX(  mininsS, SB,SB,SBMIN, minSS, minSS )
 
 
-static DF1(jtred0){DECLF;A x;I f,r,wr,*s;
+static DF1(jtred0){DECLF;A x,z;I f,r,wr,*s;
  wr=AR(w); r=(RANKT)jt->ranks; r=wr<r?wr:r; f=wr-r; RESETRANK; s=AS(w);
  if(AT(w)&DENSE){GA(x,AT(w),0L,r,f+s);}else{GASPARSE(x,AT(w),1,r,f+s);}
- R reitem(vec(INT,f,s),lamin1(df1(x,(AT(w)&SBT)?idensb(fs):iden(fs))));
+ R reitem(vec(INT,f,s),lamin1(df1(z,x,(AT(w)&SBT)?idensb(fs):iden(fs))));
 }    /* f/"r w identity case */
 
 // general reduce.  We inplace the results into the next iteration.  This routine cannot inplace its inputs.
@@ -248,7 +248,7 @@ static DF1(jtredg){F1PREFIP;PROLOG(0020);DECLF;AD * RESTRICT a;I i,k,n,r,wr;A *o
  // We can inplace the right arg the first time if it is direct inplaceable, and always after that.  This is subject to approval by the verb u
  // and the input jtinplace.  We turn off WILLBEOPENED status in jtinplace for the callee.
  I inplacelaterw = (FAV(fs)->flag>>(VJTFLGOK2X-JTINPLACEWX)) & JTINPLACEW;  // JTINPLACEW if the verb can handle inplacing
- jtinplace = (J)(intptr_t)(((I)jt) + (JTINPLACEW+JTINPLACEA)*(inplacelaterw&(I)jtinplace&((AT(w)&TYPEVIPOK)!=0)&(origwc>>(BW-1))));  // inplace left arg, and first right arg, only if w is direct inplaceable, enabled, and verb can take it
+ jtinplace = (J)(intptr_t)(((I)jt) + (JTINPLACEW+JTINPLACEA)*(inplacelaterw&(I)jtinplace&((AT(w)&TYPEVIPOK)!=0)&REPSGN(origwc)));  // inplace left arg, and first right arg, only if w is direct inplaceable, enabled, and verb can take it
  // fill in the shape, offset, and item-count of the virtual block
  AN(a)=AN(w); AK(a)+=(n-2)*k; MCISH(AS(a),AS(w),r-1);  // make the virtual block look like the tail, except for the offset
  // Mark the blocks as inplaceable.  They won't be used as inplaceable unless permitted by jtinplace
@@ -427,7 +427,7 @@ static DF1(jtreducesp){A a,g,z;B b;I f,n,r,*v,wn,wr,*ws,wt,zt;P*wp;
  VA2 adocv = vains(g,wt);
  if(2==n&&!(adocv.f&&strchr(fca,id))){
   A x; IRS2(num[0],w,0L,0,r,jtfrom,x); A y; IRS2(num[1],w,0L,0,r,jtfrom,y);
-  R df2(x,y,g);  // rank has been reset for this call
+  R df2(z,x,y,g);  // rank has been reset for this call
  }
  // original rank still set
  if(!adocv.f)R redg(w,self);
@@ -652,7 +652,7 @@ static DF1(jtredcateach){A*u,*v,*wv,x,*xv,z,*zv;I f,m,mn,n,r,wr,*ws,zm,zn;I n1=0
  wr=AR(w); ws=AS(w); r=(RANKT)jt->ranks; r=wr<r?wr:r; f=wr-r; RESETRANK;
  n=r?ws[f]:1;
  if(!r||1>=n)R reshape(repeat(ne(sc(f),IX(wr)),shape(w)),n?w:ace);
- if(!(BOX&AT(w)))R df1(cant2(sc(f),w),qq(ds(CBOX),zeroionei[1]));
+ if(!(BOX&AT(w)))R df1(z,cant2(sc(f),w),qq(ds(CBOX),zeroionei[1]));
 // bug: ,&.>/ y does scalar replication wrong
 // wv=AN(w)+AAV(w); DQ(AN(w), if(AN(*--wv)&&AR(*wv)&&n1&&n2) ASSERT(0,EVNONCE); if((!AR(*wv))&&n1)n2=1; if(AN(*wv)&&1<AR(*wv))n1=1;);
  zn=AN(w)/n; PROD(zm,f,ws); PROD(m,r-1,ws+f+1); mn=m*n;
@@ -663,7 +663,7 @@ static DF1(jtredcateach){A*u,*v,*wv,x,*xv,z,*zv;I f,m,mn,n,r,wr,*ws,zm,zn;I n1=0
  RETF(z);
 }    /* ,&.>/"r w */
 
-static DF2(jtoprod){R df2(a,w,FAV(self)->fgh[2]);}  // x u/ y - transfer to the u"lr,_ verb (precalculated)
+static DF2(jtoprod){A z; R df2(z,a,w,FAV(self)->fgh[2]);}  // x u/ y - transfer to the u"lr,_ verb (precalculated)
 
 
 F1(jtslash){A h;AF f1;C c;V*v;I flag=0;
@@ -681,9 +681,9 @@ F1(jtslash){A h;AF f1;C c;V*v;I flag=0;
  R fdef(0,CSLASH,VERB, f1,jtoprod, w,0L,h, flag|FAV(ds(CSLASH))->flag, RMAX,RMAX,RMAX);
 }
 
-A jtaslash (J jt,C c,    A w){RZ(   w); R df1(  w,   slash(ds(c))     );}
-A jtaslash1(J jt,C c,    A w){RZ(   w); R df1(  w,qq(slash(ds(c)),zeroionei[1]));}
-A jtatab   (J jt,C c,A a,A w){RZ(a&&w); R df2(a,w,   slash(ds(c))     );}
+A jtaslash (J jt,C c,    A w){RZ(   w); A z; R df1(z,  w,   slash(ds(c))     );}
+A jtaslash1(J jt,C c,    A w){RZ(   w); A z; R df1(z,  w,qq(slash(ds(c)),zeroionei[1]));}
+A jtatab   (J jt,C c,A a,A w){RZ(a&&w); A z; R df2(z,a,w,   slash(ds(c))     );}
 
 DF1(jtmean){
  RZ(w);
@@ -700,8 +700,8 @@ A sum=reduce(w,FAV(self)->fgh[0]);  // calculate +/"r
 // entry point to execute monad/dyad Fold after the noun arguments are supplied
 static DF2(jtfoldx){
  // see if this is monad or dyad
- I foldflag=(~AT(w)&VERB)>>(VERBX-3);  // flags: dyad mult fwd rev  if w is not conj, this must be a dyad call
- self=foldflag&8?self:w; w=foldflag&8?w:a; a=foldflag&8?a:mtv; // if monad, it's w self garbage,  move to '' w self
+ I foldflag=((~AT(w))>>(VERBX-3))&8;  // flags: dyad mult fwd rev  if w is not conj, this must be a dyad call
+ self=foldflag?self:w; w=foldflag?w:a; a=foldflag?a:mtv; // if monad, it's w self garbage,  move to '' w self
  // get the rest of the flags from the original ID byte, which was moved to lc
  foldflag|=FAV(self)->lc-CFDOT;  // this sets mult fwd rev
  // define the flags as the special global

@@ -135,8 +135,8 @@ static GF(jtgrx){A x;I ck,t,*xv;I c=ai*n;
  t=AT(w);
  jt->workareas.compare.compk=ai<<bplg(t); ck=jt->workareas.compare.compk*n;
  jt->workareas.compare.compn=ai<<((t>>CMPXX)&1); jt->workareas.compare.compv=CAV(w);
- jt->workareas.compare.comp=sortroutines[CTTZ(t)][(UI)jt->workareas.compare.complt>>(BW-1)].comproutine; jt->workareas.compare.compusejt = !!(t&BOX+XNUM+RAT);
- void **(*sortfunc)() = sortroutines[CTTZ(t)][(UI)jt->workareas.compare.complt>>(BW-1)].sortfunc;
+ jt->workareas.compare.comp=sortroutines[CTTZ(t)][SGNTO0(jt->workareas.compare.complt)].comproutine; jt->workareas.compare.compusejt = !!(t&BOX+XNUM+RAT);
+ void **(*sortfunc)() = sortroutines[CTTZ(t)][SGNTO0(jt->workareas.compare.complt)].sortfunc;
  GATV0(x,INT,n,1); xv=AV(x);  /* work area for msmerge() */
  DQ(m, msortitems(sortfunc,n,(void**)zv,(void**)xv); jt->workareas.compare.compv+=ck; zv+=n;);
  R !jt->jerr;
@@ -201,7 +201,7 @@ I grcol4(I d,I c,UI4*yv,I n,I*xv,I*zv,const I m,US*u,I flags){
   // the result of this stage is the starting position in the output of each input value
   I tct = d>>(split=flags&1);  // number of iterations per section
   I tinc = (flags&2)-1;  // +1 if up, -1 if down
-  UI4 *t=yv+c+(tct&((tinc>>(BW-1))|-split))+(tinc>>(BW-1));  // starting position: based on up/split: 00: +d-1  01: +d/2-1  10: +0  11: +d/2
+  UI4 *t=yv+c+(tct&(REPSGN(tinc)|-split))+REPSGN(tinc);  // starting position: based on up/split: 00: +d-1  01: +d/2-1  10: +0  11: +d/2
   UI4 s=0; do{DP(tct, k=*t; *t=s; s+=k; t+=tinc;) t-=tinc*d;}while(--split>=0);  // 1 iteration if not split, 2 if split
   // create the output.  Each input produces an output in the position indicated by yv.
   // If sort is set, we move the value; otherwise move the index.
@@ -244,7 +244,7 @@ I grcol2(I d,I c,US*yv,I n,I*xv,I*zv,const I m,US*u,I flags){
  }else{US k;
   I tct = d>>(split=flags&1);
   I tinc = (flags&2)-1;
-  US *t=yv+c+(tct&((tinc>>(BW-1))|-split))+(tinc>>(BW-1));
+  US *t=yv+c+(tct&(REPSGN(tinc)|-split))+REPSGN(tinc);
   US s=0; do{DP(tct, k=*t; *t=s; s+=k; t+=tinc;) t-=tinc*d;}while(--split>=0);
   v=u;
   if(flags&4){
@@ -278,7 +278,7 @@ static GF(jtgrdq){
   // convert -0 to 0
   // if input neg, complement low bits to make correct sort order
   // install item number
-  DO(n, I v=wv[i]^sortdown63; v^=(UI)(v>>(BW-1))>>1; v=(v==0)?-1:v; zv[i]=(v&(~itemmask))+i;)
+  DO(n, I v=wv[i]^sortdown63; v^=(UI)REPSGN(v)>>1; v=(v==0)?-1:v; zv[i]=(v&(~itemmask))+i;)
   // sort the result area in place
   sortiq1(zv,n);
   // pass through the result area, removing the upper bits.  If consecutive values have the same upper bits, go through them,
@@ -290,7 +290,7 @@ static GF(jtgrdq){
    if(((nextv=zv[i+1])^currv)&~itemmask){zv[i]=currv&itemmask;  // normal case with no repetition
    }else{  // reprocess the repeated block
     I j=i;do{
-     I v=wv[zv[j]&itemmask]^sortdown63; v^=(UI)(v>>(BW-1))>>1; v=(v==0)?-1:v; zv[j]=((v&itemmask)<<hbit)+(zv[j]&itemmask); // fetch original v, reconstitute; get itemmask in uppper bits 
+     I v=wv[zv[j]&itemmask]^sortdown63; v^=(UI)REPSGN(v)>>1; v=(v==0)?-1:v; zv[j]=((v&itemmask)<<hbit)+(zv[j]&itemmask); // fetch original v, reconstitute; get itemmask in uppper bits 
     }while(!(++j==n || (((nextv=zv[j])^currv)&~itemmask)));
     sortiq1(zv+i,j-i);  // sort the collision area in place.  j points to first item beyond the collision area, and nextv is its value
     while(i<j){zv[i]&=itemmask; ++i;}
@@ -418,7 +418,7 @@ static GF(jtgru1){A x,y;C4*wv;I i,*xv;US*u;void *yv;I c=ai*n;
 // We interpret the input as integer form so that we can hide the item number in an infinity without turning it into a NaN
 static GF(jtgriq){
  GBEGIN(-1);  // subsorts will always be ascending
- I gradedown=(~olt)>>(BW-1);  // ~0 if sorting down, else 0
+ I gradedown=REPSGN(~olt);  // ~0 if sorting down, else 0
  // See how many bits we must reserve for the item number, and make a mask for the item number
  unsigned long hbit; CTLZI(n-1,hbit); ++hbit; I itemmask=((I)1<<hbit)-1;  // mask where the item number will go
  I itemmsb=(I)1<<(BW-1-hbit); I itemsigmsk=2*-itemmsb;  // get bit at place we will shift into sign bit, and a mask for all higher bits
@@ -539,7 +539,7 @@ static GF(jtgri){A x,y;B up;I e,i,*v,*wv,*xv;UI4 *yv,*yvb;I c=ai*n;
   UI4 lgn3; CTLZI(n,lgn3); lgn3 = (UI4)((lgn3*8) - 8 + (n>>(lgn3-3)));  // approx lg(n)<<3
   rng = condrange(wv,AN(w),IMAX,IMIN,MIN((L2CACHESIZE>>LGSZI),(n*lgn3)>>(3-1)));  // let range go up to 2n lgn, but never more than L2 size
   if(!rng.range){
-   if(!BETWEENC(n,5500,500000)/* obsolete (UI)(n-5500)>(UI)(500000-5500)*/)R jtgriq(jt,m,ai,n,w,zv);  // quicksort except for 5500-500000
+   if(!BETWEENC(n,5500,500000))R jtgriq(jt,m,ai,n,w,zv);  // quicksort except for 5500-500000
    // in the middle range, we still use quicksort if the atoms have more than 2 bytes of significance.  We just spot-check rather than running condrange,
    // because the main appl is sorting timestamps, which are ALL big
    DO(10, if(0xffffffff00000000 & (0x0000000080000000+wv[i<<9]))R jtgriq(jt,m,ai,n,w,zv);)  // quicksort if more than 2 bytes of significance, sampling the input
@@ -556,7 +556,7 @@ static GF(jtgri){A x,y;B up;I e,i,*v,*wv,*xv;UI4 *yv,*yvb;I c=ai*n;
  if(!rng.range)R c==n&&n>2000?gri1(m,ai,n,w,zv):grx(m,ai,n,w,zv);  // revert to other methods if not small-range   TUNE
 #endif
  // doing small-range grade.  Allocate a hashtable area.  We will access it as UI4
- GATV0(y,C4T,rng.range,1); yvb=C4AV(y); yv=yvb-rng.min; up=(UI)jt->workareas.compare.complt>>(BW-1);
+ GATV0(y,C4T,rng.range,1); yvb=C4AV(y); yv=yvb-rng.min; up=SGNTO0(jt->workareas.compare.complt);
  // if there are multiple ints per item, we have to do multiple passes.  Allocate a workarea
  // should start in correct position to end in z
  if(1<ai){GATV0(x,INT,n,1); xv=AV(x);
@@ -607,7 +607,7 @@ static GF(jtgru){A x,y;B up;I e,i,*xv;UI4 *yv,*yvb;C4 *v,*wv;I c=ai*n;
  if(ai<=6){rng = condrange4(wv,AN(w),-1,0,(MIN(((ai*n<(L2CACHESIZE>>LGSZI))?16:4),80>>ai))*n);   //  TUNE
  }else rng.range=0;
  if(!rng.range)R c==n&&n>1500?gru1(m,ai,n,w,zv):grx(m,ai,n,w,zv);  // revert to other methods if not small-range    TUNE
- GATV0(y,C4T,rng.range,1); yvb=C4AV(y); yv=yvb-rng.min; up=(UI)jt->workareas.compare.complt>>(BW-1);
+ GATV0(y,C4T,rng.range,1); yvb=C4AV(y); yv=yvb-rng.min; up=SGNTO0(jt->workareas.compare.complt);
  if(1<ai){GATV0(x,INT,n,1); xv=AV(x);
  }
  for(i=0;i<m;++i){
@@ -658,7 +658,7 @@ static GF(jtgru){A x,y;B up;I e,i,*xv;UI4 *yv,*yvb;C4 *v,*wv;I c=ai*n;
 static GF(jtgrb){A x;B b,up;I i,p,ps,q,*xv,yv[16];UC*vv,*wv;I c=ai*n;
  UI4 lgn; CTLZI(n,lgn);
  if((UI)ai>4*lgn)R grx(m,ai,n,w,zv);     // TUNE
- q=ai>>2; p=16; ps=p*SZI; wv=UAV(w); up=(UI)jt->workareas.compare.complt>>(BW-1);
+ q=ai>>2; p=16; ps=p*SZI; wv=UAV(w); up=SGNTO0(jt->workareas.compare.complt);
  if(1<q){GATV0(x,INT,n,1); xv=AV(x);}
  for(i=0;i<m;++i){
   vv=wv+ai; b=(q&1);
@@ -673,7 +673,7 @@ static GF(jtgrc){A x;B b,q,up;I e,i,p,ps,*xv,yv[256];UC*vv,*wv;
  UI4 lgn; CTLZI(n,lgn);
  if((UI)ai>lgn)R grx(m,ai,n,w,zv);   // TUNE
  ai<<=((AT(w)>>C2TX)&1);
- p=B01&AT(w)?2:256; ps=p*SZI; wv=UAV(w); up=(UI)jt->workareas.compare.complt>>(BW-1);
+ p=B01&AT(w)?2:256; ps=p*SZI; wv=UAV(w); up=SGNTO0(jt->workareas.compare.complt);
  q=C2T&AT(w) && C_LE;
  if(1<ai){GATV0(x,INT,n,1); xv=AV(x);}
  for(i=0;i<m;++i){
@@ -786,7 +786,7 @@ F2(jtordstat){A q,t=0;I j,m,m0,m1,n,wt;D *qv;
  if(((AR(a)-1)&(4-n)&((1^AR(w))-1)&(-(wt&FL+INT)))>=0)R from(a,grade2(w,w));  // if not int/float, or short, or list a, do full grade
  if((UI)j>=(UI)n){j+=n; ASSERT((UI)j<(UI)n,EVINDEX);}
  // deal a bunch of random floats to provide pivots.  We reuse them if needed
- RZ(q=df2(sc(NRANDS),num[0],atop(ds(CQUERY),ds(CDOLLAR)))); qv=DAV(q);
+ RZ(df2(q,sc(NRANDS),num[0],atop(ds(CQUERY),ds(CDOLLAR)))); qv=DAV(q);
  if(wt&FL)OSLOOP(D,scf) else OSLOOP(I,sc);
 }    /* a{/:~w */
 

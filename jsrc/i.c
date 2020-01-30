@@ -3,6 +3,9 @@
 /*                                                                         */
 /* Initializations                                                         */
 
+#ifdef _WIN32
+#include <windows.h>
+#endif
 #include "j.h"
 #include "w.h"
 #include "cpuinfo.h"
@@ -129,6 +132,11 @@ B jtglobinit(J jt){A x,y;D*d;A *oldpushx=jt->tnextpushp;
  pinit();
 
  cpuInit();
+#if defined(__aarch64__)
+ hwaes=(getCpuFeatures()&ARM_HWCAP_AES)?1:0;
+#elif (defined(__i386__) || defined(_M_X64) || defined(__x86_64__))
+ hwaes=((getCpuFeatures()&CPU_X86_FEATURE_SSE4_1)&&(getCpuFeatures()&CPU_X86_FEATURE_AES_NI))?1:0;
+#endif
 #if C_AVX && !defined(ANDROID)
  hwfma=(getCpuFeatures()&CPU_X86_FEATURE_FMA)?1:0;
 #endif
@@ -196,7 +204,7 @@ if(((-1) >> 1) != -1)*(I *)4 = 104;
 jt->asgzomblevel = 1;  // allow premature change to zombie names, but not data-dependent errors
 jt->assert = 1;
  RZ(jt->bxa=cstr("+++++++++|-")); jt->bx=CAV(jt->bxa);
- /* obsolete y=1.0; DQ(44, y*=0.5;); */ jt->cctdefault=jt->cct= 1.0-FUZZ; jt->fuzz=FUZZ;
+ jt->cctdefault=jt->cct= 1.0-FUZZ; jt->fuzz=FUZZ;
  jt->disp[0]=1; jt->disp[1]=5;
  jt->fcalln=NFCALL;
 #if USECSTACK
@@ -234,6 +242,21 @@ jt->assert = 1;
 }
 
 static C jtjinit3(J jt){S t;
+#if defined(USE_THREAD)
+#ifdef _WIN32
+ if ((jt->plock=(I)CreateMutex(NULL,FALSE,NULL)) == 0) {
+  VLOGFD("jt %p mutex init failed rc %u\n",jt,GetLastError());
+  return 0;
+ }
+#else
+ int rc;
+ if ((rc=pthread_mutex_init(&jt->plock, NULL)) != 0) {
+  VLOGFD("jt %p mutex init failed rc %d\n",jt,rc);
+  return 0;
+ }
+#endif
+ jt->ptid=-1;
+#endif
 /* required for jdll and doesn't hurt others */
  gjt=jt; // global jt for JPF debug
  MC(jt->typesizes,typesizes,sizeof(jt->typesizes));  // required for ma.
@@ -252,7 +275,7 @@ static C jtjinit3(J jt){S t;
  jt->thornuni=0;  // init to non-unicode (normal) state
  jt->jprx=0;      // init to non jprx jconsole output (normal) state
  meminit();
-extern void * HeapAlloc();
+// extern void * HeapAlloc();
  sesminit();
  evinit();
  consinit();

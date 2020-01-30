@@ -16,23 +16,29 @@
 #endif
 #include <signal.h>
 #include <stdint.h>
+#include <locale.h>
+#ifdef __MACH__
+#include <xlocale.h>
+#endif
 
 #include "j.h"
 #include "jeload.h"
 
 #define J_STACK  0x1000000uL // 16mb
 
+static int forceprmpt=0;   /* emit prompt even if isatty is false */
 static int breadline=0;    /* 0: none  1: libedit  2: linenoise */
 static int norl=0;         /* disable readline/linenoise */
-static int forceprmpt=0;   /* emit prompt even if isatty is false */
 static char **adadbreak;
 static void sigint(int k){**adadbreak+=1;signal(SIGINT,sigint);}
 static void sigint2(int k){**adadbreak+=1;}
 static char input[30000];
 
-#if defined(_WIN32)
-#undef READLINE
+#if defined(ANDROID) || defined(_WIN32)
 #undef USE_LINENOISE
+#ifdef READLINE
+#define USE_LINENOISE
+#endif
 #endif
 /* J calls for keyboard input (debug suspension and 1!:1[1) */
 /* we call to get next input */
@@ -112,7 +118,11 @@ if(hist)
 		char* s;
 		hist=0;
 		histfile[0]=0;
+#ifdef _WIN32
+		s=getenv("USERPROFILE");
+#else
 		s=getenv("HOME");
+#endif
 		if(s)
 		{
 			strcpy(histfile,s);
@@ -134,7 +144,7 @@ if(hist)
 
 char* Jinput_stdio(char* prompt)
 {
-  if(forceprmpt||_isatty(_fileno(stdin))){
+  if(prompt&&strlen(prompt)){
 	fputs(prompt,stdout);
 	fflush(stdout); /* windows emacs */
   }
@@ -142,7 +152,7 @@ char* Jinput_stdio(char* prompt)
 	{
 #ifdef _WIN32
 		/* ctrl+c gets here for win */
-		if(!_isatty(_fileno(stdin))) return "2!:55''";
+		if(!(forceprmpt||_isatty(_fileno(stdin)))) return "2!:55''";
 		fputs("\n",stdout);
 		fflush(stdout);
 		**adadbreak+=1;
@@ -204,7 +214,18 @@ J jt;
 
 int main(int argc, char* argv[])
 {
- void* callbacks[] ={Joutput,0,Jinput,0,(void*)SMCON}; int type; int flag=0,remove=0;
+ setlocale(LC_ALL, "");
+#if !(defined(ANDROID)||defined(_WIN32))
+ locale_t loc;
+ if ((loc = newlocale(LC_NUMERIC_MASK, "C", (locale_t) 0))) uselocale(loc);
+#else
+ setlocale(LC_NUMERIC,"C");
+#endif
+#if defined(USE_THREAD)
+ void* callbacks[] ={Joutput,0,Jinput,0,(void*)(SMCON|(SMOPTMTH<<8))}; int type;
+#else
+ void* callbacks[] ={Joutput,0,Jinput,0,(void*)SMCON}; int type;
+#endif
  int i,poslib=0,poslibpath=0,posnorl=0,posprmpt=0; // assume all absent
  for(i=1;i<argc;i++){
   if(!poslib&&!strcmp(argv[i],"-lib")){poslib=i; if((i<argc-1)&&('-'!=*(argv[i+1])))poslibpath=i+1;}
@@ -237,6 +258,22 @@ int main(int argc, char* argv[])
  }
 #endif
 #ifdef READLINE
+  norl|=!_isatty(_fileno(stdin));    // readline works on tty only
+#if defined(USE_LINENOISE)
+  if(!norl){
+   char *term;
+   term=getenv("TERM");
+   if(term){
+    static const char *unsupported_term[] = {"dumb","cons25","emacs",NULL};
+    int j;
+    for(j=0; unsupported_term[j]; j++)
+     if (strcmp(term, unsupported_term[j]) == 0) {norl=1; break; }
+   }
+  }
+#ifdef _WIN32
+  if(!norl) norl|=!!getenv("SHELL");  // only works on real windows terminals
+#endif
+#endif
   if(!norl&&_isatty(_fileno(stdin)))
    breadline=readlineinit();
 #endif
@@ -277,7 +314,10 @@ int main(int argc, char* argv[])
   _setmode( _fileno( stdin ), _O_TEXT ); //readline filters '\r' (so does this)
 #endif
  jefirst(type,input);
- while(1){jedo((char*)Jinput(jt,(C*)"   "));}
+ while(1){jedo((char*)Jinput(jt,(forceprmpt||_isatty(_fileno(stdin)))?(C*)"   ":(C*)""));}
  jefree();
+#if !(defined(ANDROID)||defined(_WIN32))
+ if(loc)freelocale(loc);
+#endif
  return 0;
 }

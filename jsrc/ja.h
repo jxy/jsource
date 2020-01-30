@@ -228,10 +228,12 @@
 #define detr(x)                     jtdetr(jt,(x))
 #define detxm(x,y)                  jtdetxm(jt,(x),(y))
 #define detz(x)                     jtdetz(jt,(x))
-#define df1(x,y)                    jtdf1(jt,(x),(y))  
-#define df2(x,y,z)                  jtdf2(jt,(x),(y),(z))  
-#define df1ip(x,y)                  jtdf1(jtinplace,(x),(y))  
-#define df2ip(x,y,z)                jtdf2(jtinplace,(x),(y),(z))  
+// obsolete #define df1(x,y)                    jtdf1(jt,(x),(y))  
+// obsolete #define df2(x,y,z)                  jtdf2(jt,(x),(y),(z))  
+#define df1(r,x,y)                  ((r=(y))?(r=(FAV(r)->valencefns[0])(jt,(x),r)):r)
+#define df2(r,x,y,z)                ((r=(z))?(r=(FAV(r)->valencefns[1])(jt,(x),(y),r)):r)
+// obsolete #define df1ip(x,y)                  jtdf1(jtinplace,(x),(y))  
+// obsolete #define df2ip(x,y,z)                jtdf2(jtinplace,(x),(y),(z))  
 #define dfc(x,y)                    jtdfc(jt,(x),(y))
 #define dfr(x)                      jtdfr(jt,(x))
 #define dfrep(x)                    jtdfrep(jt,(x))
@@ -289,7 +291,7 @@
 #define ecvt(x0,x1,x2,x3,x4)        jtecvt(jt,(x0),(x1),(x2),(x3),(x4))
 #define efflev(x,y,z)               jtefflev(jt,(x),(y),(z))
 #define efmt(x,y)                   jtefmt(jt,(x),(y))
-#define efr(z,ar,r)                 (z = ((r)>(ar)?(ar):(r))+(((r)>>(BW-1))&(ar)), z=(z<0)?0:z)  // effective rank: ar is rank of argument, r is rank of verb (may be negative), z becomes rank of argument cell
+#define efr(z,ar,r)                 (z = ((r)>(ar)?(ar):(r))+(REPSGN(r)&(ar)), z=(z<0)?0:z)  // effective rank: ar is rank of argument, r is rank of verb (may be negative), z becomes rank of argument cell
 #define enframe(x)                  jtenframe(jt,(x))
 #define enqueue(x,y,z)              jtenqueue(jt,(x),(y),(z))
 #define ep(x,y)                     jtep(jt,(x),(y))
@@ -339,10 +341,17 @@
 #define extnvr()                    jtextnvr(jt)
 // Handle top level of fa(), which decrements use count and decides whether recursion is needed.  We recur if the contents are traversible and
 // the current block is being decremented to 0 usecount or does not have recursive usecount
-// fa() audits the tstack, for use outside the usual system
-#define fa(x)                       {if(x){I Zc=AC(x); if(!ACISPERM(Zc)){I tt=AT(x); I Zczero=-(I )(--Zc<=0); if((tt&=TRAVERSIBLE)&(Zczero|~AFLAG(x)))jtfa(jt,(x),tt); if(Zczero){jtmf(jt,x);}else {AC(x)=Zc; if(MEMAUDIT&2)audittstack(jt);}}}}
+// fa() audits the tstack, for use outside the usual system.
+// Zczero is ~0 if usecount is going negative, 0 otherwise.  Usecount 1->0, 8..1->8..2, 4..0 unchanged, others decrement
+// obsolete #define fa(x)                       {if(x){I Zc=AC(x); if(!ACISPERM(Zc)){I tt=AT(x); I Zczero=-(I )(--Zc<=0); if((tt&=TRAVERSIBLE)&(Zczero|~AFLAG(x)))jtfa(jt,(x),tt); if(Zczero){jtmf(jt,x);}else {AC(x)=Zc; if(MEMAUDIT&2)audittstack(jt);}}}}
+#define fa(x)                       {if(x){I Zc=AC(x); AC(x)=Zc=Zc-1+((UI)Zc>>(BW-2)); I tt=AT(x); Zc=REPSGN(Zc-1); if((tt&=TRAVERSIBLE)&(Zc|~AFLAG(x)))jtfa(jt,(x),tt); if(Zc){jtmf(jt,x);}else {if(MEMAUDIT&2)audittstack(jt);}}}
 // Within the tpush/tpop, no need to audit fa, since it was checked on the push
-#define fana(x)                     {if(x){I Zc=AC(x); if(!ACISPERM(Zc)){I tt=AT(x); I Zczero=-(I )(--Zc<=0); if((tt&=TRAVERSIBLE)&(Zczero|~AFLAG(x)))jtfa(jt,(x),tt); if(Zczero){jtmf(jt,x);}else {AC(x)=Zc;}}}}
+// obsolete #define fana(x)                     {if(x){I Zc=AC(x); if(!ACISPERM(Zc)){I tt=AT(x); I Zczero=-(I )(--Zc<=0); if((tt&=TRAVERSIBLE)&(Zczero|~AFLAG(x)))jtfa(jt,(x),tt); if(Zczero){jtmf(jt,x);}else {AC(x)=Zc;}}}}
+#define fana(x)                     {if(x){I Zc=AC(x); AC(x)=Zc=Zc-1+((UI)Zc>>(BW-2)); I tt=AT(x); Zc=REPSGN(Zc-1); if((tt&=TRAVERSIBLE)&(Zc|~AFLAG(x)))jtfa(jt,(x),tt); if(Zc){jtmf(jt,x);}}}
+// when x is known to be valid
+#define fanano0(x)                  {I Zc=AC(x); AC(x)=Zc=Zc-1+((UI)Zc>>(BW-2)); I tt=AT(x); Zc=REPSGN(Zc-1); if((tt&=TRAVERSIBLE)&(Zc|~AFLAG(x)))jtfa(jt,(x),tt); if(Zc){jtmf(jt,x);}}
+// Within tpop, no need to check ACISPERM; Zczero is ~0; and we should recur only if flag indicates RECURSIBLE.  In that case we can reconstruct the type from the flag
+#define fanapop(x,flg)              {if((flg)&RECURSIBLE)jtfa(jt,(x),(flg)&RECURSIBLE); jtmf(jt,x);}
 #define fac_ecm(x)                  jtfac_ecm(jt,(x))
 #define facit(x)                    jtfacit(jt,(x))
 #define fact(x)                     jtatomic1(jt,(x),ds(CBANG))
@@ -352,7 +361,7 @@
 // Allocate an INT block. z is the zvalue to hold the result; v is the fauxblock to use if n INTs will fit in the fauxblock, which has rank r
 // shape is not filled in, except when rank is 1; therefore shape will be 0 in any call to GATV
 // scaf We should mark the blocks as NJA for good form, but that messes up relative processing.  Revisit when all trace of boxed mmas has been expunged
-#define fauxINT(z,v,n,r) {if(AKXR(r)+(n)*SZI<=sizeof(v)){z=(A)(v); AK(z)=AKXR(r); AFLAG(z)=0/*AFNJA*/; AT(z)=INT; AC(z)=ACUC1; AN(z)=(n); AR(z)=(RANKT)(r); if(r==1)AS(z)[0]=(n);}else{GATV0(z,INT,(n),(r));}}
+#define fauxINT(z,v,n,r) {if(AKXR(r)+(n)*SZI<=(I)sizeof(v)){z=(A)(v); AK(z)=AKXR(r); AFLAG(z)=0/*AFNJA*/; AT(z)=INT; AC(z)=ACUC1; AN(z)=(n); AR(z)=(RANKT)(r); if(r==1)AS(z)[0]=(n);}else{GATV0(z,INT,(n),(r));}}
 // v is a block declared by fauxblock, w is the source data, r is the rank.  offset is assumed 0.  c is the initial value for AC.  If the rank is small enough, we use the fauxblock, otherwise
 // we allocate a block.  We assume that the caller will fill in AN, AS.  Block must be marked UNINCORPABLE so it will not free its backer if freed, and so it will not be in-place virtualed
 #define fauxvirtual(z,v,w,r,c) {if(r<=4){z=ABACK(w); AK((A)(v))=(CAV(w)-(C*)(v)); AT((A)(v))=AT(w); AR((A)(v))=(RANKT)r; AFLAG((A)(v))=AFVIRTUAL|AFUNINCORPABLE/*|AFNJA*/; z=AFLAG(w)&AFVIRTUAL?z:w; ABACK((A)(v))=z; z=(A)(v);} \
@@ -847,7 +856,8 @@
 // If this is a recursible type, make it recursible if it isn't already, by traversing the descendants.  This is like raising the usecount by 0.
 #define ra0(x)                      {I tt=AT(x); FLAGT flg=AFLAG(x); if((tt^flg)&RECURSIBLE){if(flg&AFVIRTUAL){RZ((x)=realize(x)); flg=AFLAG(x);} AFLAG(x)=flg|=(tt&RECURSIBLE); if(!(flg&(AFNJA))&&AC(x)>=2&&AC(x)<0x3000000000000000)SEGFAULT jtra(jt,(x),tt);}}
 #else
-#define ra(x)                       {I c=AC(x); if(!ACISPERM(c)){I tt=AT(x); FLAGT flg=AFLAG(x); if((tt^flg)&TRAVERSIBLE){AFLAG(x)=flg|=(tt&RECURSIBLE); jtra(jt,(x),tt);}; AC(x)=(c+1)&~ACINPLACE;}}
+// obsolete #define ra(x)                       {I c=AC(x); if(!ACISPERM(c)){I tt=AT(x); FLAGT flg=AFLAG(x); if((tt^flg)&TRAVERSIBLE){AFLAG(x)=flg|=(tt&RECURSIBLE); jtra(jt,(x),tt);}; AC(x)=(c+1)&~ACINPLACE;}}
+#define ra(x)                       {I c=AC(x); c&=~ACINPLACE; AC(x)=c+=(c>>(BW-2))^1; I tt=AT(x); FLAGT flg=AFLAG(x); if((tt^flg)&TRAVERSIBLE){AFLAG(x)=flg|=(tt&RECURSIBLE); jtra(jt,(x),tt);};}
 // If this is a recursible type, make it recursible if it isn't already, by traversing the descendants.  This is like raising the usecount by 0.  Since we aren't liable to assign the block, we don't have to realize a
 // virtual block unless it is a recursible type.  NOTE that PERMANENT blocks are always marked recursible if they are of recursible type
 #define ra0(x)                      {I tt=AT(x); FLAGT flg=AFLAG(x); if((tt^flg)&RECURSIBLE){if(flg&AFVIRTUAL){RZ((x)=realize(x)); flg=AFLAG(x);} AFLAG(x)=flg|=(tt&RECURSIBLE); jtra(jt,(x),tt);}}

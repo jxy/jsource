@@ -30,12 +30,6 @@ D   jnan=0;               /* _.                                   */
 C   minus0[8]={0};        /* the abominable minus 0               */
 A   mtm=0;                /* i. 0 0                               */
 A   mtv=0;                /* i.0                                  */
-// obsolete A   mnam=0;               /* m as a name                          */
-// obsoleteA   nnam=0;               /* n as a name                          */
-// obsoleteA   unam=0;               /* u as a name                          */
-// obsoleteA   vnam=0;               /* v as a name                          */
-// obsoleteA   xnam=0;               /* x as a name                          */
-// obsoleteA   ynam=0;               /* y as a name                          */
 A   mnuvxynam[6]={0,0,0,0,0,0};   // name blocks for all arg names
 A   numv[NUMMAX-NUMMIN+1]={0};
 A   zeroionei[2]={0,0};   // integer 0 and 1
@@ -54,6 +48,7 @@ A   zpath=0;              /* default locale search path           */
 uint64_t g_cpuFeatures;   // blis
 A   pst[256]={0};
 A   chr[256]={0};         /* scalar for each character, or 0      */
+UC  hwaes=0;              // hardware aes support
 UC  hwfma=0;              // blis cpu tuning
 C   wtype[256]={0};
 

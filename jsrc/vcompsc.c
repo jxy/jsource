@@ -83,7 +83,7 @@
 #define JNDBR(yy)      if(r&&(y=yy))DO(r, if(yv[r-1-i])R sc(n-1-i););
 
 #define ASSIGNX(v)     {x=*(C*)v; x|=x<<8; x|=x<<16; x|=x<<(32&(BW-1)); }
-#define INDB3          {n=(UI)n>i*SZI+(CTTZI(y)>>LGBB)?i*SZI+(CTTZI(y)>>LGBB):n; break;}
+#define INDB3          {n=(UI)n>i*(UI)SZI+(CTTZI(y)>>LGBB)?i*SZI+(CTTZI(y)>>LGBB):n; break;}
 #define JNDB3          {UI4 bitno; CTLZI(y,bitno); n=(i*SZI+(bitno>>LGBB)); break;}
 
 #define INDB(f,T0,T1,F)  \
@@ -96,10 +96,6 @@
   else           {             DO(q, if(y=F(*av++,*wv++))INDB3;);}  \
   R sc(n);                                                                        \
  }
-#if 0 // obsolete 
-  wn=AN(w); wv=AV(w); n=AR(a)&&AR(w)?MAX(an,wn):AR(a)?an:wn;                      \
-
-#endif
 
 #define JNDB(f,T0,T1,F)  \
  static F2(f){I an,*av,n,q,r,wn,*wv,x,y;                                             \

@@ -9,6 +9,9 @@
 
 #if  (SYS & SYS_UNIX)   /*   IVL   */
 #include <sys/stat.h>
+#if defined(USE_THREAD)
+#include <pthread.h>
+#endif
 #endif
 
 /*
@@ -151,6 +154,7 @@ typedef struct {
  I    zgemm_thres;      // used by cip.c: when m*n*p exceeds this, use BLAS for complex matrix product.  _1 means 'never'
  A    implocref[2];     // references to 'u.'~ and 'v.'~, marked as implicit locatives
  I4   parsercalls;      /* # times parser was called                       */
+ I4   nthreads;  // number of threads to use, or 0 if we haven't checked
  A*   tstacknext;       // if not 0, points to the recently-used tstack buffer, whose chain field points to tstacknext
  A*   tstackcurr;       // current allocation, holding NTSTACK bytes+1 block for alignment.  First entry points to next-lower allocation
  D    cct;               /* complementary comparison tolerance                            */
@@ -176,7 +180,6 @@ typedef struct {
 #endif
 
 // unordered symbols follow
-// A    local;            /* local symbol table       scaf                       */
  A    symb;             /* symbol table for assignment                     */
 #if !C_CRC32C
  I    hin;              /* used in dyad i. & i:                            */
@@ -347,6 +350,16 @@ union {
  C    etx[1+NETX];      // display text for last error (+1 for trailing 0)  fits in main page
  LS   callstack[1+NFCALL]; // named fn calls: stack.  Usually only a little is used; the rest overflows onto a new DRAM page
  C    breakfn[NPATH];   /* break file name                                 */
+#if defined(USE_THREAD)
+#ifdef _WIN32
+ I plock;
+#else
+ pthread_mutex_t plock;
+#endif
+ I    plocked;   // depth of re-entrance
+ I    ptid;      // thread id
+#endif
+ UC   cstacktype;  /* cstackmin set during 0: jt init  1: passed in JSM  2: set in JDo */
 } JST;
 
 typedef JST* J; 

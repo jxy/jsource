@@ -738,7 +738,7 @@ static CCT*jtcdload(J jt,CCT*cc,C*lib,C*proc){B ha=0;FARPROC f;HMODULE h;
  /* search path and case can cause us to reload the same dll         */
  if(cc->cc){C buf[SY_64?21:12];I k,n;
   n=strlen(proc);
-  CDASSERT(n&&n<sizeof(buf),DEBADFN);
+  CDASSERT(BETWEENO(n,1,sizeof(buf)),DEBADFN);
   k='_'==*proc?-strtoI(1+proc,0L,10):strtoI(proc,0L,10);
   CDASSERT(k&&'0'==*lib||0<=k&&'1'==*lib,DEBADFN);
   sprintf(buf,FMTI,k); if(0>k)*buf='_';
@@ -921,13 +921,6 @@ static I*jtconvert0(J jt,I zt,I*v,I wt,C*u){D p,q;I k=0;US s;C4 s4;
   if(p<(D)IMIN){if(!(p>=IMIN*(1+FUZZ)))R 0; rq=IMIN;}  // if tolerantly < IMIN, error; else take IMIN
   else if(p>=-(D)IMIN){if(!(p<=IMAX*(1+FUZZ)))R 0; rq=IMAX;}  // if tolerantly > IMAX, error; else take IMAX
   *v=rq;
-#if 0 // obsolete
-   p=*(D*)u; q=jfloor(p);
-   if(p<IMIN*(1+jt->fuzz)||IMAX*(1+jt->fuzz)<p)R 0;
-   if         (FEQ(p,q)){k=(I)q; *v=SGN(k)==SGN(q)?k:0>q?IMIN:IMAX;}
-   else if(++q,FEQ(p,q)){k=(I)q; *v=SGN(k)==SGN(q)?k:0>q?IMIN:IMAX;}
-   else R 0;
-#endif
 #else
    p=*(D*)u; q=jfloor(p);
    if(p<IMIN*(1+jt->fuzz)||IMAX*(1+jt->fuzz)<p)R 0;
@@ -1407,18 +1400,18 @@ F1(jtcdproc1){CCT*cc;
 
 #if SY_WIN32 && defined(OLECOM)
 #define VARIANT void
-int _stdcall JBreak(J jt);
-int _stdcall JIsBusy(J jt);
-int _stdcall JGet(J jt, C* name, VARIANT* v);
-int _stdcall JGetB(J jt, C* name, VARIANT* v);
-int _stdcall JSet(J jt, C* name, VARIANT* v);
-int _stdcall JSetB(J jt, C* name, VARIANT* v);
-int _stdcall JErrorText(J jt, long ec, VARIANT* v);
-int _stdcall JClear(J jt);
-int _stdcall JTranspose(J jt, long b);
-int _stdcall JErrorTextB(J jt, long ec, VARIANT* v);
-int _stdcall JDoR(J jt, C* p, VARIANT* v);
-int _stdcall JInt64R(J jt, long b);
+CDPROC int _stdcall JBreak(J jt);
+CDPROC int _stdcall JIsBusy(J jt);
+CDPROC int _stdcall JGet(J jt, C* name, VARIANT* v);
+CDPROC int _stdcall JGetB(J jt, C* name, VARIANT* v);
+CDPROC int _stdcall JSet(J jt, C* name, VARIANT* v);
+CDPROC int _stdcall JSetB(J jt, C* name, VARIANT* v);
+CDPROC int _stdcall JErrorText(J jt, long ec, VARIANT* v);
+CDPROC int _stdcall JClear(J jt);
+CDPROC int _stdcall JTranspose(J jt, long b);
+CDPROC int _stdcall JErrorTextB(J jt, long ec, VARIANT* v);
+CDPROC int _stdcall JDoR(J jt, C* p, VARIANT* v);
+CDPROC int _stdcall JInt64R(J jt, long b);
 #endif
 
 // procedures in jlib.h

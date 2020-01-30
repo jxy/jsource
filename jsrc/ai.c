@@ -31,7 +31,7 @@ static F1(jtinvfork){A f,fi,g,gi,h,k;B b,c;V*v;
  if(CCAP==ID(f))R fong(invrecur(h),invrecur(g));
  c=1&&NOUN&AT(f); b=c||consf(f);
  ASSERT(b!=consf(h),EVDOMAIN);
- RZ(k=c?f:df1(num[0],b?f:h));
+ RZ(k=c?f:df1(gi,num[0],b?f:h));
  RZ(gi=invrecur(b?amp(k,g):amp(g,k)));
  RZ(fi=invrecur(b?h:f));
  if(CAMP==ID(gi)){
@@ -91,7 +91,7 @@ static F1(jtbminv){A*wv,x,z=w;I i,j,m,r,*s,t=0,*u,**v,*y,wn,wr,*ws;
    if(2>AR(x)){DO(wr, hv[i]=*(v[i]+u[i]);); RZ(zv[i]=diag(x,reshape(h,f)));}
    j=wr-1; while(1){--j; ++u[j]; if(ws[j]>u[j])break; u[j]=0;}
  }}
- DO(wr, RZ(z=df1(z,slash(under(qq(ds(CCOMMA),sc(wr-i)),ds(COPE))))););
+ DO(wr, A t=z; RZ(df1(z,t,slash(under(qq(ds(CCOMMA),sc(wr-i)),ds(COPE))))););
  RETF(ope(z));
 }    /* <;.1 or <;.2 inverse on matrix argument */
 
@@ -131,7 +131,6 @@ static F1(jtinvamp){A f,ff,g,h,x,y;B nf,ng;C c,d,*yv;I n;V*u,*v;
    R amp(sc(-n),h);
   case CUCO:
    ASSERT(nf,EVDOMAIN); 
-// obsolete    RE(n=i0(x)); ASSERT(1<=n&&n<=4||7<=n&&n<=8,EVDOMAIN);
    RE(n=i0(x)); ASSERT(BETWEENC(n,1,8)&!BETWEENC(n,5,6),EVDOMAIN);
    R amp(sc(-(1^(-n))),h);
   case CCANT:    
@@ -172,17 +171,6 @@ static F1(jtinvamp){A f,ff,g,h,x,y;B nf,ng;C c,d,*yv;I n;V*u,*v;
    if(!nf)break;
    R AR(x) ? amp(x,ds(CABASE)) : 
     obverse(evc(x,mag(x),"$&x@>:@(y&(<.@^.))@(1&>.)@(>./)@:|@, #: ]"),w);
-// obsolete   case CBANG:
-// obsolete    ASSERT(!AR(x),EVRANK);
-// obsolete    ASSERT(all1(lt(zeroionei[0],x)),EVDOMAIN);
-// obsolete    GAT0(y,BOX,9,1); q=AAV(y);
-// obsolete    q[0]=cstr("3 :'(-("); q[1]=q[3]=lrep(w);
-// obsolete    q[2]=cstr("-y\"_)%1e_3&* "); q[4]=cstr("\"0 D:1 ])^:_[");
-// obsolete    h=lrep(x);
-// obsolete   if(nf){q[5]=over(over(h,cstr("&<@|@{:}")),over(h,cstr(",:"))); q[6]=over(h,cstr("%:y*!")); q[7]=h;}
-// obsolete    else  {q[5]=cstr("1>.{.@/:\"1|y-/(i.!])"); q[6]=h; q[7]=mtv;}
-// obsolete    RE(q[8]=cstr("'")); RZ(y=raze(y));
-// obsolete    R obverse(eval(CAV(str0(y))),w);
   case CATOMIC:
    if(ng){ASSERT(equ(x,nub(x)),EVDOMAIN); R obverse(atop(f,amp(x,ds(CIOTA))),w);}  // fall through to common obverse (?)
   case CCYCLE:
@@ -266,7 +254,6 @@ A jtinv(J jt, A w, I recur){A f,ff,g;B b,nf,ng,vf,vg;C id,*s;I p,q;V*v;
   case CSTARDOT: R eval("r./\"1\"_ :. *.");
   case CDGRADE:  R eval("/:@|.");
   case CWORDS:   R eval("}:@;@(,&' '&.>\"1) :. ;:");
-// obsolete   case CBANG:    R eval("3 :'(-(!-y\"_)%1e_3&* !\"0 D:1 ])^:_ <.&170^:(-:+)^.y' :. !");
   case CBANG:    R eval("3 : '(-(y -~ !)%0.001&* (0.001%~[:-/[:! 0.001 0 +/ ]) ])^:_<.&170^:(-:+)^.y' :. !");
   case CXCO:     R amp(num[-1],w);
   case CSPARSE:  R fdef(0,CPOWOP,VERB,jtdenseit,0L, w,num[-1],0L, VFLAGNONE, RMAX,RMAX,RMAX);
@@ -368,7 +355,7 @@ F1(jtiden){A f,g,x=0;V*u,*v;
                 x=num[1]; break;
   case CMAX:    x=scf(infm); break;
   case CMIN:    x=ainf; break;
-  case CUNDER:  x=df1(df1(mtv,iden(f)),inv(g)); break;
+  case CUNDER:  ; A t; df1(x,df1(t,mtv,iden(f)),inv(g)); break;
   case CAT:
    if(CAMP==ID(f)&&(u=FAV(f),NOUN&AT(u->fgh[0])&&!AR(u->fgh[0])&&CSTILE==ID(u->fgh[1])))switch(ID(g)){
     case CSTAR: case CEXP: x=num[1];  break;

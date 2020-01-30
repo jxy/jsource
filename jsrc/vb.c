@@ -13,7 +13,7 @@ BPFX(nandBB, NAND,BNAND,NAND,BNAND, _mm256_xor_pd(bool256,_mm256_and_pd(u256,v25
 BPFX( norBB, NOR ,BNOR, NOR, BNOR, _mm256_xor_pd(bool256,_mm256_or_pd(u256,v256)) , , __m256d bool256=_mm256_castsi256_pd(_mm256_set1_epi64x(0x0101010101010101)); )
 
 
-F1(jtrazein){R df2(w,box(raze(w)),amp(swap(ds(CEPS)),ds(COPE)));}
+F1(jtrazein){A z; R df2(z,w,box(raze(w)),amp(swap(ds(CEPS)),ds(COPE)));}
 
 
 static F2(jtebarmat){A ya,yw,z;B b,*zv;C*au,*av,*u,*v,*v0,*wu,*wv;I*as,c,i,k,m,n,r,s,si,sj,t,*ws;
@@ -44,7 +44,6 @@ static F2(jtebarvec){A y,z;B*zv;C*av,*wv,*yv;I an,k,n,s,t,wn;
  wn=AN(w); wv=CAV(w); n=1+wn-an; 
  t=AT(w); k=bpnoun(t); s=k*an;
  GATV0(z,B01,wn,AR(w)?1:0); zv=BAV(z); 
-// obsolete  if(an&&wn>an)memset(zv+n,C0,wn-n); else memset(zv,C0,wn);
  if((-an&(an-wn))<0)memset(zv+n,C0,wn-n); else memset(zv,C0,wn);
  if(t&B01+LIT+C2T+C4T+INT+SBT||1.0==jt->cct&&t&FL+CMPX)DO(n, zv[i]=!memcmp(av,wv,s); wv+=k;)
  else{GA(y,t,an,AR(a),0); yv=CAV(y); DO(n, MC(yv,wv,s); zv[i]=equ(a,y); wv+=k;);}
@@ -64,7 +63,6 @@ static I jtebarprep(J jt,A a,A w,A*za,A*zw,I*zc){I ar,at,m,n,t,wr,wt,memlimit;CR
  ar=AR(a); at=AT(a); m=AN(a);
  wr=AR(w); wt=AT(w); n=AN(w);
  ASSERT(!((at|wt)&SPARSE),EVNONCE);
-// obsolete  ASSERT(ar==wr||!ar&&1==wr,EVRANK);
  ASSERT(ar==wr||(ar+(wr^1))==0,EVRANK);
  if(m&&n&&!HOMO(at,wt))R -1;
  if(1<wr)R 2==wr?-2:-3;
@@ -95,8 +93,7 @@ static I jtebarprep(J jt,A a,A w,A*za,A*zw,I*zc){I ar,at,m,n,t,wr,wt,memlimit;CR
  *zc=rng.min;  // Now that we know c, return it
  // if the range of integers is too big, revert to simple search.
  // Also revert for continuous type.  But always use fast search for character/boolean types
-// obsolete  R t&B01+LIT+C2T||t&INT+SBT+C4T&&0<rng.range&&rng.range<=memlimit ? rng.range : -4;
- R t&B01+LIT+C2T||t&INT+SBT+C4T&&BETWEENC(rng.range,1,memlimit)/* obsolete (UI)(rng.range-1)<=(UI)(memlimit-1)*/ ? rng.range : -4;
+ R t&B01+LIT+C2T||t&INT+SBT+C4T&&BETWEENC(rng.range,1,memlimit) ? rng.range : -4;
 }
 
 #define EBLOOP(T,SUB0,SUB1,ZFUNC)  \
@@ -114,7 +111,7 @@ F2(jtebar){PROLOG(0065);A y,z;B*zv;C*av,*wv;I c,d,i,k=0,m,n,p,*yv;
  switch(d){
   case -1: R reshape(shape(w),num[0]);
   case -2: R ebarmat(a,w);
-  case -3: R df2(shape(a),w,cut(amp(a,ds(CMATCH)),num[3]));
+  case -3: R df2(z,shape(a),w,cut(amp(a,ds(CMATCH)),num[3]));
   case -4: R ebarvec(a,w);
  }
  GATV0(z,B01,n,AR(w)); zv=BAV(z); memset(zv,C0,n);

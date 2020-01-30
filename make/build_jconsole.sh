@@ -2,6 +2,11 @@
 source "$(cd "$(dirname "$BASH_SOURCE")"&&pwd)/jvars.sh"
 
 USE_LINENOISE="${USE_LINENOISE:=1}"
+USE_THREAD="${USE_THREAD:=0}"
+if [ $USE_THREAD -eq 1 ] ; then
+USETHREAD=" -DUSE_THREAD "
+# LDTHREAD=" -pthread "
+fi
 common=" -march=native -fPIC -O1 -Wextra -Wno-unused-parameter "
 OBJSLN=""
 

@@ -7,7 +7,7 @@
 // TODO: remove idiv from keymean
 
 // This is the derived verb for f/. y
-static DF1(jtoblique){A x,y;I m,n,r;D rkblk[16];
+static DF1(jtoblique){A x,y,z;I m,n,r;D rkblk[16];
  RZ(w);
  r=AR(w);  // r = rank of w
  // create y= ,/ w - the _2-cells of w arranged in a list (virtual block)
@@ -16,12 +16,12 @@ static DF1(jtoblique){A x,y;I m,n,r;D rkblk[16];
  A xm; RZ(xm=IX(m)); A xn; RZ(xn=IX(n));
  RZ(x=ATOMIC2(jt,xm,xn,rkblk,0L,1L,CPLUS)); AR(x)=1; *AS(x)=AN(x);
  // perform x f/. y, which does the requested operation, collecting the identical keys
- RZ(x=df2(x,y,sldot(VAV(self)->fgh[0])));
+ RZ(df2(z,x,y,sldot(VAV(self)->fgh[0])));
  // Final tweak: the result should have (0 >. <: +/ 2 {. $y) cells.  It will, as long as
  // m and n are both non0: when one is 0, result has 0 cells (but that cell is the correct result
  // of execution on a fill-cell).  Correct the length of the 0 case, when the result length should be nonzero
 // if((m==0 || n==0) && (m+n>0)){R reitem(sc(m+n-1),x);}  This change withdrawn pending further deliberation
- RETF(x);
+ RETF(z);
 }
 
 
@@ -112,8 +112,7 @@ DF2(jtpolymult){A f,g,y,z;B b=0;C*av,c,d,*wv;I at,i,j,k,m,m1,n,p,t,wt,zn;V*v;
  v=FAV(self);  // f//. 
  f=v->fgh[0]; y=FAV(f)->fgh[0]; y=VAV(y)->fgh[0]; c=vaid(y);  // f/, then f
  g=v->fgh[1]; y=VAV(g)->fgh[0];              d=vaid(y);   // g taken from g/
-// obsolete  if(!(m&&1==AR(a)&&n&&1==AR(w)))R obqfslash(df2(a,w,g),f);  // if empty, or not lists, do general code
- if(!(m&&1==AR(a)&&n&&1==AR(w)))R obqfslash(df2(a,w,g),f);  // if empty, or not lists, do general code.  Never happens.
+ if(!(m&&1==AR(a)&&n&&1==AR(w)))R obqfslash(df2(z,a,w,g),f);  // if empty, or not lists, do general code.  Never happens.
  // from here on polymult on nonempty lists
  if(t&FL+CMPX)NAN0;
  switch(PMCASE(CTTZ(t),c,d)){
@@ -153,7 +152,7 @@ DF2(jtpolymult){A f,g,y,z;B b=0;C*av,c,d,*wv;I at,i,j,k,m,m1,n,p,t,wt,zn;V*v;
   break;}
  }
  if(t&FL+CMPX)NAN1; RE(0);
- if(!b)R obqfslash(df2(a,w,g),f);
+ if(!b)R obqfslash(df2(z,a,w,g),f);
  RETF(z);
 }    /* f//.@(g/) for atomic f, g */
 
@@ -173,7 +172,7 @@ static DF2(jtkeysp){PROLOG(0008);A b,by,e,q,x,y,z;I j,k,n,*u,*v;P*p;
  RZ(x=key(repeat(b,x),from(ravel(by),w),self));
  GASPARSE(q,SB01,1,1,(I*)0); *AS(q)=n;  /* q=: 0 by}1$.n;0;1 */
  p=PAV(q); SPB(p,a,iv0); SPB(p,e,num[1]); SPB(p,i,by); SPB(p,x,reshape(tally(by),num[0]));
- RZ(z=over(df1(repeat(q,w),VAV(self)->fgh[0]),x));
+ RZ(z=over(df1(b,repeat(q,w),VAV(self)->fgh[0]),x));
  z=j?cdot2(box(IX(1+j)),z):z;
  EPILOG(z);
 }
@@ -302,7 +301,7 @@ static DF2(jtkeyslash){PROLOG(0012);A b,q,x,z=0;B bb,*bv,pp=0;C d;I at,*av0,c,n,
      wt&INT+FL&&(d==CMIN||d==CMAX||d==CPLUS) )))R key(a,w,self);
  CRT rng=keyrs(a,MAX(2*n,65536)); c=aii(w); at=rng.type; r=rng.minrange.min; s=rng.minrange.range; m=s;
  zt=wt; zt=wt&INT?FL:zt; zt=wt&B01?INT:zt; zt=d==CPLUS?zt:wt;  // type of result, promoting bool and int but only if +
- /* obsolete zt=d==CPLUS?(wt&B01?INT:wt&INT?FL:wt):wt;*/ bb=s!=0;
+ bb=s!=0;
  if(bb){
   GATV0(b,B01,s,  1); bv=BAV(b); memset(bv,C1,s); bv-=r;
   GA(q,zt, s*c,1,0); qv0=AV(q);
@@ -358,7 +357,7 @@ static DF2(jtkeymean){PROLOG(0013);A p,q,x,z;D d,*qv,*vv,*zv;I at,*av,c,j,m=0,n,
  at=AT(a); av=AV(a); SETIC(a,n); 
  wt=AT(w); wv=AV(w); wr=AR(w);
  ASSERT(n==SETIC(w,j),EVLENGTH);
- if(!(AN(a)&&AN(w)&&at&DENSE&&wt&B01+INT+FL))R df2(a,w,folk(sldot(slash(ds(CPLUS))),ds(CDIV),sldot(ds(CPOUND))));
+ if(!(AN(a)&&AN(w)&&at&DENSE&&wt&B01+INT+FL))R df2(z,a,w,folk(sldot(slash(ds(CPLUS))),ds(CDIV),sldot(ds(CPOUND))));
  CRT rng = keyrs(a,MAX(2*n,65536)); at=rng.type; r=rng.minrange.min; s=rng.minrange.range; c=aii(w);
  if(wt&FL)NAN0;
  if(s){
@@ -485,7 +484,6 @@ static DF2(jtkeytally){PROLOG(0016);A q;I at,*av,j=0,k,n,r,s,*qv,*u,*v;
  if(!AN(a))R vec(INT,n?1:0,&n);
  if(at&SPARSE)R keytallysp(a);
  CRT rng = keyrs(a,MAX(2*n,65536)); at=rng.type; r=rng.minrange.min; s=rng.minrange.range;
-// obsolete  if(n&&at&B01&&1>=AR(a)){B*b=(B*)av; k=bsum(n,b); R !k||n==k?vci(k?k:n):v2(*b?k:n-k,*b?n-k:k);}  // boolean a, just add the 1s
  if((-n&SGNIF(at,B01X)&(AR(a)-2))<0){B*b=(B*)av; k=bsum(n,b); R BETWEENO(k,1,n)?v2(*b?k:n-k,*b?n-k:k):vci(n);}  // nonempty rank<2 boolean a, just add the 1s
  if(s){A z;I*zv;
   GATV0(z,INT,s,1); zv=AV(z);
@@ -541,7 +539,6 @@ static DF2(jtkeyheadtally){PROLOG(0017);A f,q,x,y,z;B b;I at,*av,k,n,r,s,*qv,*u,
   GATV0(q,INT,s,1); qv=AV(q)-r;
   u=qv+r; DQ(s, *u++=0;); k=0;
   r=0; r=at&C2T?3:r; r=at&INT?6:r; r=at&C4T?9:r; r=at&SBT?12:r; 
-// obsolete   switch(15*b+(at&SBT?12:at&C4T?9:at&INT?6:at&C2T?3:0)+(wt&FL?2:wt&INT?1:0)){
   switch(15*b+r+((wt>>INTX)&3)){
    case  0: KEYHEADTALLY(I,UC,B,*v,   wv[i]); break;
    case  1: KEYHEADTALLY(I,UC,I,*v,   wv[i]); break;

@@ -28,6 +28,7 @@
 A jtrank1ex(J jt,AD * RESTRICT w,A fs,I rr,AF f1){F1PREFIP;PROLOG(0041);A z,virtw;
    I mn,wcn,wf,wk;
  RZ(w);
+if(rr<0)SEGFAULT  // scaf
  wf=AR(w)-rr;
  if(!wf){R CALL1IP(f1,w,fs);}  // if there's only one cell and no frame, run on it, that's the result.
  if(AT(w)&SPARSE)R sprank1(w,fs,rr,f1);
@@ -37,7 +38,7 @@ A jtrank1ex(J jt,AD * RESTRICT w,A fs,I rr,AF f1){F1PREFIP;PROLOG(0041);A z,virt
  // if its rank is not less than the outer rank (we would simply ignore it), but we don't bother.  If its rank is smaller we can't ignore it because assembly might affect
  // the order of fill.  But if f is BOXATOP, there will be no fill, and we can safely use the smaller rank
  if(fs&&FAV(fs)->flag2&VF2BOXATOP1){
-  I mr=FAV(fs)->mr; efr(rr,mr,rr);
+  I mr=FAV(fs)->mr; mr=rr<mr?rr:mr;   // obsolete efr(rr,mr,rr);
   state = (FAV(fs)->flag2&VF2BOXATOP1)>>(VF2BOXATOP1X-ZZFLAGBOXATOPX);  // If this is BOXATOP, set so for loop.  Don't touch fs yet, since we might not loop
   state &= ~((FAV(fs)->flag2&VF2ATOPOPEN1)>>(VF2ATOPOPEN1X-ZZFLAGBOXATOPX));  // We don't handle &.> here; ignore it
   // if we are using the BOXATOP from f, we can also use the raze flags.  Set these only if BOXATOP to prevent us from incorrectly
@@ -62,7 +63,7 @@ A jtrank1ex(J jt,AD * RESTRICT w,A fs,I rr,AF f1){F1PREFIP;PROLOG(0041);A z,virt
   // if the original block was direct inplaceable, make the virtual block inplaceable.  (We can't do this for indirect blocks because a virtual block is not marked recursive - rather it increments
   // the usecount of the entire backing block - and modifying the virtual contents would leave the usecounts invalid if the backing block is recursive.  Maybe could do this if it isn't?)
   // Don't pass WILLOPEN status - we use that at this level
-  jtinplace = (J)((I)jtinplace & (~(JTWILLBEOPENED+JTCOUNTITEMS)) & ((((AT(w)&TYPEVIPOK)!=0)&(AC(w)>>(BW-1)))*JTINPLACEW-(JTINPLACEW<<1)));  // turn off inplacing unless DIRECT and w is inplaceable
+  jtinplace = (J)((I)jtinplace & (~(JTWILLBEOPENED+JTCOUNTITEMS)) & ((((AT(w)&TYPEVIPOK)!=0)&REPSGN(AC(w)))*JTINPLACEW-(JTINPLACEW<<1)));  // turn off inplacing unless DIRECT and w is inplaceable
   fauxvirtual(virtw,virtwfaux,w,rr,ACUC1|ACINPLACE) MCISH(AS(virtw),AS(w)+wf,rr); AN(virtw)=wcn;
   // mark the virtual block inplaceable; this will be ineffective unless the original w was direct inplaceable, and inplacing is allowed by u
 #define ZZDECL
@@ -239,7 +240,8 @@ A jtrank2ex(J jt,AD * RESTRICT a,AD * RESTRICT w,A fs,I lr,I rr,I lcr,I rcr,AF f
 
  // RANKONLY verbs were handled in the caller to this routine, but fs might be RANKATOP.  In that case we can include its rank in the loop here, which will save loop setups
  if(fs&&(I)(((FAV(fs)->flag2&(VF2RANKATOP2|VF2BOXATOP2))-1)|(-((rr^rcr)|(lr^lcr))))>=0){  // prospective new ranks to include
-  efr(lr,lr,(I)lr(fs)); efr(rr,rr,(I)rr(fs));  // get the ranks if we accept the new cell
+  I t=(I)lr(fs); lr=t<lr?t:lr; t=(I)rr(fs); rr=t<rr?t:rr;   // get the ranks if we accept the new cell
+// obsolete   efr(lr,lr,(I)lr(fs)); efr(rr,rr,(I)rr(fs));
   state = (FAV(fs)->flag2&VF2BOXATOP2)>>(VF2BOXATOP2X-ZZFLAGBOXATOPX);  // If this is BOXATOP, set so for loop.  Don't touch fs yet, since we might not loop
   state &= ~((FAV(fs)->flag2&VF2ATOPOPEN2W)>>(VF2ATOPOPEN2WX-ZZFLAGBOXATOPX));  // We don't handle &.> here; ignore it
   // if we are using the BOXATOP from f, we can also use the raze flags.  Set these only if BOXATOP to prevent us from incorrectly
@@ -308,12 +310,12 @@ A jtrank2ex(J jt,AD * RESTRICT a,AD * RESTRICT w,A fs,I lr,I rr,I lcr,I rcr,AF f
  // us through a flag bit.
  fauxblock(virtwfaux); fauxblock(virtafaux); 
  if(mn|an){
-  jtinplace = (J)(intptr_t)((I)jtinplace & ((((AT(a)&TYPEVIPOK)!=0)&(AC(a)>>(BW-1)))*JTINPLACEA+~JTINPLACEA));  // turn off inplacing unless DIRECT and a is inplaceable.
+  jtinplace = (J)(intptr_t)((I)jtinplace & ((((AT(a)&TYPEVIPOK)!=0)&REPSGN(AC(a)))*JTINPLACEA+~JTINPLACEA));  // turn off inplacing unless DIRECT and a is inplaceable.
   fauxvirtual(virta,virtafaux,a,lr,ACUC1|ACINPLACE) MCISH(AS(virta),AS(a)+af,lr); AN(virta)=acn;
  }else{RZ(virta=reshape(vec(INT,lr,AS(a)+af),filler(a)));}
 
  if(mn|wn){  // repeat for w
-  jtinplace = (J)(intptr_t)((I)jtinplace & ((((AT(w)&TYPEVIPOK)!=0)&(AC(w)>>(BW-1)))*JTINPLACEW+~JTINPLACEW));  // turn off inplacing unless DIRECT and w is inplaceable.
+  jtinplace = (J)(intptr_t)((I)jtinplace & ((((AT(w)&TYPEVIPOK)!=0)&REPSGN(AC(w)))*JTINPLACEW+~JTINPLACEW));  // turn off inplacing unless DIRECT and w is inplaceable.
   fauxvirtual(virtw,virtwfaux,w,rr,ACUC1|ACINPLACE) MCISH(AS(virtw),AS(w)+wf,rr); AN(virtw)=wcn;
  }else{RZ(virtw=reshape(vec(INT,rr,AS(w)+wf),filler(w)));}
 

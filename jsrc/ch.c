@@ -66,8 +66,8 @@ static DF1(jthgeom1){R hgeom2(sc(IMAX),w,self);}
 
 static F2(jtcancel){A c,d,f,x,y;
  f=eval("#/.~");
- a=ravel(a); x=nub(a); c=df1(a,f);
- w=ravel(w); y=nub(w); d=df1(w,f);
+ a=ravel(a); x=nub(a); df1(c,a,f);
+ w=ravel(w); y=nub(w); df1(d,w,f);
  a=repeat(maximum(num[0],minus(c,from(indexof(y,x),over(d,zeroionei[0])))),x);
  w=repeat(maximum(num[0],minus(d,from(indexof(x,y),over(c,zeroionei[0])))),y);
  R link(a,w);
@@ -82,18 +82,6 @@ F2(jthgeom){A c,d,h=0;B p,q;I at,wt;
  RZ(h=cancel(c,d));
  R fdef(0,CHGEOM,VERB, jthgeom1,jthgeom2, a,w,h, 0L, 0L,0L,0L);
 }    /* a H. w */
-
-#if 0 // obsolete
-F1(jthgdiff){A*hv,p,q,x,y;V*v=FAV(w);
- ASSERTNN(v->fgh[0],v->fgh[1]);
- hv=AAV(v->fgh[2]); 
- x=hv[0]; x=1==AN(x)?head(x):x;
- y=hv[1]; y=1==AN(y)?head(y):y;
- p=divide(aslash(CSTAR,x),aslash(CSTAR,y));
- q=hgeom(increm(x),increm(y));
- R equ(p,num[1])?q:folk(qq(p,zeroionei[0]),ds(CSTAR),q);
-}    /* a H. w D. 1 */
-#endif
 
 DF1(jthgcoeff){PROLOG(0037);A c,d,h,*hv,y,z;B b;I j,n,pn,qn,*v;V*sv=FAV(self);
  RZ(w=vi(w)); v=AV(w); 

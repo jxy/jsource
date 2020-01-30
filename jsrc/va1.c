@@ -10,7 +10,7 @@
 #if BW==64
 static AMONPS(floorDI,I,D,
  D mplrs[2]; mplrs[0]=2.0-jt->cct; mplrs[1]=jt->cct-0.00000000000000011; ,
- {if((*(UI*)x&0x7fffffffffffffff)<0x4310000000000000){I neg=((*(UI*)x)-(*(UI*)x>>(BW-1)))>>(BW-1); *z=(I)(*x*mplrs[neg])-neg;}  // -0 is NOT neg
+ {if((*(UI*)x&0x7fffffffffffffff)<0x4310000000000000){I neg=SGNTO0((*(UI*)x)-SGNTO0(*(UI*)x)); *z=(I)(*x*mplrs[neg])-neg;}  // -0 is NOT neg
   else{D d=tfloor(*x); if(d!=(I)d){jt->workareas.ceilfloor.oflondx=n+~i; jt->jerr=EWOV; R;} *z=(I)d;}} ,  // n+~i because we use DQ
  ; )  // x100 0011 0001 =>2^50
 #else
@@ -22,7 +22,7 @@ static AMON(floorZ, Z,Z, *z=zfloor(*x);)
 #if BW==64
 static AMONPS(ceilDI,I,D,
  D mplrs[2]; mplrs[0]=2.0-jt->cct; mplrs[1]=jt->cct-0.00000000000000011; ,
- {if((*(UI*)x&0x7fffffffffffffff)<0x4310000000000000){I pos=((0-*(UI*)x)-((0-*(UI*)x)>>(BW-1)))>>(BW-1); *z=(I)(*x*mplrs[pos])+pos;}  // 0 is NOT pos
+ {if((*(UI*)x&0x7fffffffffffffff)<0x4310000000000000){I pos=SGNTO0((0-*(UI*)x)-SGNTO0(0-*(UI*)x)); *z=(I)(*x*mplrs[pos])+pos;}  // 0 is NOT pos
   else{D d=tceil(*x); if(d!=(I)d){jt->workareas.ceilfloor.oflondx=n+~i; jt->jerr=EWOV; R;} *z=(I)d;}} ,
  ; )  // x100 0011 0001 =>2^50
 #else
@@ -33,7 +33,7 @@ static AMON(ceilZ,  Z,Z, *z=zceil(*x);)
 
 static AMON(cjugZ,  Z,Z, *z=zconjug(*x);)
 
-static AMON(sgnI,   I,I, I xx=*x; *z=(xx>>(BW-1))|(((UI)-xx)>>(BW-1));)
+static AMON(sgnI,   I,I, I xx=*x; *z=REPSGN(xx)|SGNTO0(-xx);)
 static AMON(sgnD,   I,D, *z=((1.0-jt->cct)<=*x) - (-(1.0-jt->cct)>=*x);)
 static AMON(sgnZ,   Z,Z, if((1.0-jt->cct)>zmag(*x))*z=zeroZ; else *z=ztrend(*x);)
 
@@ -84,7 +84,7 @@ static AMON(logI,   D,I, ASSERTW(0<=*x,EWIMAG); *z=log((D)*x);)
 static AMON(logD,   D,D, ASSERTW(0<=*x,EWIMAG); *z=log(   *x);)
 static AMON(logZ,   Z,Z, *z=zlog(*x);)
 
-static AMONPS(absI,   I,I, I vtot=0; , I val=*x; val=(val^(val>>(BW-1)))-(val>>(BW-1)); vtot |= val; *z=val; , if(vtot<0)jt->jerr=EWOV;)
+static AMONPS(absI,   I,I, I vtot=0; , I val=*x; val=(val^REPSGN(val))-REPSGN(val); vtot |= val; *z=val; , if(vtot<0)jt->jerr=EWOV;)
 static AMON(absZ,   D,Z, *z=zmag(*x);)
 
 static AHDR1(oneB,C,C){memset(z,C1,n);}
@@ -150,7 +150,7 @@ static A jtva1(J jt,A w,A self){A z;I cv,n,t,wt,zt;VF ado;
  if(!((I)jtinplace&JTRETRY)){
   ado=p->f; cv=p->cv;
  }else{
-  I m=((wt&XNUM+RAT)-1)>>(BW-1);   // -1 if not XNUM/RAT
+  I m=REPSGN((wt&XNUM+RAT)-1);   // -1 if not XNUM/RAT
   switch(VA1CASE(jt->jerr,FAV(self)->lc-VA2MIN)){
    default:     R 0;  // unknown type - error must have come from previous verb
    // all these cases are needed because sparse code may fail over to them
@@ -204,7 +204,7 @@ DF1(jtatomic1){A z;
   // if retryable error, fall through.  The retry will not be through the singleton code
  }
  // while it's convenient, check for empty result
- jtinplace=(J)((I)jtinplace+((((UI)awm1>>(BW-1)))<<JTEMPTYX));
+ jtinplace=(J)((I)jtinplace+(((SGNTO0(awm1)))<<JTEMPTYX));
  // Run the full dyad, retrying if a retryable error is returned
  while(1){  // run until we get no error
   z=jtva1(jtinplace,w,self);  // execute the verb

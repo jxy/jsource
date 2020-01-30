@@ -10,8 +10,13 @@ if [ $USE_OPENMP -eq 1 ] ; then
 OPENMP=" -fopenmp "
 LDOPENMP=" -fopenmp "
 fi
+USE_THREAD="${USE_THREAD:=0}"
+if [ $USE_THREAD -eq 1 ] ; then
+USETHREAD=" -DUSE_THREAD "
+LDTHREAD=" -pthread "
+fi
 
-common="-march=native $OPENMP -fPIC -O2 -fwrapv"
+common="-march=native $OPENMP $USETHREAD -fPIC -O2 -fwrapv"
 
 SRC_ASM_LINUX=" \
  keccak1600-x86_64-elf.o \
@@ -54,7 +59,7 @@ case $jplatform in
 raspberry) # linux arm64
 TARGET=libj.so
 COMPILE="$common -march=armv8-a+crc -DRASPI -DC_CRC32C=1 "
-LINK=" $LDFLAGS -shared -Wl,-soname,libj.so -lm -ldl $LDOPENMP -o libj.so "
+LINK=" $LDFLAGS -shared -Wl,-soname,libj.so -lm -ldl $LDOPENMP $LDTHREAD -o libj.so "
 OBJS_AESARM=" aes-arm.o "
 SRC_ASM="${SRC_ASM_RASPI}"
 ;;
@@ -62,7 +67,7 @@ SRC_ASM="${SRC_ASM_RASPI}"
 darwin)
 TARGET=libj.dylib
 COMPILE="$darwin -DC_AVX=1 -DC_AVX2=1 -mavx -mavx2 "
-LINK=" $LDFLAGS -dynamiclib -lm -ldl $LDOPENMP -o libj.dylib"
+LINK=" $LDFLAGS -dynamiclib -lm -ldl $LDOPENMP $LDTHREAD -o libj.dylib"
 OBJS_FMA=" blis/gemm_int-fma.o "
 OBJS_AESNI=" aes-ni.o "
 SRC_ASM="${SRC_ASM_MAC}"
@@ -71,7 +76,7 @@ SRC_ASM="${SRC_ASM_MAC}"
 *)
 TARGET=libj.so
 COMPILE="$common -DC_AVX=1 $DAVX2 -flto "
-LINK=" $LDFLAGS $COMPILE -shared -Wl,-soname,libj.so -lm -ldl $LDOPENMP -o libj.so "
+LINK=" $LDFLAGS $COMPILE -shared -Wl,-soname,libj.so -lm -ldl $LDOPENMP $LDTHREAD -o libj.so "
 OBJS_FMA=" blis/gemm_int-fma.o "
 OBJS_AESNI=" aes-ni.o "
 SRC_ASM="${SRC_ASM_LINUX}"

@@ -33,20 +33,11 @@
 
 // Return int version of d, with error if loss of significance
 static I intforD(J jt, D d){D q;I z;
-#if 1
  q=jround(d); z=(I)q;
- ASSERT(d==q || FFIEQ(d,q),EVDOMAIN);  /* obsolete  || (++e,FEQ(d,e))*/
+ ASSERT(d==q || FFIEQ(d,q),EVDOMAIN);
  // too-large values don't convert, handle separately
  if(d<(D)IMIN){ASSERT(d>=IMIN*(1+FUZZ),EVDOMAIN); z=IMIN;}  // if tolerantly < IMIN, error; else take IMIN
  else if(d>=-(D)IMIN){ASSERT(d<=IMAX*(1+FUZZ),EVDOMAIN); z=IMAX;}  // if tolerantly > IMAX, error; else take IMAX
-#else // obsolete
- q=jfloor(d);
- if(!FEQ(q,d)){++q;
-  // see if >: <.a is tolerantly equal to (I)a
-  ASSERT(FEQ((D)q,d),EVDOMAIN);
- }
- z=(I)q; if((z<0)!=(q<0))z=0>q?IMIN:IMAX;
-#endif
  R z;
 }
 
@@ -58,8 +49,8 @@ A jtssingleton(J jt, A a,A w,A self,RANK2T awr,RANK2T ranks){A z;
  {
   // Calculate inplaceability for a and w.  Result must be 0 or 1
   // Inplaceable if: count=1 and zombieval, or count<0, PROVIDED the arg is inplaceable and the block is not UNINCORPABLE
-  I aipok = ((((AC(a)-1)|((I)a^(I)jt->zombieval))==0)|((UI)AC(a)>>(BW-1))) & ((UI)jtinplace>>JTINPLACEAX) & ~(AFLAG(a)>>AFUNINCORPABLEX);
-  I wipok = ((((AC(w)-1)|((I)w^(I)jt->zombieval))==0)|((UI)AC(w)>>(BW-1))) & ((UI)jtinplace>>JTINPLACEWX) & ~(AFLAG(w)>>AFUNINCORPABLEX);
+  I aipok = ((((AC(a)-1)|((I)a^(I)jt->zombieval))==0)|(SGNTO0(AC(a)))) & ((UI)jtinplace>>JTINPLACEAX) & ~(AFLAG(a)>>AFUNINCORPABLEX);
+  I wipok = ((((AC(w)-1)|((I)w^(I)jt->zombieval))==0)|(SGNTO0(AC(w)))) & ((UI)jtinplace>>JTINPLACEWX) & ~(AFLAG(w)>>AFUNINCORPABLEX);
   z=0;
   // find or allocate the result area
   if(awr==0){  // both atoms
@@ -378,7 +369,7 @@ A jtssingleton(J jt, A a,A w,A self,RANK2T awr,RANK2T ranks){A z;
  bitwiseresult:
  RE(0);  // if error on D arg, make sure we abort
  ziv=FAV(self)->lc-VA2B0;  // mask describing operation
- ziv=((aiv&wiv)&((ziv<<(BW-1-0))>>(BW-1)))|((aiv&~wiv)&((ziv<<(BW-1-1))>>(BW-1)))|((~aiv&wiv)&((ziv<<(BW-1-2))>>(BW-1)))|((~aiv&~wiv)&((ziv<<(BW-1-3))>>(BW-1)));
+ ziv=((aiv&wiv)&REPSGN(ziv<<(BW-1-0)))|((aiv&~wiv)&REPSGN(ziv<<(BW-1-1)))|((~aiv&wiv)&REPSGN(ziv<<(BW-1-2)))|((~aiv&~wiv)&REPSGN(ziv<<(BW-1-3)));
  SSSTORE(ziv,z,INT,I) R z;
 
  compareresult:

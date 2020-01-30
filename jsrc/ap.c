@@ -147,7 +147,7 @@ AHDRP(lepfxB,B,B){pscanlt(m,d,n,z,x,C0);}
 
 
 static B jtpscangt(J jt,I m,I d,I n,B*z,B*x,B a,B pp,B pa,B ps){
-  A t;B b,*cc="\000\001\000",e,*p=cc+pp,*v;C*u;I i,j;
+  A t;B b,*cc="\000\001\000",e,*p=cc+pp,*v;B*u;I i,j;
  if(d==1)for(i=0;i<m;++i){
   if(v=memchr(x,a,n)){
    j=v-x; b=j&1; 
@@ -258,7 +258,7 @@ static DF1(jtgprefix){A h,*hv,z,*zv;I m,n,r;
  SETIC(w,n); 
  h=VAV(self)->fgh[2]; hv=AAV(h); m=AN(h);
  GATV0(z,BOX,n,1); zv=AAV(z); I imod=0;
- DO(n, imod=(imod==m)?0:imod; RZ(zv[i]=df1(take(sc(1+i),w),hv[imod])); ++imod;);
+ DO(n, imod=(imod==m)?0:imod; RZ(zv[i]=df1(h,take(sc(1+i),w),hv[imod])); ++imod;);
  R ope(z);
 }    /* g\"r w for gerund g */
 
@@ -312,21 +312,18 @@ static DF2(jtinfix){PROLOG(0018);DECLF;A x,z;I m;
   // r = rank of w, rr=rank of list of items of w, s is block for list of length rr; copy shape of r; override #items of infix
   r=AR(w); rr=MAX(1,r); GATV0(s,INT,rr,1); if(r)MCISH(AV(s),AS(w),r); *AV(s)=0>m?0:m==IMAX?1+SETIC(w,r):m;
   // Create fill-cell of shape s; apply u to it
-  RZ(x=df1(reshape(s,filler(w)),fs));
+  RZ(df1(x,reshape(s,filler(w)),fs));
   // Prepend leading axis of 0 to the result
   z=reshape(over(zeroionei[0],shape(x)),x);
  } 
  EPILOG(z);
 }
 
-static DF2(jtinfix2){PROLOG(0019);A f;I m,n,t; 
- PREF2(jtinfix); 
- RE(m=i0(vib(a))); t=AT(w); SETIC(w,n); 
- if(!(2==m&&2<=n&&t&DENSE))R infix(a,w,self);
- f=FAV(self)->fgh[0]; f=FAV(f)->fgh[0];
- A z=df2(curtail(w),behead(w),vaid(f)?f:qq(f,num[-1]));
+static DF1(jtinfix2){PROLOG(0019);A f; 
+ f=FAV(self)->fgh[0]; f=FAV(f)->fgh[0];  // f=u in u/\ y
+ A l=curtail(w), r=behead(w), z; IRS2(l,r,f,AR(w)-1,AR(w)-1,FAV(f)->valencefns[1],z); // (}: u"_1 }.) y
  EPILOG(z);
-}    /* 2 f/\w */
+}    /* 2 f/\w, where f supports IRS */
 
 static DF2(jtginfix){A h,*hv,x,z,*zv;I d,m,n;
  RE(m=i0(vib(a))); 
@@ -334,21 +331,20 @@ static DF2(jtginfix){A h,*hv,x,z,*zv;I d,m,n;
  h=VAV(self)->fgh[2]; hv=AAV(h); d=AN(h);
  if(SETIC(x,n)){
   GATV0(z,BOX,n,1); zv=AAV(z);
-  DO(n, RZ(zv[i]=df1(seg(from(sc(i),x),w),hv[i%d])););
+  DO(n, RZ(zv[i]=df1(h,seg(from(sc(i),x),w),hv[i%d])););
   R ope(z);
  }else{A s;
   RZ(s=AR(w)?shape(w):ca(iv0)); *AV(s)=ABS(m);
-  RZ(x=df1(reshape(s,filler(w)),*hv));
+  RZ(df1(x,reshape(s,filler(w)),*hv));
   R reshape(over(zeroionei[0],shape(x)),x);
 }}
 
-// obsolete #define STATEHASGERUND 0x1000  // f is a gerund
 #define STATEISPREFIX 0x2000  // this is prefix rather than infix
 #define STATESLASH2X 14  // f is f'/ and x is 2
 #define STATESLASH2 ((I)1<<STATESLASH2X)
 
 // prefix and infix: prefix if a is mark
-static DF2(jtinfixprefix2){F2PREFIP;PROLOG(00202);A fs;// obsolete A *hv;
+static DF2(jtinfixprefix2){F2PREFIP;PROLOG(00202);A fs;
    I wt;
  
  RZ(w);
@@ -381,7 +377,6 @@ static DF2(jtinfixprefix2){F2PREFIP;PROLOG(00202);A fs;// obsolete A *hv;
   }
  }else{
   RZ(fs=createcycliciterator(self));  // use a verb that cycles through the gerunds.
-// obsolete   state |= STATEHASGERUND; A h=sv->fgh[2]; hv=AAV(h); hn=AN(h); ASSERT(hn,EVLENGTH);  // Gerund case.  Mark it, set hv->1st gerund, hn=#gerunds.  Verify gerunds not empty
  }
  AF f1=FAV(fs)->valencefns[0];  // point to the action routine now that we have handled gerunds
 
@@ -397,7 +392,8 @@ static DF2(jtinfixprefix2){F2PREFIP;PROLOG(00202);A fs;// obsolete A *hv;
  // set up for prefix/infix.  Calculate # result slots
  if(a!=mark){
   // infix.
-  ilnval; RE(ilnval=i0(vib(a))); // ilnval=infix # (error if nonintegral; convert inf to HIGH_VALUE)
+//  ilnval; RE(ilnval=i0(vib(a))); // ilnval=infix # (error if nonintegral; convert inf to HIGH_VALUE)
+  RE(ilnval=i0(vib(a))); // ilnval=infix # (error if nonintegral; convert inf to HIGH_VALUE)
   if(ilnval>=0){
    // positive infix.  Stride is 1 cell.
    ilnabs=ilnval;
@@ -406,7 +402,7 @@ static DF2(jtinfixprefix2){F2PREFIP;PROLOG(00202);A fs;// obsolete A *hv;
    remlen=zi;  // length is # nonoverlapping segments to do
   }else{
    // negative infix.  Stride is multiple cells.
-   ilnabs=-ilnval; ilnabs^=ilnabs>>(BW-1);  // abs(ilnval), and handle overflow
+   ilnabs=-ilnval; ilnabs^=REPSGN(ilnabs);  // abs(ilnval), and handle overflow
    zi=1+(wi-1)/ilnabs; zi=(wi==0)?wi:zi;  // calc number of partial infixes.  Because of C's rounding toward zero, we have to handle the wi==0 case separately, and anyway it
       // requires a design decision: we choose to treat it as 0 partitions of 0 length (rather than 1 partition of 0 length, or 0 partitions of length ilnabs)
    stride=ilnabs;  // advance by the stride
@@ -438,7 +434,7 @@ static DF2(jtinfixprefix2){F2PREFIP;PROLOG(00202);A fs;// obsolete A *hv;
   // check for special case of 2 u/\ y; if found, set new function and allocate a second virtual argument
   // NOTE: gerund/ is encoded as `:, so we can be sure id==SLASH does not have gerund
   fauxblock(virtafaux); fauxblock(virtwfaux);
-  if(((VAV(fs)->id^CSLASH)|((ilnabs|(wi&((UI)ilnval>>(BW-1))))^2))){   // char==/ and (ilnabs==2, but not if input array is odd and ilnval is neg)
+  if(((VAV(fs)->id^CSLASH)|((ilnabs|(wi&(SGNTO0(ilnval))))^2))){   // char==/ and (ilnabs==2, but not if input array is odd and ilnval is neg)
    // normal case, infix/prefix.  Allocate a virtual block
    fauxvirtual(virtw,virtwfaux,w,vr,ACUC1);
 
@@ -449,7 +445,7 @@ static DF2(jtinfixprefix2){F2PREFIP;PROLOG(00202);A fs;// obsolete A *hv;
    fauxvirtual(virta,virtafaux,w,vr-1,ACUC1); // first block is for a
    MCISH(AS(virta),AS(w)+1,vr-1); AN(virta)=wc; // shape is (shape of cell)  tally is celllength
    fauxvirtual(virtw,virtwfaux,w,vr-1,ACUC1);  // second is w
-   AK(virtw) += strideb >> ((UI)ilnval>>(BW-1));  // we want to advance 1 cell.  If ilnval is positive, strideb is 1 cell; otherwise strideb is 2 cells
+   AK(virtw) += strideb >> (SGNTO0(ilnval));  // we want to advance 1 cell.  If ilnval is positive, strideb is 1 cell; otherwise strideb is 2 cells
    MCISH(AS(virtw),AS(w)+1,vr-1); AN(virtw)=wc; // shape is (shape of cell)  tally is celllength
    // advance from f/ to f and get the function pointer.  Note that 2 <@(f/)\ will go through here too
    fs=FAV(fs)->fgh[0]; f1=FAV(fs)->valencefns[1];
@@ -461,16 +457,13 @@ static DF2(jtinfixprefix2){F2PREFIP;PROLOG(00202);A fs;// obsolete A *hv;
   while(1){
 
    // call the user's function
-   if(!(state&(/* obsolete STATEHASGERUND|*/STATESLASH2))){
+   if(!(state&(STATESLASH2))){
     // normal case: prefix/infix, no gerund
     RZ(z=CALL1(f1,virtw,fs));  //normal case
-   }else /* obsolete if(state&STATESLASH2)*/ {
+   }else {
     // 2 f/\ y case
     RZ(z=CALL2(f1,virta,virtw,fs));  //normal case
-   }/* obsolete else{
-    // prefix/infix, gerund case
-    RZ(z=df1(virtw,hv[gerundx])); ++gerundx; gerundx=(gerundx==hn)?0:gerundx;  // gerund case.  Advance gerund cyclically
-   } */
+   }
 
 #define ZZBODY  // assemble results
 #include "result.h"
@@ -521,7 +514,7 @@ static DF2(jtinfixprefix2){F2PREFIP;PROLOG(00202);A fs;// obsolete A *hv;
   // for infix -, 0 items of fill
   RZ(z=reitem(zeroionei[0],w));  // create 0 items of the type of w
   if(ilnval>=0){ilnval=(ilnval==IMAX)?(wi+1):ilnval; RZ(z=take(sc(ilnval),z));}    // if items needed, create them.  For compatibility, treat _ as 1 more than #items in w
-  UC d=jt->uflags.us.cx.cx_c.db; jt->uflags.us.cx.cx_c.db=0; zz=/* obsolete (state&STATEHASGERUND)?df1(z,hv[0]):*/CALL1(f1,z,fs); jt->uflags.us.cx.cx_c.db=d; if(EMSK(jt->jerr)&EXIGENTERROR)RZ(zz); RESETERR;
+  UC d=jt->uflags.us.cx.cx_c.db; jt->uflags.us.cx.cx_c.db=0; zz=CALL1(f1,z,fs); jt->uflags.us.cx.cx_c.db=d; if(EMSK(jt->jerr)&EXIGENTERROR)RZ(zz); RESETERR;
   RZ(zz=reshape(over(zeroionei[0],shape(zz?zz:mtv)),zz?zz:zeroionei[0]));
  }
 
@@ -669,7 +662,6 @@ static DF2(jtmovavg){I m,j;
 static A jtmovminmax(J jt,I m,A w,A fs,B max){A y,z;I c,i,j,p,wt;
  SETIC(w,p); p-=m; wt=AT(w); c=aii(w);
  GA(z,AT(w),c*(1+p),AR(w),AS(w)); AS(z)[0]=1+p;
-// obsolete  switch(max+(wt&SBT?0:wt&INT?2:4)){
  switch(max + ((wt>>(INTX-1))&6)){
   case 0: MOVMINMAXS(SB,SBT,jt->sbuv[0].down,SBLE); break;
   case 1: MOVMINMAXS(SB,SBT,0,SBGE); break;
@@ -749,12 +741,12 @@ static A jtmovbwneeq(J jt,I m,A w,A fs,B eq){A y,z;I c,p,*s,*u,*v,x,*yv,*zv;
 static DF2(jtmovfslash){A x,z;B b;C id,*wv,*zv;I d,m,m0,p,t,wk,wt,zi,zk,zt;
  PREF2(jtmovfslash);
  SETIC(w,p); wt=AT(w);   // p=#items of w
- RE(m0=i0(vib(a))); m=m0>>(BW-1); m=(m^m0)-m; m^=(m>>(BW-1));  // m0=infx x,  m=abs(m0), handling IMIN 
- if((((2^m)-1)|(m-1)|(p-m))<0)R jtinfixprefix2(jt,a,w,self);  // If m is 0-2, go to general case
+ RE(m0=i0(vib(a))); m=REPSGN(m0); m=(m^m0)-m; m^=REPSGN(m);  // m0=infx x,  m=abs(m0), handling IMIN
+ if((SGNIF((m0==2)&FAV(self)->flag,VFSCANIRSX)&-(wt&DENSE)&(1-p))<0)R jtinfix2(jt,w,self);  // if  2 u/\ y supports IRS, go do (}: u }.) y - faster than cells - if >1 cell and dense  uses VFSCANIRSX=0
+ if((((2^m)-1)|(m-1)|(p-m))<0)R jtinfixprefix2(jt,a,w,self);  // If m is 0 or 2, or if there is just 1 infix, go to general case
  x=FAV(self)->fgh[0]; x=FAV(x)->fgh[0]; id=ID(x); 
  if(wt&B01){id=id==CMIN?CSTARDOT:id; id=id==CMAX?CPLUSDOT:id;}
  if(id==CBDOT&&(x=VAV(x)->fgh[1],INT&AT(x)&&!AR(x)))id=(C)*AV(x);
-// obsolete switch(AR(w)&&0<m0&&m0<=*AS(w)?id:0){
  switch(AR(w)&&BETWEENC(m0,0,AS(w)[0])?id:0){
   case CPLUS:    if(wt&B01+INT+FL)R movsumavg(m,w,self,0); break;
   case CMIN:     if(wt&SBT+INT+FL)R movminmax(m,w,self,0); break;
@@ -783,11 +775,11 @@ static DF2(jtmovfslash){A x,z;B b;C id,*wv,*zv;I d,m,m0,p,t,wk,wt,zi,zk,zt;
 
 static DF1(jtiota1){I j; R apv(SETIC(w,j),1L,1L);}
 
-F1(jtbslash){A f;AF f1=jtinfixprefix1,f2=jtinfixprefix2;V*v;I flag=FAV(ds(CBSLASH))->flag;
+F1(jtbslash){AF f1=jtinfixprefix1,f2=jtinfixprefix2;V*v;I flag=FAV(ds(CBSLASH))->flag;
 ;
  RZ(w);
  if(NOUN&AT(w))R fdef(0,CBSLASH,VERB, jtinfixprefix1,jtinfixprefix2, w,0L,fxeachv(1L,w), VGERL|flag, RMAX,0L,RMAX);
- v=FAV(w); f=FAV(w)->fgh[0];
+ v=FAV(w);  // v is the u in u\ y
  switch(v->id){
   case CPOUND:
    f1=jtiota1; break;
@@ -795,12 +787,14 @@ F1(jtbslash){A f;AF f1=jtinfixprefix1,f2=jtinfixprefix2;V*v;I flag=FAV(ds(CBSLAS
    f2=jtinfixd; break;
   case CFORK:  
    if(v->valencefns[0]==(AF)jtmean)f2=jtmovavg; break;
-  case CSLASH: 
-   f2=jtmovfslash; if(vaid(f)){f1=jtpscan; flag|=VASGSAFE|VJTFLGOK1;} break;
+  case CSLASH: ;
+   A u=v->fgh[0];  // the u in u/\ y
+   if(AT(u)&VERB)flag |= (FAV(u)->flag >> (VIRS2X-VFSCANIRSX)) & VFSCANIRS;  // indic if we should use {: f }: for 2 /\ y
+   f2=jtmovfslash; if(vaid(u)){f1=jtpscan; flag|=VASGSAFE|VJTFLGOK1;} break;
   default:
    flag |= VJTFLGOK1|VJTFLGOK2; break; // The default u\ looks at WILLBEOPENED
  }
  R ADERIV(CBSLASH,f1,f2,flag,RMAX,0L,RMAX);
 }
 
-A jtascan(J jt,C c,A w){RZ(w); R df1(w,bslash(slash(ds(c))));}
+A jtascan(J jt,C c,A w){RZ(w); A z; R df1(z,w,bslash(slash(ds(c))));}

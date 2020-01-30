@@ -320,23 +320,9 @@ F2(jtfc2){A z;D*x,*v;I j,m,n,p,zt;float*s;
 // w is a box, result is 1 if it contains a  NaN
 static B jtisnanq(J jt,A w){
  RZ(w);
-#if 0  // obsolete
-A q,*u,x,x1,*xv,y,*yv;D*v;I m,n,t,top; GATV0(x,INT,BOX&AT(w)?2*AN(w):1,1); xv=AAV(x);
- *xv=w; top=1;
- while(top){
-  --top; y=xv[top]; n=AN(y); t=AT(y);
-  if(t&FL+CMPX){v=DAV(y); DQ(t&CMPX?n+n:n, if(_isnan(*v++))R 1;);}
-  else if(t&BOX){
-   m=top+n; yv=AAV(y); 
-   if(m>AN(y)){GATV0(x1,INT,2*m,1); u=AAV(x1); ICPY(u,xv,top); fa(x); x=x1; xv=u;}
-   u=xv+top; DO(n, q=yv[i]; if(AT(q)&FL+CMPX+BOX)*u++=q;); top=u-xv;
-  }
- }
-#else
  if(AT(w)&FL+CMPX){D *v=DAV(w); DQ(AN(w)<<((AT(w)>>CMPXX)&1), if(_isnan(v[i]))R 1;);}  // if there might be a NaN, return if there is one
  else if(AT(w)&BOX){A *v=AAV(w); STACKCHKOFL DQ(AN(w), if(isnanq(v[i]))R 1;);}  // if boxed, check each one recursively; ensure no stack overflow
  // other types never have NaN
-#endif
  R 0;  // if we get here, there must be no NaN
 }
 
@@ -458,7 +444,7 @@ static A sfe(J jt,A w,I prec,UC decimalpt,UC zuluflag){
  // Validate input.  We will accept FL input, but it's not going to have nanosecond precision
  RZ(w=vi(w));  // convert to INT
  // Figure out size of result. 10 for date, 9 for time, 1 for binary point (opt), 1 for each fractional digit (opt), 1 for timezone
- I linelen=(10+9)-((prec>>(BW-1))&9)+prec+(prec!=0)+(zuluflag=='Z');  // bytes per line of result: 20, but 10 if no date, plus one per frac digit, plus decimal point if any frac digits, 1 if Z
+ I linelen=(10+9)-(REPSGN(prec)&9)+prec+(prec!=0)+(zuluflag=='Z');  // bytes per line of result: 20, but 10 if no date, plus one per frac digit, plus decimal point if any frac digits, 1 if Z
    // if we are running for 6!:15, linelen will come out 56 and the store will be 7 INTs
  // Allocate result area, one row per input value
  GATV0(z,LIT,AN(w)*linelen,AR(w)+1) MCISH(AS(z),AS(w),AR(w)) AS(z)[AR(w)]=linelen==7*SZI?7:linelen;
@@ -473,12 +459,12 @@ static A sfe(J jt,A w,I prec,UC decimalpt,UC zuluflag){
 	for(i=0;i<rows;++i, s+=linelen){
   // fetch the time.  If it is negative, add days amounting to the earliest allowed time so that the modulus calculations can always
   // be positive to get hmsn.  We will add the days back for all the day calculations, since they are in the Julian epoch anyway
-		k= e[i] + ((e[i]>>(BW-1))&(MIND*(I)24*(I)3600*(I)NANOS));  // ymdHMSN
+		k= e[i] + (REPSGN(e[i])&(MIND*(I)24*(I)3600*(I)NANOS));  // ymdHMSN
   if((UI)k>=(UI)(MAXD*(I)24*(I)3600*(I)NANOS)){if(linelen==7*SZI)DO(7, ((I*)s)[i]=0;)else{DO(linelen, s[i]=' ';) s[0]='?';} continue;}  // input too low - probably DATAFILL(=IMIN) - return fast unknown
     // we use the fact that MAXD>MIND to get the out-of-bounds test right
   N=(UI4)(k%NANOS); k=k/NANOS;  // can't fast-divide by more than 32 bits.  k=ymdHMS N=nanosec
 		HMS=(UI4)(k%((I)24*(I)3600));	ymd=(UI4)(k/((I)24*(I)3600));
-  ymd-=((e[i]>>(BW-1))&MIND);  // remove negative-year bias if given
+  ymd-=(REPSGN(e[i])&MIND);  // remove negative-year bias if given
   E=HMS%60; HMS/=60;  // sec
   M=HMS%60; HMS/=60;  // minutes; HMS now=hours
   // Now the leap-year calculations.  We follow Richards at https://en.wikipedia.org/wiki/Julian_day#Julian_or_Gregorian_calendar_from_Julian_day_number
@@ -550,7 +536,6 @@ static A efs(J jt,A w,I prec){
   // We code this on the assumption that the format is constant throughout, and therefore branches will not be mispredicted after the first loop
 #define DOERR {IAV(z)[i]=IMIN; goto err;}
 #define ISDIGIT(d) (((UI4)d-(UI4)'0')<=((UI4)'9'-(UI4)'0'))
-// obsolete #define RDTWO(z) if(!ISDIGIT(sp[1]))DOERR z=(UI4)sp[0]*10+((UI4)sp[1]-(UI4)'0')-((UI4)'0'*(UI4)10); if((UI4)z>(UI4)99)DOERR sp+=2;
 // same, but use c for the first digit
 #define RDTWOC(z,min,max) if(!ISDIGIT(sp[1]))DOERR z=(UI4)c*10+((UI4)sp[1]-(UI4)'0')-((UI4)'0'*(UI4)10); if((UI4)(z-(min))>(UI4)((max)-(min)))DOERR sp+=2; c=*sp;
   UI N=0;  // init nanosec accum to 0
@@ -611,7 +596,7 @@ gottime: ;
   // Add in leap-years (since the year 0, for comp. ease).  Year 2000 eg, which starts Mar 1, is a leap year and has 1 added to its day#s (since they come after Feb 29)
   D+=Y>>2;
   // Gregorian correction.  Since it is very unlikely we will encounter a date that needs correcting, we use an IF
-  if(!BETWEENC(Y,1901,2100)/* obsolete )(UI)(Y-1901)>(2100-1901)*/){  // date is outside 1901-2099
+  if(!BETWEENC(Y,1901,2100)){  // date is outside 1901-2099
    D+=(((Y/100)>>2)-(Y/100))-((2000/400)-(2000/100));  // 1900 2100 2200 2300 2500 etc are NOT leapyears.  Create correction from Y2000 count
   }
   // Add in extra days for earlier 31-day months in this adjusted year (so add 0 in March)
@@ -675,7 +660,7 @@ F2(jtetoiso8601){UC decimalpt,zuluflag;I prec;
 
 // 6!:17 convert a block of iso8601-format strings to nanosecond times.  Result has one INT for each string
 // Bivalent.  left arg is 'd', '0', '3', or '9', like 3d digit of 6!:16, default '9'
-F2(jtiso8601toe){I prec;
+F2(jtiso8601toe){A z;I prec;
  RZ(w);
  ASSERT(SY_64,EVNONCE);
  // If monad, supply defaults; if dyad, audit
@@ -690,6 +675,6 @@ F2(jtiso8601toe){I prec;
  }
  ASSERT(AT(w)&LIT,EVDOMAIN);  // must be LIT
  ASSERT(AR(w),EVRANK);    // must not be an atom
- if(!AN(w))RETF(dfs1(w,qq(sc(IMIN),zeroionei[1])));   // return _"1 w on empty w - equivalent
+ if(!AN(w))RETF(df1(z,w,qq(sc(IMIN),zeroionei[1])));   // return _"1 w on empty w - equivalent
  RETF(efs(jt,w,prec));
 }

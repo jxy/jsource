@@ -185,7 +185,7 @@ I jti0(J jt,A w){RZ(w);
  if(AT(w)&FL){D d=DAV(w)[0]; D e=jround(d); I cval=(I)e;  // FL without call to cvt
   // if an atom is tolerantly equal to integer,  there's a good chance it is exactly equal.
   // infinities will always round to themselves
-  ASSERT(d==e || FFIEQ(d,e),EVDOMAIN);  /* obsolete  || (++e,FEQ(d,e))*/
+  ASSERT(d==e || FFIEQ(d,e),EVDOMAIN);
   cval=d<(D)-IMAX?-IMAX:cval; cval=d>=-(D)IMIN?IMAX:cval;
   ASSERT(!AR(w),EVRANK);
   R cval;  // too-large values don't convert, handle separately
@@ -265,15 +265,15 @@ A jtodom(J jt,I r,I n,I* RESTRICT s){A z;I m,mn,*u,*zv;
  if(1==n)DO(m, zv[i]=i;)
  else{
   I *zvo=zv-1; DQ(n, *zv++=0;)   // init first row, point zvo to before the first value
-  DQ(m-1, I dontadd=0; zv=zvo+n; zvo=zv+n; DQ(n, I out=*zv + 1 + dontadd; dontadd=(out-s[i])>>(BW-1); *zvo = out&dontadd; --zv; --zvo;))  // add 1 first time, & continue as long as there is carry.  Once dontadd goes to -1 it stays there
+  DQ(m-1, I dontadd=0; zv=zvo+n; zvo=zv+n; DQ(n, I out=*zv + 1 + dontadd; dontadd=REPSGN(out-s[i]); *zvo = out&dontadd; --zv; --zvo;))  // add 1 first time, & continue as long as there is carry.  Once dontadd goes to -1 it stays there
  }
  R z;
 }
 
 F1(jtrankle){R!w||AR(w)?w:ravel(w);}
 
-A jtsc(J jt,I k)     {A z; if((k^(k>>(BW-1)))<=NUMMAX)R (k&~1?num:zeroionei)[k]; GAT0(z,INT, 1,0); *IAV(z)=k;     RETF(z);}  // always return I
-A jtscib(J jt,I k)   {A z; if((k^(k>>(BW-1)))<=NUMMAX)R num[k]; GAT0(z,INT, 1,0); *IAV(z)=k;     RETF(z);}  // return b if 0 or 1, else I
+A jtsc(J jt,I k)     {A z; if((k^REPSGN(k))<=NUMMAX)R (k&~1?num:zeroionei)[k]; GAT0(z,INT, 1,0); *IAV(z)=k;     RETF(z);}  // always return I
+A jtscib(J jt,I k)   {A z; if((k^REPSGN(k))<=NUMMAX)R num[k]; GAT0(z,INT, 1,0); *IAV(z)=k;     RETF(z);}  // return b if 0 or 1, else I
 A jtsc4(J jt,I t,I v){A z; GA(z,t,   1,0,0); *IAV(z)=v;     RETF(z);}  // return scalar with a given I-length type (numeric or box)
 A jtscb(J jt,B b)    {R num[b];}   // A block for boolean
 A jtscc(J jt,C c)    {A z; GAT0(z,LIT, 1,0); *CAV(z)=c;     RETF(z);}  // create scalar character
@@ -390,16 +390,8 @@ F1(jtvib){A z;D d,e,*wv;I i,n,*zv;
    d=wv[i]; e=jround(d); I cval=(I)e;
    // if an atom is tolerantly equal to integer,  there's a good chance it is exactly equal.
    // infinities will always round to themselves
-#if 1
-   ASSERT(d==e || FFIEQ(d,e),EVDOMAIN);  /* obsolete  || (++e,FEQ(d,e))*/
+   ASSERT(d==e || FFIEQ(d,e),EVDOMAIN);
    cval=d<(D)-IMAX?-IMAX:cval; cval=d>=-(D)IMIN?IMAX:cval; zv[i]=cval;  // too-large values don't convert, handle separately
-#else  // obsolete
-    if     (d==inf )     zv[i]=q;
-    else if(d==infm)     zv[i]=p;
-    else if(    FEQ(d,e))zv[i]=d<p?p:q<d?q:(I)e;
-    else if(++e,FEQ(d,e))zv[i]=d<p?p:q<d?q:(I)e;
-    else ASSERT(0,EVDOMAIN);
-#endif
    }
    break;
   case XNUM:

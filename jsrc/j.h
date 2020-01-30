@@ -56,6 +56,27 @@
 #define logcat_d(msg) __android_log_write(ANDROID_LOG_DEBUG,(const char*)"libj",msg)
 #endif
 
+#if defined(VERBOSELOG)
+#define VLOGD(msg) {fprintf(stderr,msg);fflush(stderr);}
+#define VLOGFD(...) {fprintf(stderr,__VA_ARGS__);fflush(stderr);}
+#else
+#define VLOGD(msg)
+#define VLOGFD(...)
+#endif
+
+#if defined(USE_THREAD)
+#ifdef _WIN32
+#define MTXLOCK(f)      {if(SMOPTMTH&jt->smoption){ if((jt->ptid!=(I)GetCurrentThreadId())&&jt->plocked){VLOGFD("jt %p thread %u %s mutex before lock\n",jt,GetCurrentThreadId(),f); WaitForSingleObject((HANDLE)jt->plock,INFINITE); jt->ptid=(I)GetCurrentThreadId();} jt->plocked++; VLOGFD("jt %p thread %u %s mutex lock depth %d\n",jt,(DWORD)jt->ptid,f,(int)jt->plocked);}}
+#define MTXUNLOCK(f)    {if(SMOPTMTH&jt->smoption){ if(jt->plocked){ jt->plocked--; if(!jt->plocked)ReleaseMutex((HANDLE)jt->plock); VLOGFD("jt %p thread %u %s mutex unlock depth %d\n",jt,(DWORD)jt->ptid,f,(int)jt->plocked); }else {fprintf(stderr,"system error: %s : file %s line %d\n","MTXUNOCK",__FILE__,__LINE__); jsignal(EVSYSTEM); jtwri(jt,MTYOSYS,"",(I)strlen("MTXUNOCK"),"MTXUNOCK");} }}
+#else
+#define MTXLOCK(f)      {if(SMOPTMTH&jt->smoption){ if(!(pthread_equal((pthread_t)jt->ptid,pthread_self())&&jt->plocked)){VLOGFD("jt %p thread %p %s mutex before lock\n",jt,(void*)pthread_self(),f); pthread_mutex_lock(&jt->plock); jt->ptid=(I)pthread_self();} jt->plocked++; VLOGFD("jt %p thread %p %s mutex lock depth %d\n",jt,(void*)jt->ptid,f,(int)jt->plocked);}}
+#define MTXUNLOCK(f)    {if(SMOPTMTH&jt->smoption){ if(jt->plocked){ jt->plocked--; if(!jt->plocked)pthread_mutex_unlock(&jt->plock); VLOGFD("jt %p thread %p %s mutex unlock depth %d\n",jt,(void*)jt->ptid,f,(int)jt->plocked); }else {fprintf(stderr,"system error: %s : file %s line %d\n","MTXUNOCK",__FILE__,__LINE__); jsignal(EVSYSTEM); jtwri(jt,MTYOSYS,"",(I)strlen("MTXUNOCK"),"MTXUNOCK");} }}
+#endif
+#else
+#define MTXLOCK(f)
+#define MTXUNLOCK(f)
+#endif
+
 #if defined(TARGET_OS_IPHONE)||defined(TARGET_OS_IOS)||defined(TARGET_OS_TV)||defined(TARGET_OS_WATCH)||defined(TARGET_OS_SIMULATOR)||defined(TARGET_OS_EMBEDDED)||defined(TARGET_IPHONE_SIMULATOR)
 #define TARGET_IOS 1
 #endif
@@ -468,7 +489,7 @@ extern unsigned int __cdecl _clearfp (void);
 #define ASSERTAGREE(x,y,l) {D *aaa=(D*)(x), *aab=(D*)(y); I aai=4-(l); \
  do{__m256i endmask = _mm256_loadu_si256((__m256i*)(jt->validitymask+(aai>=0?aai:0))); \
   endmask=_mm256_castpd_si256(_mm256_xor_pd(_mm256_maskload_pd(aaa,endmask),_mm256_maskload_pd(aab,endmask))); \
-  ASSERT(_mm256_testz_si256(endmask,endmask),EVLENGTH); if(aai>=0)break; aaa+=NPAR; aab+=((UI)aai>>(BW-1))<<LGNPAR; aai+=NPAR; /* prevent compiler from doing address offset */\
+  ASSERT(_mm256_testz_si256(endmask,endmask),EVLENGTH); if(aai>=0)break; aaa+=NPAR; aab+=(SGNTO0(aai))<<LGNPAR; aai+=NPAR; /* prevent compiler from doing address offset */\
  }while(aai<4); }  // the test at end is to prevent the compiler from duplicating the loop.  It is almost never executed.
 #else
 #define ASSERTAGREE(x,y,l) {I *aaa=(x), *aab=(y), aai=(l)-1; do{aab=aai<0?aaa:aab; ASSERT(aaa[aai]==aab[aai],EVLENGTH); --aai; aab=aai<0?aaa:aab; ASSERT(aaa[aai]==aab[aai],EVLENGTH); --aai;}while(aai>=0); }
@@ -550,15 +571,15 @@ extern unsigned int __cdecl _clearfp (void);
 // SHAPE0 is used when the shape is 0 - write shape only if rank==1
 #define GACOPYSHAPE0(name,type,atoms,rank,shaape) if((rank)==1)AS(name)[0]=(atoms);
 // General shape copy, branchless when rank<3  AS[0] is always written: #atoms if rank=1, 0 if rank=0.  Used in jtga(), which uses the 0 in AS[0] as a pun for nullptr
-#define GACOPYSHAPEG(name,type,atoms,rank,shaape)  {I *_d=AS(name); I *_s=(shaape); _s=_s?_s:_d; I cp=*_s; I _r=1-(rank); cp&=_r>>(BW-1); cp=_r==0?(atoms):cp; _s=_r==0?_d:_s; *_d=cp; do{_s+=(UI)_r>>(BW-1); _d+=(UI)_r>>(BW-1); *_d=*_s;}while(++_r<0);}
+#define GACOPYSHAPEG(name,type,atoms,rank,shaape)  {I *_d=AS(name); I *_s=(shaape); _s=_s?_s:_d; I cp=*_s; I _r=1-(rank); cp&=REPSGN(_r); cp=_r==0?(atoms):cp; _s=_r==0?_d:_s; *_d=cp; do{_s+=SGNTO0(_r); _d+=SGNTO0(_r); *_d=*_s;}while(++_r<0);}
 // Use when shape is known to be present but rank is not SDT.  One value is always written to shape
 #if C_AVX&SY_64
 #define GACOPYSHAPE(name,type,atoms,rank,shaape) MCISH(AS(name),shaape,rank)
 #else
 // in this version one value is always written to shape
-#define GACOPYSHAPE(name,type,atoms,rank,shaape)  {I *_s=(I*)(shaape); I *_d=AS(name); *_d=*_s; I _r=1-(rank); do{_s+=(UI)_r>>(BW-1); _d+=(UI)_r>>(BW-1); *_d=*_s;}while(++_r<0);}
+#define GACOPYSHAPE(name,type,atoms,rank,shaape)  {I *_s=(I*)(shaape); I *_d=AS(name); *_d=*_s; I _r=1-(rank); do{_s+=SGNTO0(_r); _d+=SGNTO0(_r); *_d=*_s;}while(++_r<0);}
 #endif
-#define GACOPY1(name,type,atoms,rank,shaape) {I *_d=AS(name); *_d=1; I _r=1-(rank); do{_d+=(UI)_r>>(BW-1); *_d=1;}while(++_r<0);} // copy all 1s to shape
+#define GACOPY1(name,type,atoms,rank,shaape) {I *_d=AS(name); *_d=1; I _r=1-(rank); do{_d+=SGNTO0(_r); *_d=1;}while(++_r<0);} // copy all 1s to shape
 #define GA(v,t,n,r,s)   RZ(v=ga(t,(I)(n),(I)(r),(I*)(s)))
 // GAE executes the given expression when there is an error
 #define GAE(v,t,n,r,s,erraction)   if(!(v=ga(t,(I)(n),(I)(r),(I*)(s))))erraction;
@@ -572,7 +593,6 @@ extern unsigned int __cdecl _clearfp (void);
  RZ(name);   \
  AK(name)=akx; AT(name)=(type); AN(name)=atoms;   \
  AR(name)=(RANKT)(rank);     \
- /* obsolete if(!((type)&DIRECT))memset((C*)name+akx,C0,bytes+1-akx); */  \
  if(!((type)&DIRECT)){if(SY_64){if(rank==0)AS(name)[0]=0; memset((C*)(AS(name)+1),C0,(bytes-32)&-32);}else{memset((C*)name+akx,C0,bytes+1-akx);}}  \
  shapecopier(name,type,atoms,rank,shaape)   \
     \
@@ -591,7 +611,6 @@ extern unsigned int __cdecl _clearfp (void);
  I akx=AKXR(rank);   \
  if(name){   \
   AK(name)=akx; AT(name)=(type); AN(name)=atoms; AR(name)=(RANKT)(rank);     \
-  /* obsolete if(!((type)&DIRECT))memset((C*)name+akx,C0,bytes+1-akx); */  \
   if(!((type)&DIRECT)){if(SY_64){AS(name)[0]=0; memset((C*)(AS(name)+1),C0,(bytes-32)&-32);}else{memset((C*)name+akx,C0,bytes+1-akx);}}  \
   shapecopier(name,type,atoms,rank,shaape)   \
      \
@@ -603,12 +622,11 @@ extern unsigned int __cdecl _clearfp (void);
 #define GATVR(name,type,atoms,rank,shaape) GATVS(name,type,atoms,rank,shaape,type##SIZE,GACOPYSHAPER,R 0)
 #define GATV1(name,type,atoms,rank) GATVS(name,type,atoms,rank,0,type##SIZE,GACOPY1,R 0)  // this version copies 1 to the entire shape
 #define GATV0(name,type,atoms,rank) GATVS(name,type,atoms,rank,0,type##SIZE,GACOPYSHAPE0,R 0)  // shape not written unless rank==1
-// use this version when you are allocating a sparse matrix.  It handles the AS[0] field correctly
-#define GASPARSE(n,t,a,r,s) {if((r)==1){GA(n,(t),a,1,0); if(s)AS(n)[0]=(s)[0];}else{GA(n,(t),a,r,s)}}
+// use this version when you are allocating a sparse matrix.  It handles the AS[0] field correctly.  ALL sparse allocations must come through here so that AC is set sorrectly
+#define GASPARSE(n,t,a,r,s) {if((r)==1){GA(n,(t),a,1,0); if(s)AS(n)[0]=(s)[0];}else{GA(n,(t),a,r,s)} AC(n)=ACUC1;}
 
 #define HN              4L  // number of boxes per valence to hold exp-def info (words, control words, original (opt.), symbol table)
-#define SETIC(w,targ)      (targ=AS(w)[0], targ=AR(w)?targ:1)  //     ((AS(w)[0] & (-(I)AR(w)>>(BW-1))) - ~(-(I)AR(w)>>(BW-1)))  // (AR(w) ? *AS(w) : 1L)   better: (temp=AS(w)[0], temp=AR(w)?temp:1)
-// obsolete #define IC(w)     (AR(w) ? *AS(w) : 1L) //  better: (temp=AS(w)[0], temp=AR(w)?temp:1)
+#define SETIC(w,targ)      (targ=AS(w)[0], targ=AR(w)?targ:1)  //   (AR(w) ? *AS(w) : 1L)
 #define ICMP(z,w,n)     memcmp((z),(w),(n)*SZI)
 #define ICPY(z,w,n)     memcpy((z),(w),(n)*SZI)
 #if C_AVX&&SY_64
@@ -656,16 +674,9 @@ extern unsigned int __cdecl _clearfp (void);
 #define INSTALLRATNF(x,xv,k,z) if(UCISRECUR(x)){ra(z.n); ra(z.d);} xv[k]=z   // Don't do the free - if we are installing into known 0
 #define INSTALLRATRECUR(xv,k,z) rifv(z.n); rifv(z.d); {I zzK=(k); {Q zzZ=xv[k]; ra(z.n); ra(z.d); fa(zzZ.n); fa(zzZ.d);} xv[zzK]=z;}  // Don't test - we know we are installing into a recursive block
 // Use IRS[12] to call a verb that supports IRS.  Rank is nonnegative; result is assigned to z
-// obsolete #if defined(__GNUC__) && !defined(__clang__) && (__GNUC__ < 5)
-// obsolete #define IRS1(w,fs,r,f1,z) (jt->ranks=(RANK2T)((r>=AR(w)?-1:0)|(r)),z=((AF)(f1))(jt,(w),(A)(fs)),jt->ranks=(RANK2T)~0,z)  // nonneg rank
-// obsolete #define IRSIP1(w,fs,r,f1,z) (jt->ranks=(RANK2T)((r>=AR(w)?-1:0)|(r)),z=((AF)(f1))(jtinplace,(w),(A)(fs)),jt->ranks=(RANK2T)~0,z)  // nonneg rank
-// obsolete #else
 #define IRS1COMMON(j,w,fs,r,f1,z) (z=(A)(r),z=(I)AR(w)>(I)(r)?z:(A)~0,jt->ranks=(RANK2T)(I)z,z=((AF)(f1))(j,(w),(A)(fs)),jt->ranks=(RANK2T)~0,z)  // nonneg rank
-// obsolete #define IRS1(w,fs,r,f1,z) (jt->ranks=(RANK2T)((((I)AR(w)-(r+1))>>(BW-1))|(r)),z=((AF)(f1))(jt,(w),(A)(fs)),jt->ranks=(RANK2T)~0,z)  // nonneg rank
-// obsolete #define IRSIP1(w,fs,r,f1,z) (jt->ranks=(RANK2T)((((I)AR(w)-(r+1))>>(BW-1))|(r)),z=((AF)(f1))(jtinplace,(w),(A)(fs)),jt->ranks=(RANK2T)~0,z)  // nonneg rank
 #define IRS1(w,fs,r,f1,z) IRS1COMMON(jt,w,fs,r,f1,z)  // nonneg rank
 #define IRSIP1(w,fs,r,f1,z) IRS1COMMON(jtinplace,w,fs,r,f1,z)  // nonneg rank
-// obsolete #endif
 #define IRS2COMMON(j,a,w,fs,l,r,f2,z) (jt->ranks=(RANK2T)(((((I)AR(a)-(l)>0)?(l):RMAX)<<RANKTX)+(((I)AR(w)-(r)>0)?(r):RMAX)),z=((AF)(f2))(j,(a),(w),(A)(fs)),jt->ranks=(RANK2T)~0,z) // nonneg rank
 #define IRS2(a,w,fs,l,r,f2,z) IRS2COMMON(jt,a,w,fs,l,r,f2,z)
 #define IRSIP2(a,w,fs,l,r,f2,z) IRS2COMMON(jtinplace,a,w,fs,l,r,f2,z)
@@ -688,10 +699,10 @@ extern unsigned int __cdecl _clearfp (void);
 #define MCL(dest,src,n) memcpy(dest,src,n)  // use when copy is expected to be long
 #define MCI(dest,src,n) memcpy(dest,src,(n)*sizeof(*src))   // copy items of source
 #define MCIL(dest,src,n) memcpy(dest,src,(n)*sizeof(*src))   // use when copy expected to be long
-#define MCIS(dest,src,n) {I * RESTRICT _d=(dest); I * RESTRICT _s=(src); I _n=~(n); while((_n-=(_n>>(BW-1)))<0)*_d++=*_s++;}  // use for short copies.  the tricky stuff is to confound the compiler so it doesn't produce memcpy
-#define MCISd(dest,src,n) {I * RESTRICT _s=(src); I _n=~(n); while((_n-=(_n>>(BW-1)))<0)*dest++=*_s++;}  // ... this version when d increments through the loop
-#define MCISs(dest,src,n) {I * RESTRICT _d=(dest); I _n=~(n); while((_n-=(_n>>(BW-1)))<0)*_d++=*src++;}  // ... this when s increments through the loop
-#define MCISds(dest,src,n) {I _n=~(n); while((_n-=(_n>>(BW-1)))<0)*dest++=*src++;}  // ...this when both
+#define MCIS(dest,src,n) {I * RESTRICT _d=(dest); I * RESTRICT _s=(src); I _n=~(n); while((_n-=REPSGN(_n))<0)*_d++=*_s++;}  // use for short copies.  the tricky stuff is to confound the compiler so it doesn't produce memcpy
+#define MCISd(dest,src,n) {I * RESTRICT _s=(src); I _n=~(n); while((_n-=REPSGN(_n))<0)*dest++=*_s++;}  // ... this version when d increments through the loop
+#define MCISs(dest,src,n) {I * RESTRICT _d=(dest); I _n=~(n); while((_n-=REPSGN(_n))<0)*_d++=*src++;}  // ... this when s increments through the loop
+#define MCISds(dest,src,n) {I _n=~(n); while((_n-=REPSGN(_n))<0)*dest++=*src++;}  // ...this when both
 // Copy shapes.  Optimized for length <2, to eliminate branches then
 // For AVX, we can profitably use the MASKMOV instruction to do all the  testing
 #if C_AVX&&SY_64
@@ -701,7 +712,7 @@ extern unsigned int __cdecl _clearfp (void);
   if(_n>=0)break; _d+=NPAR; _s+=NPAR;  /* prevent compiler from calculating offsets */ \
  }while(_n<4); }  // the test at end is to prevent the compiler from duplicating the loop.  It is almost never executed.
 #else
-#define MCISH(dest,src,n) {I *_d=(I*)(dest); I *_s=(I*)(src); I _n=1-(n); _d=_n>0?jt->shapesink:_d; _s=_n>0?_d:_s; *_d=*_s; do{_s+=(UI)_n>>(BW-1); _d+=(UI)_n>>(BW-1); *_d=*_s;}while(++_n<0);}  // use for copies of shape, optimized for no branch when n<3.
+#define MCISH(dest,src,n) {I *_d=(I*)(dest); I *_s=(I*)(src); I _n=1-(n); _d=_n>0?jt->shapesink:_d; _s=_n>0?_d:_s; *_d=*_s; do{_s+=SGNTO0(_n); _d+=SGNTO0(_n); *_d=*_s;}while(++_n<0);}  // use for copies of shape, optimized for no branch when n<3.
 #endif
 #define MCISHd(dest,src,n) {MCISH(dest,src,n) dest+=(n);}  // ... this version when d increments through the loop
 #define MCISHs(dest,src,n) {MCISH(dest,src,n) src+=(n);}
@@ -813,6 +824,8 @@ extern unsigned int __cdecl _clearfp (void);
 #else
 #define R0 R 0;
 #endif
+#define REPSGN(x) ((x)>>(BW-1))  // replicate sign bit of x to entire word (assuming x is signed type - if unsigned, just move sign to bit 0)
+#define SGNTO0(x) ((UI)(x)>>(BW-1))  // move sign bit to bit 0, clear other bits
 // In the original JE many verbs returned a clone of the input, i. e. R ca(w).  We have changed these to avoid the clone, but we preserve the memory in case we need to go back
 #define RCA(w)          R w
 #define RE(exp)         {if((exp),jt->jerr)R 0;}
@@ -836,8 +849,9 @@ extern unsigned int __cdecl _clearfp (void);
 // Output is pointer, Input is I/UI, count is # bytes to NOT store to output pointer (0-7).
 #define STOREBYTES(out,in,n) {*(UI*)(out) = (*(UI*)(out)&~((UI)~(I)0 >> ((n)<<3))) | ((in)&((UI)~(I)0 >> ((n)<<3)));}
 #endif
-// Input is a word of bytes.  Result is 1 bit per input byte, spaced like B01s, with the bit 0 iff the corresponding input byte was all 0.  Non-boolean bits of result are garbage.
-#define ZBYTESTOZBITS(b) (b|=b>>4,b|=b>>2,b|=b>>1)
+// Input is the name of word of bytes.  Result is modified name, 1 bit per input byte, spaced like B01s, with the bit 0 iff the corresponding input byte was all 0.  Non-boolean bits of result are garbage.
+// obsolete #define ZBYTESTOZBITS(b) (b|=b>>4,b|=b>>2,b|=b>>1)
+#define ZBYTESTOZBITS(b) (b=b|((b|(~b+VALIDBOOLEAN))>>7))  // for each byte: zero if b0 off, b7 off, and b7 turns on when you subtract 1 or 2
 // to verify gah conversion #define RETF(exp)       { A retfff=(exp);  if ((retfff) && ((AT(retfff)&SPARSE && AN(retfff)!=1) || (AT(retfff)&DENSE && AN(retfff)!=prod(AR(retfff),AS(retfff)))))SEGFAULT; R retfff; } // scaf
 #endif
 #define SBSV(x)         (jt->sbsv+(I)(x))
@@ -1124,9 +1138,9 @@ static inline UINT _clearfp(void){int r=fetestexcept(FE_ALL_EXCEPT);
 #if defined(_MSC_VER)  // SY_WIN32
 #define DPMULDECLS
 // DPMUL: *z=x*y, execute s if overflow
-#define DPMUL(x,y,z,s) {I _l,_h; *z=_l=_mul128(x,y,&_h); if(_h+((UI)_l>>(BW-1)))s}
+#define DPMUL(x,y,z,s) {I _l,_h; *z=_l=_mul128(x,y,&_h); if(_h+(SGNTO0(_l)))s}
 #define DPMULDDECLS
-#define DPMULD(x,y,z,s) {I _h; z=_mul128(x,y,&_h); if(_h+((UI)z>>(BW-1)))s}
+#define DPMULD(x,y,z,s) {I _h; z=_mul128(x,y,&_h); if(_h+(SGNTO0(z)))s}
 #define DPUMUL(x,y,z,h) {z=_umul128((x),(y),&(h));}  // product in z and h
 #else
 #define DPMULDECLS

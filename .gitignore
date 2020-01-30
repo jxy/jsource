@@ -42,8 +42,6 @@ android/jni/pcre2
 android/jni/tsdll
 android/jni/hostdefs
 android/jni/netdefs
-linenoise.c
-linenoise.h
 clapack/
 pcre/
 

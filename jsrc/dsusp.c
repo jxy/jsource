@@ -75,10 +75,10 @@ I lnumsi(DC d){A c;I i;
 
 
 
-static DC suspset(DC d){DC e;
+static DC suspset(DC d){DC e=0;
  while(d&&DCCALL!=d->dctype){e=d; d=d->dclnk;}  /* find bottommost call                 */
  if(!(d&&DCCALL==d->dctype))R 0;                /* don't suspend if no such call     */
- if(d->dcc)e->dcsusp=1;                         /* if explicit, set susp on line     */
+ if(d->dcc){RZ(e); e->dcsusp=1;}               // if explicit, set susp on line - there should always be a following frame, but if not do nothing
  else      d->dcsusp=1;                         /* if not explicit, set susp on call */
  R d;
 }    /* find topmost call and set suspension flag */
@@ -108,7 +108,6 @@ static void jtsusp(J jt){B t;DC d;
  jt->dcs=0; jt->tostdout=1;
 #if USECSTACK
  jt->cstackmin=MAX(jt->cstackinit-(CSTACKSIZE-CSTACKRESERVE),jt->cstackmin-CSTACKSIZE/10);
- if(0x8&jt->smoption)jt->cstackmin=0;
 #else
  jt->fdepn =MIN(NFDEP ,jt->fdepn +NFDEP /10);
 #endif
@@ -123,7 +122,7 @@ static void jtsusp(J jt){B t;DC d;
  }
  if(jt->dbuser){
 #if USECSTACK
- jt->cstackmin+=CSTACKSIZE/10;
+  jt->cstackmin+=CSTACKSIZE/10;
 #else
   jt->fdepn-=NFDEP/10;
 #endif
@@ -131,7 +130,6 @@ static void jtsusp(J jt){B t;DC d;
  } else {
 #if USECSTACK
   jt->cstackmin=jt->cstackinit-(CSTACKSIZE-CSTACKRESERVE);
-  if(0x8&jt->smoption)jt->cstackmin=0;
 #else
   jt->fdepn =NFDEP;
 #endif
@@ -176,7 +174,7 @@ A jtpee(J jt,A *queue,CW*ci,I err,I lk,DC c){A z=0;
  jt->parserstackframe.parserqueue=queue+ci->i; jt->parserstackframe.parserqueuelen=(I4)ci->n; jt->parserstackframe.parsercurrtok=1;  // unless locked, indicate failing-sentence info
  jsignal(err);   // signal the requested error
  // enter debug mode if that is enabled
- if(c&&jt->uflags.us.cx.cx_c.db){/* obsolete DC prevtop=jt->sitop->dclnk; prevtop->dcj=*/jt->sitop->dcj=jt->jerr; /* obsolete moveparseinfotosi(jt);*/ z=debug(); jt->sitop->dcj=0;} //  d is PARSE type; set d->dcj=err#; d->dcn must remain # tokens debz();  not sure why we change previous frame
+ if(c&&jt->uflags.us.cx.cx_c.db){jt->sitop->dcj=jt->jerr; z=debug(); jt->sitop->dcj=0;} //  d is PARSE type; set d->dcj=err#; d->dcn must remain # tokens debz();  not sure why we change previous frame
  if(jt->jerr)z=0; R z;  // if we entered debug, the error may have been cleared.  If not, clear the result.  Return debug result, which is result to use or 0 to indicate jump
 }
 
@@ -193,14 +191,14 @@ A jtparsex(J jt,A* queue,I m,CW*ci,DC c){A z;B s;
  else                      {z=parsea(queue,m);     }
  // If we hit a stop, or if we hit an error outside of try./catch., enter debug mode.  But if debug mode is off now, we must have just
  // executed 13!:0]0, and we should continue on outside of debug mode.  Error processing filled the current si line with the info from the parse
- if(!z&&jt->uflags.us.cx.cx_c.db){DC t=jt->sitop->dclnk; t->dcj=jt->sitop->dcj=jt->jerr; /* obsolete moveparseinfotosi(jt);*/ z=debug(); t->dcj=0;} //  d is PARSE type; set d->dcj=err#; d->dcn must remain # tokens
+ if(!z&&jt->uflags.us.cx.cx_c.db){DC t=jt->sitop->dclnk; t->dcj=jt->sitop->dcj=jt->jerr; z=debug(); t->dcj=0;} //  d is PARSE type; set d->dcj=err#; d->dcn must remain # tokens
  R z;
 }
 
 DF2(jtdbunquote){A t,z;B b=0,s;DC d;V*sv;
  sv=FAV(self); t=sv->fgh[0]; 
  RZ(d=deba(DCCALL,a,w,self));
- if(CCOLON==sv->id&&t&&NOUN&AT(t)){  /* explicit */
+ if(CCOLON==sv->id&&(sv->flag&VXOP||t&&NOUN&AT(t))){  // : and executable body: either OP (adv/conj now with noun operands) or m : n
   ras(self); z=a?dfs2(a,w,self):dfs1(w,self); fa(self);
  }else{                              /* tacit    */
   d->dcix=0;  // set a pseudo-line-number for display purposes for the tacit 
@@ -234,7 +232,6 @@ F1(jtdbc){UC k;
   jt->uflags.us.cx.cx_c.db=jt->dbuser=k; jt->cxspecials=1;
 #if USECSTACK
   jt->cstackmin=jt->cstackinit-((CSTACKSIZE-CSTACKRESERVE)>>k);
-  if(0x8&jt->smoption)jt->cstackmin=0;
 #else
   jt->fdepn=NFDEP>>k;
 #endif

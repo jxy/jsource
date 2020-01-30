@@ -126,8 +126,8 @@ static A jtsortdirect(J jt,I m,I api,I n,A w){A x,z;I t;
  I bpi=api<<bplg(t);  // bytes per item of a sort
  I bps=bpi*n;  // bytes per sort
  void * RESTRICT wv=voidAV(w); void * RESTRICT zv=voidAV(z);
- CMP cmpfunc=sortroutines[CTTZ(t)][(UI)jt->workareas.compare.complt>>(BW-1)].comproutine;
- void *(*sortfunc)() = sortroutines[CTTZ(t)][(UI)jt->workareas.compare.complt>>(BW-1)].sortfunc;
+ CMP cmpfunc=sortroutines[CTTZ(t)][SGNTO0(jt->workareas.compare.complt)].comproutine;
+ void *(*sortfunc)() = sortroutines[CTTZ(t)][SGNTO0(jt->workareas.compare.complt)].sortfunc;
  // allocate the merge work area, large enough to hold one sort.  In case this turns out to be the final result,
  // make the shape the same as the result shape (if there is more than one sort, this shape will be wrong, but that
  // won't matter, since the shape will never be used elsewhere)
@@ -156,7 +156,7 @@ static A jtsortdirect(J jt,I m,I api,I n,A w){A x,z;I t;
 
 static SF(jtsortb){A z;B up,*u,*v;I i,s;
  GA(z,AT(w),AN(w),AR(w),AS(w)); v=BAV(z);
- up=(UI)jt->workareas.compare.complt>>(BW-1);  u=BAV(w);
+ up=SGNTO0(jt->workareas.compare.complt);  u=BAV(w);
  for(i=0;i<m;++i){
   s=bsum(n,u);
   if(up){memset(v,C0,n-s); memset(v+n-s,C1,s  );}
@@ -168,7 +168,7 @@ static SF(jtsortb){A z;B up,*u,*v;I i,s;
 
 static SF(jtsortb2){A z;B up;I i,ii,j,p,yv[4];US*v,*wv,x,zz[4];
  GA(z,AT(w),AN(w),AR(w),AS(w)); v=USAV(z);
- wv=USAV(w); p=4; up=(UI)jt->workareas.compare.complt>>(BW-1);
+ wv=USAV(w); p=4; up=SGNTO0(jt->workareas.compare.complt);
  DO(p, yv[i]=0;); 
  zz[0]=BS00; zz[1]=BS01; zz[2]=BS10; zz[3]=BS11;
  for(i=0;i<m;++i){
@@ -181,7 +181,7 @@ static SF(jtsortb2){A z;B up;I i,ii,j,p,yv[4];US*v,*wv,x,zz[4];
 
 static SF(jtsortb4){A z;B up;I i,ii,j,p,yv[16];UINT*v,*wv,x,zz[16];
  GA(z,AT(w),AN(w),AR(w),AS(w)); v=(UINT*)AV(z);
- wv=(UINT*)AV(w); p=16; up=(UI)jt->workareas.compare.complt>>(BW-1);
+ wv=(UINT*)AV(w); p=16; up=SGNTO0(jt->workareas.compare.complt);
  DO(p, yv[i]=0;); 
  zz[ 0]=B0000; zz[ 1]=B0001; zz[ 2]=B0010; zz[ 3]=B0011;
  zz[ 4]=B0100; zz[ 5]=B0101; zz[ 6]=B0110; zz[ 7]=B0111;
@@ -197,7 +197,7 @@ static SF(jtsortb4){A z;B up;I i,ii,j,p,yv[16];UINT*v,*wv,x,zz[16];
 
 static SF(jtsortc){A z;B up;I i,p,yv[256];UC j,*wv,*v;
  GA(z,AT(w),AN(w),AR(w),AS(w)); v=UAV(z);
- wv=UAV(w); p=LIT&AT(w)?256:2; up=(UI)jt->workareas.compare.complt>>(BW-1);
+ wv=UAV(w); p=LIT&AT(w)?256:2; up=SGNTO0(jt->workareas.compare.complt);
  DO(p, yv[i]=0;);
  for(i=0;i<m;++i){
   DQ(n, ++yv[*wv++];);
@@ -209,7 +209,7 @@ static SF(jtsortc){A z;B up;I i,p,yv[256];UC j,*wv,*v;
 
 static SF(jtsortc2){A y,z;B up;I i,p,*yv;US j,k,*wv,*v;
  GA(z,AT(w),AN(w),AR(w),AS(w)); v=USAV(z);
- wv=USAV(w); p=65536; up=(UI)jt->workareas.compare.complt>>(BW-1);
+ wv=USAV(w); p=65536; up=SGNTO0(jt->workareas.compare.complt);
  GATV0(y,INT,p,1); yv=AV(y);
  DO(p, yv[i]=0;);
  for(i=0;i<m;++i){
@@ -298,7 +298,7 @@ static SF(jtsorti){FPREFIP;A y,z;I i;UI4 *yv;I j,s,*wv,*zv;
   DQ(n, ++yv[*wv++];);  // increment total for each input atom
   // run through the totals, copying in the requisite # repetitions of each value
   // We have to disguise the loop to prevent VS from producing a REP STOS, which we don't want because the loop is usually short
-  I incr = -jt->workareas.compare.complt; I zincr = (incr&1/*always 1*/)*sizeof(*zv); j=rng.min+((incr>>(BW-1))&(rng.range-1));  // jt>complt is 1 or -1
+  I incr = -jt->workareas.compare.complt; I zincr = (incr&1/*always 1*/)*sizeof(*zv); j=rng.min+(REPSGN(incr)&(rng.range-1));  // jt>complt is 1 or -1
   DQ(rng.range, s=yv[j]; DQ(s, *zv=j; zv=(I*)((C*)zv+zincr);) j+=incr;)  // Don't zv+=zincr, because VS doesn't pull the *8 out
 //  if((UI)jt->workareas.compare.complt>>(BW-1)){ j=rng.min; DQ(rng.range, s=(I)yv[j]; DQ(s, *zv++=j;); ++j;);}  // generates rep stos, which is slow.  should fix
 //  else{j=rng.min+rng.range; DQ(rng.range, --j; s=(I)yv[j]; DQ(s, *zv++=j  ;););}
@@ -321,7 +321,7 @@ static SF(jtsortu){FPREFIP;A y,z;I i;UI4 *yv;C4 j,s,*wv,*zv;
  for(i=0;i<m;++i){
   memset(yv+rng.min,C0,rng.range*sizeof(UI4)); 
   DQ(n, ++yv[*wv++];);
-  I incr = -jt->workareas.compare.complt; I zincr = (incr&1)*sizeof(*zv); j=(C4)(rng.min+((incr>>(BW-1))&(rng.range-1)));
+  I incr = -jt->workareas.compare.complt; I zincr = (incr&1)*sizeof(*zv); j=(C4)(rng.min+(REPSGN(incr)&(rng.range-1)));
   DQ(rng.range, s=yv[j]; DQ(s, *zv=j; zv=(C4*)((C*)zv+zincr);) j+=(C4)incr;)
  }
  R z;

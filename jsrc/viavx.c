@@ -197,35 +197,15 @@ UI hic(I k, UC *v) {
  // Do 3 CRCs in parallel because the latency of the CRC instruction is 3 clocks.
  // This is executed repeatedly so we expect all the branches to predict correctly
  UI crc0=-1, crc1=crc0, crc2=crc0;  // init all CRCs
-// obsolete #if SY_64
  for(;k>=3*SZI;v+=3*SZI,k-=3*SZI){  // Do blocks of 24 bytes
-// obsolete #else
-// obsolete  for(;k>=12;v+=12,k-=12){  // Do blocks of 12 bytes
-// obsolete #endif
   crc0=CRC32L(crc0,((UI*)v)[0]); crc1=CRC32L(crc1,((UI*)v)[1]); crc2=CRC32L(crc2,((UI*)v)[2]);
  }
  // The order of this runout is replicated in the other character routines
-#if 1
  if(k>=SZI){crc0=CRC32L(crc0,((UI*)v)[0]); v+=SZI;}  // finish the remnant
  if(k>=2*SZI){crc1=CRC32L(crc1,((UI*)v)[0]); v+=SZI;}
  if(k&=(SZI-1)){  // last few bytes
   crc2=CRC32L(crc2,((UI*)v)[0]&~((UI)-((I)1)<<(k<<3)));  // mask out invalid bytes - must use 64-bit shift!
  }
-#else // obsolete 
-#if SY_64
- if(k>=8){crc0=CRC32L(crc0,((UI*)v)[0]); v+=SZI;}  // finish the remnant
- if(k>=16){crc1=CRC32L(crc1,((UI*)v)[0]); v+=SZI;}
- if(k&=7){  // last few bytes
-  crc2=CRC32L(crc2,((UI*)v)[0]&~((UI)-((I)1)<<(k<<3)));  // mask out invalid bytes - must use 64-bit shift!
- }
-#else
- if(k>=4){crc0=CRC32L(crc0,((UI*)v)[0]); v+=SZI;}  // finish the remnant
- if(k>=8){crc1=CRC32L(crc1,((UI*)v)[0]); v+=SZI;}
- if(k&=3){  // last few bytes,  k<<3 convert to # of bits
-  crc2=CRC32L(crc2,((UI*)v)[0]&~((UI)-((I)1)<<(k<<3)));  // mask out invalid bytes - must use 64-bit shift!
- }
-#endif
-#endif
  RETCRC3;
 }
 
@@ -1041,18 +1021,18 @@ static IOFSMALLRANGE(jtio42,I,US)  static IOFSMALLRANGE(jtio44,I,UI4)  // 4/8-by
 #define SCDO(bit,T,exp)  \
    case IOSCCASE(bit,0,IIDOT): {T*v0=(T*)v,*wv=(T*)v,x; T*av=(T*)u+asct; DQ(ac, DQ(wsct, x=*wv; j=-asct;   while(j<0 &&(exp))++j; *(I*)zv=j+=asct; zv=(I*)zv+1;       wv+=q;); av+=p; if(1==wc)wv=v0;);} break;  \
    case IOSCCASE(bit,0,IICO):  {T*v0=(T*)v,*wv=(T*)v,x; T*av=(T*)u; DQ(ac, DQ(wsct, x=*wv; j=asct-1; while(0<=j&&(exp))--j; *(I*)zv=(j=0>j?asct:j); zv=(I*)zv+1; wv+=q;); av+=p; if(1==wc)wv=v0;);} break;  \
-   case IOSCCASE(bit,0,IEPS):  {T*v0=(T*)v,*wv=(T*)v,x; T*av=(T*)u+asct; DQ(ac, DQ(wsct, x=*wv; j=-asct;   while(j<0 &&(exp))++j; *(C*)zv=(UI)j>>(BW-1); zv=(C*)zv+1;     wv+=q;); av+=p; if(1==wc)wv=v0;);} break;
+   case IOSCCASE(bit,0,IEPS):  {T*v0=(T*)v,*wv=(T*)v,x; T*av=(T*)u+asct; DQ(ac, DQ(wsct, x=*wv; j=-asct;   while(j<0 &&(exp))++j; *(C*)zv=SGNTO0(j); zv=(C*)zv+1;     wv+=q;); av+=p; if(1==wc)wv=v0;);} break;
 
 // same but the cells have n atoms, each of which is compared.  comparands are wv[jj] and avv[jj]
 #define SCDON(bit,T,exp)  \
    case IOSCCASE(bit,1,IIDOT): {T*v0=(T*)v,*wv=(T*)v; T*av=(T*)u; DQ(ac, DQ(wsct, j=-asct;   T*avv=av; do{I jj=n-1; T* wvv=wv; do{if(exp)break;}while(--jj>=0); if(jj<0)break; avv+=n;}while(++j<0);   *(I*)zv=j+=asct; zv=(I*)zv+1;       wv+=q;); av+=p; if(1==wc)wv=v0;);} break;  \
    case IOSCCASE(bit,1,IICO):  {T*v0=(T*)v,*wv=(T*)v; T*av=(T*)u; DQ(ac, DQ(wsct, j=asct-1;  T*avv=av+asct*n; do{avv-=n; I jj=n-1; T* wvv=wv; do{if(exp)break;}while(--jj>=0); if(jj<0)break;}while(--j>=0);     *(I*)zv=(j=0>j?asct:j); zv=(I*)zv+1; wv+=q;); av+=p; if(1==wc)wv=v0;);} break;  \
-   case IOSCCASE(bit,1,IEPS):  {T*v0=(T*)v,*wv=(T*)v; T*av=(T*)u; DQ(ac, DQ(wsct, j=-asct;   T*avv=av; do{I jj=n-1; T* wvv=wv; do{if(exp)break;}while(--jj>=0); if(jj<0)break; avv+=n;}while(++j<0);    *(C*)zv=(UI)j>>(BW-1); zv=(C*)zv+1;     wv+=q;); av+=p; if(1==wc)wv=v0;);} break;
+   case IOSCCASE(bit,1,IEPS):  {T*v0=(T*)v,*wv=(T*)v; T*av=(T*)u; DQ(ac, DQ(wsct, j=-asct;   T*avv=av; do{I jj=n-1; T* wvv=wv; do{if(exp)break;}while(--jj>=0); if(jj<0)break; avv+=n;}while(++j<0);    *(C*)zv=SGNTO0(j); zv=(C*)zv+1;     wv+=q;); av+=p; if(1==wc)wv=v0;);} break;
 
 // ac is # outer cells of a, asct=#items in 1 inner cell, wc is #outer search cells, wsct is #items to search for per outer cell
 // n is #atoms in a cell
 static void jtiosc(J jt,I mode,I n,I asct,I wsct,I ac,I wc,A a,A w,A z){I j,p,q; void *u,*v,*zv;
- p=ac>1?asct:0; q=(1-(wc|wsct))>>(BW-1); p*=n; q&=n;  // q=1<wc||1<wsct; number of atoms to move between repeats
+ p=ac>1?asct:0; q=REPSGN(1-(wc|wsct)); p*=n; q&=n;  // q=1<wc||1<wsct; number of atoms to move between repeats
  zv=voidAV(z); u=voidAV(a); v=voidAV(w);
  // Create a pseudotype 19 (=XDX) for intolerant comparison.  This puns on XDX-FLX==16
  I bit=CTTZ(AT(a)); bit+=((AT(a)>>FLX)&(jt->cct==1.0))<<4;
@@ -1087,7 +1067,7 @@ fnd002: ; unsigned long temp; CTLZI(cmps,temp); I res=(avv-av)+temp; res=(cmps==
        DQ(wsct, __m256d x=_mm256_set1_pd(*wv); D*avv=av; D*avend=av+((asct-1)&(-(I)NPAR)); int cmps; 
         while(1){if(avv==avend)break; if(cmps=_mm256_movemask_pd(_mm256_cmp_pd(x,_mm256_loadu_pd(avv),_CMP_EQ_OQ)))goto fnd003; avv+=NPAR;} 
         cmps=_mm256_movemask_pd(_mm256_and_pd(_mm256_castsi256_pd (endmask),_mm256_cmp_pd(x,_mm256_maskload_pd(avv,endmask),_CMP_EQ_OQ))); 
-fnd003: *(C*)zv=(UI)(-cmps)>>(BW-1); zv=(C*)zv+1;      wv+=q;); 
+fnd003: *(C*)zv=SGNTO0(-cmps); zv=(C*)zv+1;      wv+=q;); 
       av+=p; wv=(1==wc)?(D*)v:wv;);} break; 
 
    case IOSCCASE(FLX,0,IIDOT): {D *wv=(D*)v; D*av=(D*)u; __m256i endmask = _mm256_loadu_si256((__m256i*)(jt->validitymask+((-asct)&(NPAR-1))));
@@ -1112,7 +1092,7 @@ fnd022: ; unsigned long temp; CTLZI(cmps,temp); I res=(avv-av)+temp; res=(cmps==
        DQ(wsct, __m256d x=_mm256_set1_pd(*wv); __m256d y; __m256d tolx=_mm256_mul_pd(x,cct); D*avv=av; D*avend=av+((asct-1)&(-(I)NPAR)); int cmps; 
         while(1){if(avv==avend)break; y=_mm256_loadu_pd(avv); if(cmps=_mm256_movemask_pd(_mm256_xor_pd(_mm256_cmp_pd(x,_mm256_mul_pd(cct,y),_CMP_GT_OQ),_mm256_cmp_pd(tolx,y,_CMP_GE_OQ))))goto fnd023; avv+=NPAR;} 
         y=_mm256_maskload_pd(avv,endmask); cmps=_mm256_movemask_pd(_mm256_and_pd(_mm256_castsi256_pd (endmask),_mm256_xor_pd(_mm256_cmp_pd(x,_mm256_mul_pd(cct,y),_CMP_GT_OQ),_mm256_cmp_pd(tolx,y,_CMP_GE_OQ)))); 
-fnd023: *(C*)zv=(UI)(-cmps)>>(BW-1); zv=(C*)zv+1;      wv+=q;); 
+fnd023: *(C*)zv=SGNTO0(-cmps); zv=(C*)zv+1;      wv+=q;); 
       av+=p; wv=(1==wc)?(D*)v:wv;);} break; 
 #else
   SCDO(XDX,D,x!=av[j])
@@ -1140,7 +1120,7 @@ fnd012: ; unsigned long temp; CTLZI(cmps,temp); I res=(avv-av)+temp; res=(cmps==
        DQ(wsct, __m256i x=_mm256_set1_epi64x(*wv); I*avv=av; I*avend=av+((asct-1)&(-(I)NPAR)); int cmps; 
         while(1){if(avv==avend)break; if(cmps=_mm256_movemask_pd(_mm256_castsi256_pd(_mm256_cmpeq_epi64(x,_mm256_loadu_si256((__m256i*)avv)))))goto fnd013; avv+=NPAR;} 
         cmps=_mm256_movemask_pd(_mm256_castsi256_pd(_mm256_and_si256(endmask,_mm256_cmpeq_epi64(x,_mm256_maskload_epi64(avv,endmask))))); 
-fnd013: *(C*)zv=(UI)(-cmps)>>(BW-1); zv=(C*)zv+1;      wv+=q;); 
+fnd013: *(C*)zv=SGNTO0(-cmps); zv=(C*)zv+1;      wv+=q;); 
       av+=p; wv=(1==wc)?(I*)v:wv;);} break;
 
 #else
@@ -1745,7 +1725,7 @@ A jtindexofsub(J jt,I mode,A a,A w){PROLOG(0079);A h=0,z=mtv;
   PROD1(n,acr-1,as+af+1); k=n<<klg; // n=number of atoms in a target item; k=number of bytes in a target item
   PROD(ac,af,as); PROD(wc,wf,ws); PROD1(c,MAX(f1,-1),ws+wf);  // ?c=#cells in a & w;  c=#target items (and therefore #result values) in a result-cell.  -1 so we don't fetch outside the shape
   RE(zn=mult(af?ac:wc,c));   // #results is results/cell * number of cells; number of cells comes from ac if a has frame, otherwise w.  If both have frame, a's must be longer, use it
-  ak=(acr?as[af]*k:k)&((1-ac)>>(BW-1)); wk=(c*k)&((1-wc)>>(BW-1));   // # bytes in a cell, but 0 if there are 0 or 1 cells
+  ak=(acr?as[af]*k:k)&REPSGN(1-ac); wk=(c*k)&REPSGN(1-wc);   // # bytes in a cell, but 0 if there are 0 or 1 cells
   if(!af)c=zn;   // if af=0, wc may be >1 if there is w-frame.  In that case, #result/a-cell must include the # w-cells.  This has been included in zn
  }else{
   // An argument is empty.  We must beware of overflow in counting cells.  Just do it the old slow way
@@ -1843,7 +1823,6 @@ A jtindexofsub(J jt,I mode,A a,A w){PROLOG(0079);A h=0,z=mtv;
   // p>>booladj is the number of hashtable entries we need.  booladj is 0 for full hash, 3 if we just need one byte-encoded boolean per input value, 5 if just one bit per input value
   UI booladj=(mode&(IIOPMSK&~(IIDOT^IICO)))?5:0;  // boolean allowed when not i./i:
   p=0;  // indicate we haven't come up with the table size yet.  It depends on reverse and small-range decisions
-// obsolete   if(!b&&t&BOX+FL+CMPX)ctmask(jt);   // calculate ctmask if comparison is tolerant and there might be floats
   if((b-1)&t&BOX+FL+CMPX)ctmask(jt);   // calculate ctmask if comparison is tolerant and there might be floats
 
   if(t&BOX+XNUM+RAT){
@@ -1903,11 +1882,9 @@ A jtindexofsub(J jt,I mode,A a,A w){PROLOG(0079);A h=0,z=mtv;
    p=m;
    if(((m>>1)>c) && (mode&IIOREPS) && fntbl[fnx+FNTBLREVERSE]){p=c; fnx+=FNTBLREVERSE;}
    // set p based on the length of the argument being hashed
-// obsolete    if(t&B01&&k<(BW-1)){p=MIN(p,(UI)((I)1)<<k);}  // Get max # different possible values to hash; the number of items, but less than that for short booleans
    if((SGNIF(t,B01X)&(k-(BW-1)))<0){p=MIN(p,(UI)((I)1)<<k);}  // Get max # different possible values to hash; the number of items, but less than that for short booleans
    // Find the best hash size, based on empirical studies.  Allow at least 3x hashentries per input value; if that's less than the size of the small hash, go to the limit of
    // the small hash.  But not more than 10 hashtable entries per input (to save time clearing)
-// obsolete    p=MIN(IMAX-5,(p<SMALLHASHMAX/10)?(p*10) : (p<SMALLHASHMAX/3?SMALLHASHMAX:3*p));
    {UI op=p*10; op=p>=SMALLHASHMAX/10?IMAX-5:op; p=p>(IMAX-5)/3?(IMAX-5)/3:p; p*=3; p=p<SMALLHASHMAX?SMALLHASHMAX:p; p=p>op?op:p;}
   }
 // testing  p = (UI)MIN(IMAX-5,(HASHFACTOR*p));  // length we will use for hashtable, if small-range not used
@@ -2032,7 +2009,7 @@ A jtindexofprehashed(J jt,A a,A w,A hs){A h,*hv,x,z;AF fn;I ar,*as,at,c,f1,k,m,m
  RE(c=prod(f1,ws));  // c=#cells of w (and result)
  // audit conformance of input shapes.  If there is an error, pass to the main code to get the error result
  // Use c=0 as an error flag
- c &= (~(f1|(ar-r)))>>(BW-1);   // w must have rank big enough to hold a cell of a.  Clear c if f1<0 or r>ar
+ c &= REPSGN(~(f1|(ar-r)));   // w must have rank big enough to hold a cell of a.  Clear c if f1<0 or r>ar
  if(ICMP(as+ar-r,ws+f1,r))c=0;  // and its shape at that rank must match the shape of a cell of a
  // If there is any error, switch back to the non-prehashed code.  We must remove any command bits from mode, leaving just the operation type
  if(!(m&&n&&c&&HOMO(t,wt)&&UNSAFE(t)>=UNSAFE(wt)))R indexofsub(mode&IIOPMSK,a,w);

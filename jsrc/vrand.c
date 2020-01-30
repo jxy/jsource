@@ -403,17 +403,17 @@ static void jtmr_init(J jt,UI s){D*v=(D*)jt->rngv;I t[MRN];
 F1(jtmr_test){I j=jt->rng,x;
  ASSERTMTV(w);
  RZ(rngselects(sc(MRI))); mr_init(1UL);
- x=mr_next(); ASSERTSYS(x==3293966663UL, "mr_test 0");
- x=mr_next(); ASSERTSYS(x==3129388991UL, "mr_test 1");
- x=mr_next(); ASSERTSYS(x==2530141948UL, "mr_test 2");
- x=mr_next(); ASSERTSYS(x==1065433470UL, "mr_test 3");
- x=mr_next(); ASSERTSYS(x==1177634463UL, "mr_test 4");
+ x=mr_next(); ASSERTSYS(x==(I)3293966663UL, "mr_test 0");
+ x=mr_next(); ASSERTSYS(x==(I)3129388991UL, "mr_test 1");
+ x=mr_next(); ASSERTSYS(x==(I)2530141948UL, "mr_test 2");
+ x=mr_next(); ASSERTSYS(x==(I)1065433470UL, "mr_test 3");
+ x=mr_next(); ASSERTSYS(x==(I)1177634463UL, "mr_test 4");
  DQ(40, mr_next(););
- x=mr_next(); ASSERTSYS(x==1134399356UL, "mr_test 45");
- x=mr_next(); ASSERTSYS(x== 630832201UL, "mr_test 46");
- x=mr_next(); ASSERTSYS(x==2411464992UL, "mr_test 47");
- x=mr_next(); ASSERTSYS(x== 762439568UL, "mr_test 48");
- x=mr_next(); ASSERTSYS(x==3245142153UL, "mr_test 49");
+ x=mr_next(); ASSERTSYS(x==(I)1134399356UL, "mr_test 45");
+ x=mr_next(); ASSERTSYS(x==(I) 630832201UL, "mr_test 46");
+ x=mr_next(); ASSERTSYS(x==(I)2411464992UL, "mr_test 47");
+ x=mr_next(); ASSERTSYS(x==(I) 762439568UL, "mr_test 48");
+ x=mr_next(); ASSERTSYS(x==(I)3245142153UL, "mr_test 49");
  RZ(rngselects(sc(j)));
  R num[1];
 }
@@ -637,10 +637,10 @@ static F2(jtrollksub){A z;I an,*av,k,m1,n,p,q,r,sh;UI m,mk,s,t,*u,x=jt->rngM[jt-
  R z;
 }
 
-DF2(jtrollk){A g;V*sv;
+DF2(jtrollk){A g,z;V*sv;
  RZ(a&&w&&self);
  sv=FAV(self); g=sv->fgh[2]?sv->fgh[2]:sv->fgh[1];
- if(AT(w)&XNUM+RAT||!(!AR(w)&&1>=AR(a)&&(g==ds(CDOLLAR)||1==AN(a))))R roll(df2(a,w,g));
+ if(AT(w)&XNUM+RAT||!(!AR(w)&&1>=AR(a)&&(g==ds(CDOLLAR)||1==AN(a))))R roll(df2(z,a,w,g));
  RETF(rollksub(a,vi(w)));
 }    /* ?@$ or ?@# or [:?$ or [:?# */
 
@@ -852,10 +852,10 @@ static F2(jtrollksubdot){A z;I an,*av,k,m1,n,p,q,r,sh;UI j,m,mk,s,t,*u,x=jt->rng
 
 #undef rollk
 #define rollk(a,w,self) jtrollkdot(jt,(a),(w),(self))
-DF2(jtrollkdot){A g;V*sv;
+DF2(jtrollkdot){A g,z;V*sv;
  RZ(a&&w&&self);
  sv=FAV(self); g=sv->fgh[2]?sv->fgh[2]:sv->fgh[1];
- if(AT(w)&XNUM+RAT||!(!AR(w)&&1>=AR(a)&&(g==ds(CDOLLAR)||1==AN(a))))R roll(df2(a,w,g));
+ if(AT(w)&XNUM+RAT||!(!AR(w)&&1>=AR(a)&&(g==ds(CDOLLAR)||1==AN(a))))R roll(df2(z,a,w,g));
  RETF(rollksub(a,vi(w)));
 }    /* ?@$ or ?@# or [:?$ or [:?# */
 
