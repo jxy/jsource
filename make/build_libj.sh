@@ -14,6 +14,9 @@ USE_THREAD="${USE_THREAD:=0}"
 if [ $USE_THREAD -eq 1 ] ; then
 USETHREAD=" -DUSE_THREAD "
 LDTHREAD=" -pthread "
+else
+USETHREAD=""
+LDTHREAD=""
 fi
 
 common="-march=native $OPENMP $USETHREAD -fPIC -O2 -fwrapv"
